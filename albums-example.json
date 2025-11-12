@@ -1,6 +1,7 @@
 {
   "albums": [
     {
+      "type": "album",
       "title": "Custom Album 1",
       "artist": "Your Artist",
       "year": "2024",
@@ -10,6 +11,7 @@
       "image": "path/to/cover.jpg"
     },
     {
+      "type": "album",
       "title": "Custom Album 2",
       "artist": "Another Artist",
       "year": "2024",
@@ -19,6 +21,27 @@
       "video": "path/to/video.mp4"
     },
     {
+      "type": "image",
+      "title": "Beautiful Landscape",
+      "category": "Nature",
+      "year": "2024",
+      "tags": "landscape, mountains, sunset",
+      "color": 16744272,
+      "description": "A stunning mountain landscape at sunset",
+      "image": "path/to/photo.jpg"
+    },
+    {
+      "type": "image",
+      "title": "City Lights",
+      "category": "Urban",
+      "year": "2024",
+      "tags": "city, night, architecture",
+      "color": 5636095,
+      "description": "Downtown skyline illuminated at night",
+      "image": "https://images.unsplash.com/photo-1514565131-fce0801e5785"
+    },
+    {
+      "type": "album",
       "title": "Minimal Album",
       "artist": "Minimal Artist",
       "year": "2024",

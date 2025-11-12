@@ -113,22 +113,26 @@ class CoverFlow {
 
     initAlbumData() {
         const albums = [
-            { title: 'Midnight Dreams', artist: 'Luna Eclipse', year: '2023', genre: 'Electronic', color: 0xFF6B6B, description: 'A journey through ethereal soundscapes and pulsing beats.' },
-            { title: 'Ocean Waves', artist: 'Aqua Marina', year: '2022', genre: 'Ambient', color: 0x4ECDC4, description: 'Calming oceanic ambience for deep meditation and relaxation.' },
-            { title: 'Urban Lights', artist: 'City Sounds', year: '2023', genre: 'Hip Hop', color: 0x45B7D1, description: 'Street poetry meets modern production in this urban masterpiece.' },
-            { title: 'Sunset Boulevard', artist: 'Golden Hour', year: '2021', genre: 'Jazz', color: 0xFFA07A, description: 'Smooth jazz melodies inspired by California sunsets.' },
-            { title: 'Forest Whispers', artist: 'Nature\'s Voice', year: '2022', genre: 'Classical', color: 0x98D8C8, description: 'Classical compositions inspired by the serenity of ancient forests.' },
-            { title: 'Electric Storm', artist: 'Thunder Bay', year: '2023', genre: 'Rock', color: 0xF7DC6F, description: 'High-energy rock anthems that shake the foundation.' },
-            { title: 'Neon Nights', artist: 'Synthwave Collective', year: '2022', genre: 'Synthwave', color: 0xBB8FCE, description: 'Retro-futuristic synthwave that transports you to neon-lit streets.' },
-            { title: 'Mountain Peak', artist: 'Summit Sounds', year: '2021', genre: 'Folk', color: 0x85C1E2, description: 'Acoustic folk tales from the highest peaks.' },
-            { title: 'Desert Rose', artist: 'Sahara Ensemble', year: '2023', genre: 'World', color: 0xF8B195, description: 'Middle Eastern rhythms blended with contemporary world music.' },
-            { title: 'Cosmic Journey', artist: 'Space Travelers', year: '2022', genre: 'Psychedelic', color: 0xC06C84, description: 'Mind-bending psychedelic exploration through space and time.' },
-            { title: 'Velvet Dreams', artist: 'Midnight Lounge', year: '2021', genre: 'Lounge', color: 0x6C5B7B, description: 'Sophisticated lounge music for late-night conversations.' },
-            { title: 'Winter Solstice', artist: 'Arctic Symphony', year: '2023', genre: 'Orchestral', color: 0x355C7D, description: 'Epic orchestral movements inspired by winter\'s beauty.' },
-            { title: 'Tokyo Nights', artist: 'J-Wave', year: '2022', genre: 'J-Pop', color: 0xFF69B4, description: 'Energetic J-Pop hits straight from the streets of Tokyo.' },
-            { title: 'Latin Fire', artist: 'Salsa Kings', year: '2023', genre: 'Latin', color: 0xFF4500, description: 'Fiery Latin rhythms that make you want to dance.' },
-            { title: 'Deep Blue', artist: 'Ocean Jazz Quartet', year: '2021', genre: 'Jazz', color: 0x191970, description: 'Deep, soulful jazz inspired by the mysteries of the ocean.' },
-            { title: 'Retro Wave', artist: '80s Revival', year: '2022', genre: 'Synthpop', color: 0xFF1493, description: 'A nostalgic revival of 80s synthpop perfection.' }
+            { type: 'album', title: 'Midnight Dreams', artist: 'Luna Eclipse', year: '2023', genre: 'Electronic', color: 0xFF6B6B, description: 'A journey through ethereal soundscapes and pulsing beats.' },
+            { type: 'album', title: 'Ocean Waves', artist: 'Aqua Marina', year: '2022', genre: 'Ambient', color: 0x4ECDC4, description: 'Calming oceanic ambience for deep meditation and relaxation.' },
+            { type: 'image', title: 'Sunset Over Mountains', category: 'Nature', year: '2023', tags: 'landscape, sunset, mountains', color: 0xFF8C42, description: 'A breathtaking view of the sun setting behind mountain peaks.', image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80' },
+            { type: 'album', title: 'Urban Lights', artist: 'City Sounds', year: '2023', genre: 'Hip Hop', color: 0x45B7D1, description: 'Street poetry meets modern production in this urban masterpiece.' },
+            { type: 'image', title: 'Northern Lights', category: 'Nature', year: '2023', tags: 'aurora, night sky, nature', color: 0x00CED1, description: 'The aurora borealis dancing across the Arctic sky.', image: 'https://images.unsplash.com/photo-1579033461380-adb47c3eb938?w=800&q=80' },
+            { type: 'album', title: 'Sunset Boulevard', artist: 'Golden Hour', year: '2021', genre: 'Jazz', color: 0xFFA07A, description: 'Smooth jazz melodies inspired by California sunsets.' },
+            { type: 'album', title: 'Forest Whispers', artist: 'Nature\'s Voice', year: '2022', genre: 'Classical', color: 0x98D8C8, description: 'Classical compositions inspired by the serenity of ancient forests.' },
+            { type: 'image', title: 'Tokyo Street', category: 'Urban', year: '2023', tags: 'city, night, neon', color: 0xFF1493, description: 'Neon-lit streets of downtown Tokyo at night.', image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&q=80' },
+            { type: 'album', title: 'Electric Storm', artist: 'Thunder Bay', year: '2023', genre: 'Rock', color: 0xF7DC6F, description: 'High-energy rock anthems that shake the foundation.' },
+            { type: 'album', title: 'Neon Nights', artist: 'Synthwave Collective', year: '2022', genre: 'Synthwave', color: 0xBB8FCE, description: 'Retro-futuristic synthwave that transports you to neon-lit streets.' },
+            { type: 'image', title: 'Ocean Waves', category: 'Nature', year: '2022', tags: 'ocean, waves, beach', color: 0x4682B4, description: 'Powerful waves crashing on a pristine beach.', image: 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&q=80' },
+            { type: 'album', title: 'Mountain Peak', artist: 'Summit Sounds', year: '2021', genre: 'Folk', color: 0x85C1E2, description: 'Acoustic folk tales from the highest peaks.' },
+            { type: 'album', title: 'Desert Rose', artist: 'Sahara Ensemble', year: '2023', genre: 'World', color: 0xF8B195, description: 'Middle Eastern rhythms blended with contemporary world music.' },
+            { type: 'image', title: 'Starry Night Sky', category: 'Astronomy', year: '2023', tags: 'stars, milky way, night', color: 0x191970, description: 'The Milky Way galaxy stretching across the night sky.', image: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&q=80' },
+            { type: 'album', title: 'Cosmic Journey', artist: 'Space Travelers', year: '2022', genre: 'Psychedelic', color: 0xC06C84, description: 'Mind-bending psychedelic exploration through space and time.' },
+            { type: 'album', title: 'Velvet Dreams', artist: 'Midnight Lounge', year: '2021', genre: 'Lounge', color: 0x6C5B7B, description: 'Sophisticated lounge music for late-night conversations.' },
+            { type: 'album', title: 'Winter Solstice', artist: 'Arctic Symphony', year: '2023', genre: 'Orchestral', color: 0x355C7D, description: 'Epic orchestral movements inspired by winter\'s beauty.' },
+            { type: 'image', title: 'Cherry Blossoms', category: 'Nature', year: '2023', tags: 'flowers, spring, japan', color: 0xFFB7C5, description: 'Delicate cherry blossoms in full bloom.', image: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&q=80' },
+            { type: 'album', title: 'Tokyo Nights', artist: 'J-Wave', year: '2022', genre: 'J-Pop', color: 0xFF69B4, description: 'Energetic J-Pop hits straight from the streets of Tokyo.' },
+            { type: 'album', title: 'Latin Fire', artist: 'Salsa Kings', year: '2023', genre: 'Latin', color: 0xFF4500, description: 'Fiery Latin rhythms that make you want to dance.' }
         ];
 
         this.allAlbums = albums;
@@ -572,17 +576,33 @@ class CoverFlow {
         }
     }
 
-    // Show info modal for current album
+    // Show info modal for current album/image
     showInfoModal() {
-        const album = this.filteredAlbums[this.currentIndex];
-        if (!album) return;
+        const item = this.filteredAlbums[this.currentIndex];
+        if (!item) return;
 
-        document.getElementById('info-modal-title').textContent = album.title;
-        document.getElementById('info-modal-artist').textContent = album.artist;
-        document.getElementById('info-modal-year').textContent = album.year;
-        document.getElementById('info-modal-genre').textContent = album.genre;
-        document.getElementById('info-modal-color').textContent = '#' + album.color.toString(16).padStart(6, '0').toUpperCase();
-        document.getElementById('info-description-text').textContent = album.description || 'No description available.';
+        const isImage = item.type === 'image';
+
+        // Update modal title and details based on type
+        document.getElementById('info-modal-title').textContent = item.title;
+
+        if (isImage) {
+            // For images, show category and tags
+            document.getElementById('info-modal-artist').textContent = item.category || 'Image';
+            document.getElementById('info-modal-year').textContent = item.year || '-';
+            document.getElementById('info-modal-genre').textContent = item.tags || '-';
+            // Update labels
+            document.querySelector('#info-modal-genre').previousElementSibling.textContent = 'Tags:';
+        } else {
+            // For albums, show artist and genre
+            document.getElementById('info-modal-artist').textContent = item.artist;
+            document.getElementById('info-modal-year').textContent = item.year;
+            document.getElementById('info-modal-genre').textContent = item.genre;
+            document.querySelector('#info-modal-genre').previousElementSibling.textContent = 'Genre:';
+        }
+
+        document.getElementById('info-modal-color').textContent = '#' + item.color.toString(16).padStart(6, '0').toUpperCase();
+        document.getElementById('info-description-text').textContent = item.description || 'No description available.';
 
         // Handle media (image or video)
         const coverContainer = document.getElementById('info-cover-container');
@@ -594,28 +614,46 @@ class CoverFlow {
         videoContainer.style.display = 'none';
         video.src = '';
 
-        if (album.video) {
+        if (item.video) {
             // Show video
-            video.src = album.video;
+            video.src = item.video;
             videoContainer.style.display = 'block';
-        } else if (album.image) {
+        } else if (item.image) {
             // Show image
             const img = document.createElement('img');
-            img.src = album.image;
-            img.alt = album.title;
+            img.src = item.image;
+            img.alt = item.title;
+            img.style.cursor = 'pointer';
+
+            // Click to view full size in new tab
+            img.addEventListener('click', () => {
+                window.open(item.image, '_blank');
+            });
+
             coverContainer.appendChild(img);
+
+            // Add click hint for images
+            if (isImage) {
+                const hint = document.createElement('div');
+                hint.style.textAlign = 'center';
+                hint.style.marginTop = '10px';
+                hint.style.fontSize = '12px';
+                hint.style.color = '#888';
+                hint.textContent = '(Click image to view full size)';
+                coverContainer.appendChild(hint);
+            }
         } else {
             // Show colored placeholder
             const placeholder = document.createElement('div');
             placeholder.style.width = '100%';
             placeholder.style.height = '100%';
-            placeholder.style.background = '#' + album.color.toString(16).padStart(6, '0');
+            placeholder.style.background = '#' + item.color.toString(16).padStart(6, '0');
             placeholder.style.display = 'flex';
             placeholder.style.alignItems = 'center';
             placeholder.style.justifyContent = 'center';
             placeholder.style.fontSize = '48px';
             placeholder.style.color = 'rgba(255,255,255,0.5)';
-            placeholder.textContent = '♪';
+            placeholder.textContent = isImage ? '🖼️' : '♪';
             coverContainer.appendChild(placeholder);
         }
 
@@ -824,11 +862,23 @@ class CoverFlow {
     }
 
     updateInfo() {
-        const album = this.filteredAlbums[this.currentIndex];
-        document.getElementById('album-title').textContent = album.title;
-        document.getElementById('album-artist').textContent = album.artist;
-        document.getElementById('album-year').textContent = album.year;
-        document.getElementById('album-genre').textContent = album.genre;
+        const item = this.filteredAlbums[this.currentIndex];
+        const isImage = item.type === 'image';
+
+        document.getElementById('album-title').textContent = item.title;
+
+        if (isImage) {
+            // For images, show category instead of artist
+            document.getElementById('album-artist').textContent = item.category || 'Image';
+            document.getElementById('album-year').textContent = item.year || '-';
+            document.getElementById('album-genre').textContent = item.tags || '-';
+        } else {
+            // For albums, show artist and genre
+            document.getElementById('album-artist').textContent = item.artist;
+            document.getElementById('album-year').textContent = item.year;
+            document.getElementById('album-genre').textContent = item.genre;
+        }
+
         document.getElementById('current-position').textContent = this.currentIndex + 1;
     }
 
@@ -874,17 +924,35 @@ class CoverFlow {
         document.getElementById('thumb-next').disabled = this.currentIndex === this.filteredAlbums.length - 1;
     }
 
+    handleSearch() {
+        const searchInput = document.getElementById('search-input');
+        this.filterAlbums(searchInput.value);
+    }
+
     filterAlbums(query) {
         const lowerQuery = query.toLowerCase().trim();
 
         if (!lowerQuery) {
             this.filteredAlbums = [...this.allAlbums];
         } else {
-            this.filteredAlbums = this.allAlbums.filter(album =>
-                album.title.toLowerCase().includes(lowerQuery) ||
-                album.artist.toLowerCase().includes(lowerQuery) ||
-                album.genre.toLowerCase().includes(lowerQuery)
-            );
+            this.filteredAlbums = this.allAlbums.filter(item => {
+                // Search in title (common to both)
+                if (item.title.toLowerCase().includes(lowerQuery)) return true;
+
+                // For albums, search in artist and genre
+                if (item.type === 'album' || !item.type) {
+                    if (item.artist && item.artist.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.genre && item.genre.toLowerCase().includes(lowerQuery)) return true;
+                }
+
+                // For images, search in category and tags
+                if (item.type === 'image') {
+                    if (item.category && item.category.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.tags && item.tags.toLowerCase().includes(lowerQuery)) return true;
+                }
+
+                return false;
+            });
         }
 
         this.clearScene();
