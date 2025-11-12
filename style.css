@@ -849,6 +849,16 @@ kbd {
     justify-content: flex-end;
 }
 
+/* Launch Game Button */
+#launch-game-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+#launch-game-btn:active {
+    transform: scale(0.98);
+}
+
 /* Controller Cursor */
 #controller-cursor {
     position: fixed;

@@ -131,6 +131,65 @@ class CoverFlow {
         this.allAlbums = albums;
         this.filteredAlbums = [...albums];
         document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+
+        // Try to load games from JSON file
+        this.loadGamesFromJSON();
+    }
+
+    async loadGamesFromJSON(filepath = 'gameinfodownload-main/game_data/games_export.json') {
+        try {
+            const response = await fetch(filepath);
+            if (!response.ok) {
+                console.log('No games file found, using default albums only');
+                return;
+            }
+
+            const data = await response.json();
+            const games = data.games || [];
+
+            console.log(`Loading ${games.length} games from ${filepath}`);
+
+            // Convert game scanner format to CoverFlow format
+            const convertedGames = games.map(game => {
+                // Platform color mapping
+                const platformColors = {
+                    'steam': 0x1B2838,
+                    'epic': 0x313131,
+                    'xbox': 0x107C10
+                };
+
+                return {
+                    type: 'game',
+                    title: game.title,
+                    platform: game.platform,
+                    developer: game.developer || 'Unknown',
+                    publisher: game.publisher || 'Unknown',
+                    year: game.release_date ? new Date(game.release_date).getFullYear().toString() : '-',
+                    genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
+                    description: game.description || game.short_description || game.long_description || 'No description available.',
+                    color: platformColors[game.platform] || 0x808080,
+                    image: game.boxart_path || game.icon_path,
+                    launchCommand: game.launch_command,
+                    installDir: game.install_directory,
+                    appId: game.app_id || game.package_name
+                };
+            });
+
+            // Merge with existing albums/images
+            this.allAlbums = [...this.allAlbums, ...convertedGames];
+            this.filteredAlbums = [...this.allAlbums];
+            document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+
+            // Recreate UI to include new games
+            this.createCovers();
+            this.createThumbnails();
+            this.updateInfo();
+
+            this.showToast(`Loaded ${convertedGames.length} games!`, 'success');
+        } catch (error) {
+            console.error('Error loading games:', error);
+            this.showToast('Failed to load games file', 'error');
+        }
     }
 
     init() {
@@ -527,23 +586,39 @@ class CoverFlow {
         if (!item) return;
 
         const isImage = item.type === 'image';
+        const isGame = item.type === 'game';
 
         // Update modal title and details based on type
         document.getElementById('info-modal-title').textContent = item.title;
 
-        if (isImage) {
+        if (isGame) {
+            // For games, show platform and developer
+            document.getElementById('info-modal-artist').textContent = item.developer || 'Unknown';
+            document.getElementById('info-modal-year').textContent = item.year || '-';
+            document.getElementById('info-modal-genre').textContent = item.genre || '-';
+            // Update labels
+            const artistLabel = document.querySelector('#info-modal-artist').previousElementSibling;
+            const genreLabel = document.querySelector('#info-modal-genre').previousElementSibling;
+            artistLabel.textContent = 'Developer:';
+            genreLabel.textContent = 'Genre:';
+        } else if (isImage) {
             // For images, show category and tags
             document.getElementById('info-modal-artist').textContent = item.category || 'Image';
             document.getElementById('info-modal-year').textContent = item.year || '-';
             document.getElementById('info-modal-genre').textContent = item.tags || '-';
             // Update labels
-            document.querySelector('#info-modal-genre').previousElementSibling.textContent = 'Tags:';
+            const genreLabel = document.querySelector('#info-modal-genre').previousElementSibling;
+            genreLabel.textContent = 'Tags:';
         } else {
             // For albums, show artist and genre
             document.getElementById('info-modal-artist').textContent = item.artist;
             document.getElementById('info-modal-year').textContent = item.year;
             document.getElementById('info-modal-genre').textContent = item.genre;
-            document.querySelector('#info-modal-genre').previousElementSibling.textContent = 'Genre:';
+            // Update labels
+            const artistLabel = document.querySelector('#info-modal-artist').previousElementSibling;
+            const genreLabel = document.querySelector('#info-modal-genre').previousElementSibling;
+            artistLabel.textContent = 'Artist:';
+            genreLabel.textContent = 'Genre:';
         }
 
         document.getElementById('info-modal-color').textContent = '#' + item.color.toString(16).padStart(6, '0').toUpperCase();
@@ -612,12 +687,46 @@ class CoverFlow {
             placeholder.style.justifyContent = 'center';
             placeholder.style.fontSize = '48px';
             placeholder.style.color = 'rgba(255,255,255,0.5)';
-            placeholder.textContent = isImage ? '🖼️' : '♪';
+            placeholder.textContent = isGame ? '🎮' : (isImage ? '🖼️' : '♪');
             coverContainer.appendChild(placeholder);
+        }
+
+        // Add launch button for games
+        const launchBtn = document.getElementById('launch-game-btn');
+        if (launchBtn) {
+            if (isGame && item.launchCommand) {
+                launchBtn.style.display = 'block';
+                launchBtn.onclick = () => this.launchGame(item);
+            } else {
+                launchBtn.style.display = 'none';
+            }
         }
 
         this.openModal('info-modal');
         this.vibrateController(100, 0.2);
+    }
+
+    // Launch a game using its launch command
+    launchGame(game) {
+        if (!game.launchCommand) {
+            this.showToast('No launch command available for this game', 'error');
+            return;
+        }
+
+        console.log('Launching game:', game.title, 'with command:', game.launchCommand);
+
+        // For Steam/Epic/Xbox URLs, open them directly
+        if (game.launchCommand.startsWith('steam://') ||
+            game.launchCommand.startsWith('com.epicgames.launcher://') ||
+            game.launchCommand.startsWith('xbox://')) {
+            window.location.href = game.launchCommand;
+            this.showToast(`Launching ${game.title}...`, 'success');
+        } else {
+            // For other launch commands, try to open as URL or show warning
+            this.showToast('Game launching is platform-specific. Please use your game launcher.', 'info');
+            console.log('Platform:', game.platform);
+            console.log('Launch command:', game.launchCommand);
+        }
     }
 
     // Initialize controller cursor
