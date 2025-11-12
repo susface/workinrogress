@@ -98,14 +98,19 @@ class EpicScanner:
                 safe_name = re.sub(r'[<>:"/\\|?*]', '_', app_name)
 
                 if image_type == 'icon':
-                    save_path = self.icons_dir / f"epic_{safe_name}_icon.jpg"
+                    filename = f"epic_{safe_name}_icon.jpg"
+                    save_path = self.icons_dir / filename
+                    relative_path = f"game_data/icons/{filename}"
                 else:
-                    save_path = self.boxart_dir / f"epic_{safe_name}_boxart.jpg"
+                    filename = f"epic_{safe_name}_boxart.jpg"
+                    save_path = self.boxart_dir / filename
+                    relative_path = f"game_data/boxart/{filename}"
 
                 with open(save_path, 'wb') as f:
                     f.write(response.content)
 
-                return str(save_path)
+                # Return relative path for URL construction
+                return relative_path
 
         except Exception as e:
             print(f"Error downloading {image_type} for {app_name}: {e}")

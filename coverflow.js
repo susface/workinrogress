@@ -1306,6 +1306,29 @@ class CoverFlow {
             }
         });
 
+        // Double-click to launch game
+        this.container.addEventListener('dblclick', (e) => {
+            const mouse = new THREE.Vector2();
+            const rect = this.container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, this.camera);
+
+            const intersects = raycaster.intersectObjects(this.covers);
+            if (intersects.length > 0) {
+                const clickedCover = intersects[0].object;
+                if (clickedCover.userData.isCover && clickedCover.userData.index === this.currentIndex) {
+                    // Double-click on current cover
+                    const item = this.filteredAlbums[this.currentIndex];
+                    if (item && item.type === 'game') {
+                        this.launchGame(item);
+                    }
+                }
+            }
+        });
+
         // Touch support
         let touchStartX = 0;
         this.container.addEventListener('touchstart', (e) => {
