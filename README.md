@@ -7,7 +7,7 @@ A feature-rich web-based recreation of the classic CoverFlow interface from Mac 
 ### Core Experience
 - **Authentic 3D Carousel**: Angled side covers with depth, prominent center display, and smooth animations
 - **Reflection Effects**: Classic mirror reflections below each album cover (can be toggled)
-- **16 Sample Albums**: Pre-loaded with diverse genres and colorful placeholders
+- **Sample Content**: Pre-loaded with albums, images, and sample games (20+ items)
 - **Enhanced Lighting**: Multiple light sources for realistic 3D appearance
 
 ### Navigation
@@ -36,7 +36,7 @@ A feature-rich web-based recreation of the classic CoverFlow interface from Mac 
   - Adjustable sensitivity (1-10)
 
 ### Search & Filter
-- **Real-time Search**: Filter albums by title, artist, or genre
+- **Real-time Search**: Filter albums, images, and games by title, artist, genre, developer, or tags
 - **Instant Results**: Search as you type with 300ms debounce
 - **Clear Button**: Quick reset of search results
 
@@ -72,6 +72,14 @@ A feature-rich web-based recreation of the classic CoverFlow interface from Mac 
 ### Data Management
 - **JSON Import**: Load your own album collections from JSON files
 - **Image Support**: Use actual images instead of colored placeholders
+- **Standalone Image Viewing**: Photo gallery support with full-size viewing
+- **🎮 Game Integration** (NEW!): Display and launch installed games
+  - **Scan from interface** - Scan for games directly from settings
+  - Auto-detects Steam, Epic Games, and Xbox games
+  - Real-time scan progress with live updates
+  - Platform-specific metadata and artwork
+  - One-click game launching via protocol handlers
+  - See [GAMES_INTEGRATION.md](GAMES_INTEGRATION.md) for setup guide
 - **Dynamic Loading**: Smooth loading screen with spinner
 
 ### User Interface

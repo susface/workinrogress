@@ -1,0 +1,10 @@
+# Core dependencies
+requests>=2.31.0
+vdf>=3.4
+
+# Server dependencies for web interface integration
+Flask>=3.0.0
+flask-cors>=4.0.0
+
+# Optional dependencies for enhanced functionality
+Pillow>=10.0.0  # For image processing
