@@ -24,6 +24,11 @@ class CoverFlow {
         this.bloomPass = null;
         this.ssaoPass = null;
 
+        // Performance monitoring
+        this.fps = 60;
+        this.fpsFrames = [];
+        this.fpsLastTime = performance.now();
+
         // Settings with defaults
         this.settings = {
             animationSpeed: 0.1,
@@ -39,7 +44,9 @@ class CoverFlow {
             bloomIntensity: 1.5,
             // Controller settings
             controllerSensitivity: 5,
-            controllerVibration: true
+            controllerVibration: true,
+            // Performance
+            showFpsCounter: false
         };
 
         this.loadSettings();
@@ -977,6 +984,43 @@ class CoverFlow {
             this.saveSettings();
         });
 
+        // FPS counter toggle
+        const fpsToggle = document.getElementById('fps-counter-toggle');
+        fpsToggle.checked = this.settings.showFpsCounter;
+
+        fpsToggle.addEventListener('change', (e) => {
+            this.settings.showFpsCounter = e.target.checked;
+            document.getElementById('fps-counter').style.display = e.target.checked ? 'block' : 'none';
+            this.saveSettings();
+            this.showToast(`FPS counter ${e.target.checked ? 'enabled' : 'disabled'}`, 'info');
+        });
+
+        // Settings export/import
+        document.getElementById('export-settings-btn').addEventListener('click', () => {
+            this.exportSettings();
+        });
+
+        document.getElementById('import-settings-btn').addEventListener('click', () => {
+            document.getElementById('settings-file-input').click();
+        });
+
+        document.getElementById('settings-file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const jsonData = JSON.parse(event.target.result);
+                        this.importSettings(jsonData);
+                        this.closeAllModals();
+                    } catch (error) {
+                        this.showToast('Invalid settings file format', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
         // Reset settings
         document.getElementById('reset-settings').addEventListener('click', () => {
             this.settings = {
@@ -991,7 +1035,8 @@ class CoverFlow {
                 ssaoEffect: false,
                 bloomIntensity: 1.5,
                 controllerSensitivity: 5,
-                controllerVibration: true
+                controllerVibration: true,
+                showFpsCounter: false
             };
             this.saveSettings();
             this.setupSettingsControls();
@@ -1004,6 +1049,8 @@ class CoverFlow {
             this.createCovers();
             this.createThumbnails();
             this.updateInfo();
+            document.getElementById('fps-counter').style.display = 'none';
+            this.showToast('Settings reset to defaults', 'info');
         });
 
         // JSON file loading
@@ -1019,10 +1066,10 @@ class CoverFlow {
                     try {
                         const jsonData = JSON.parse(event.target.result);
                         this.loadFromJSON(jsonData);
-                        alert('Albums loaded successfully!');
+                        this.showToast(`Loaded ${this.filteredAlbums.length} albums successfully!`, 'success');
                         this.closeAllModals();
                     } catch (error) {
-                        alert('Invalid JSON file format');
+                        this.showToast('Invalid JSON file format', 'error');
                     }
                 };
                 reader.readAsText(file);
@@ -1056,8 +1103,133 @@ class CoverFlow {
         }, 500);
     }
 
+    // Toast notification system
+    showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        const icons = {
+            success: '✓',
+            error: '✗',
+            warning: '⚠',
+            info: 'ℹ'
+        };
+
+        toast.innerHTML = `
+            <div class="toast-icon">${icons[type] || icons.info}</div>
+            <div class="toast-message">${message}</div>
+        `;
+
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Settings export/import
+    exportSettings() {
+        const data = {
+            version: '2.0',
+            settings: this.settings,
+            exportDate: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `coverflow-settings-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        this.showToast('Settings exported successfully!', 'success');
+    }
+
+    importSettings(jsonData) {
+        try {
+            if (jsonData.version && jsonData.settings) {
+                this.settings = { ...this.settings, ...jsonData.settings };
+                this.saveSettings();
+
+                // Apply settings
+                this.setupSettingsControls();
+
+                // Rebuild if necessary
+                if (jsonData.settings.glassEffect !== undefined ||
+                    jsonData.settings.hardwareRendering !== undefined) {
+                    this.clearScene();
+                    this.createCovers();
+                    this.createThumbnails();
+                    this.updateInfo();
+                }
+
+                // Update post-processing
+                if (this.bloomPass) {
+                    this.bloomPass.enabled = this.settings.bloomEffect;
+                    this.bloomPass.strength = this.settings.bloomIntensity;
+                }
+                if (this.ssaoPass) {
+                    this.ssaoPass.enabled = this.settings.ssaoEffect;
+                }
+
+                // Update FPS counter
+                document.getElementById('fps-counter').style.display =
+                    this.settings.showFpsCounter ? 'block' : 'none';
+
+                this.showToast('Settings imported successfully!', 'success');
+            } else {
+                throw new Error('Invalid settings format');
+            }
+        } catch (error) {
+            this.showToast('Failed to import settings', 'error');
+            console.error('Import error:', error);
+        }
+    }
+
+    // FPS tracking
+    updateFPS() {
+        const now = performance.now();
+        const delta = now - this.fpsLastTime;
+
+        if (delta > 0) {
+            const currentFps = 1000 / delta;
+            this.fpsFrames.push(currentFps);
+
+            if (this.fpsFrames.length > 60) {
+                this.fpsFrames.shift();
+            }
+
+            // Calculate average FPS
+            const avgFps = this.fpsFrames.reduce((a, b) => a + b, 0) / this.fpsFrames.length;
+            this.fps = Math.round(avgFps);
+
+            // Update display
+            if (this.settings.showFpsCounter) {
+                document.getElementById('fps-value').textContent = this.fps;
+
+                // Color code based on FPS
+                const fpsElement = document.getElementById('fps-counter');
+                if (this.fps >= 55) {
+                    fpsElement.style.color = '#00ff00';
+                } else if (this.fps >= 30) {
+                    fpsElement.style.color = '#ffff00';
+                } else {
+                    fpsElement.style.color = '#ff0000';
+                }
+            }
+        }
+
+        this.fpsLastTime = now;
+    }
+
     animate() {
         requestAnimationFrame(() => this.animate());
+
+        // Update FPS counter
+        this.updateFPS();
 
         // Poll gamepad input
         this.pollGamepad();

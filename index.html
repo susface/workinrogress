@@ -30,7 +30,14 @@
         </div>
 
         <!-- CoverFlow 3D Display -->
-        <div id="coverflow-container"></div>
+        <div id="coverflow-container">
+            <div id="fps-counter" style="display: none;">
+                <span id="fps-value">60</span> FPS
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container"></div>
 
         <!-- Info Panel -->
         <div id="info-panel">
@@ -146,6 +153,24 @@
                         <input type="checkbox" id="controller-vibration" checked>
                         Vibration Feedback
                     </label>
+                </div>
+
+                <div class="setting-divider"></div>
+                <h4 class="setting-section-title">📊 Performance & Data</h4>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="fps-counter-toggle">
+                        Show FPS Counter
+                    </label>
+                    <small class="setting-info">Display performance metrics</small>
+                </div>
+                <div class="setting-group">
+                    <button id="export-settings-btn" class="btn">Export Settings</button>
+                </div>
+                <div class="setting-group">
+                    <button id="import-settings-btn" class="btn">Import Settings</button>
+                    <input type="file" id="settings-file-input" accept=".json" style="display: none;">
                 </div>
 
                 <div class="setting-divider"></div>
