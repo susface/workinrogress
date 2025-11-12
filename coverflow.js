@@ -11,26 +11,11 @@ class CoverFlow {
         this.isAnimating = false;
         this.autoRotateInterval = null;
 
-        // Gamepad/Controller support
-        this.gamepad = null;
+        // Gamepad/Controller support - SIMPLIFIED
         this.gamepadIndex = -1;
-        this.lastGamepadState = {
-            dpadLeft: false,
-            dpadRight: false,
-            lb: false,
-            rb: false,
-            lt: false,
-            rt: false,
-            a: false,
-            b: false,
-            x: false,
-            y: false,
-            start: false,
-            select: false,
-            cursorClick: false
-        };
-        this.analogDeadzone = 0.2;
+        this.gamepadButtons = {};
         this.analogCooldown = 0;
+        this.deadzone = 0.2;
 
         // GPU and rendering features
         this.gpuInfo = null;
@@ -47,10 +32,6 @@ class CoverFlow {
         this.controllerCursor = null;
         this.cursorX = window.innerWidth / 2;
         this.cursorY = window.innerHeight / 2;
-
-        // Tab visibility state
-        this.isTabVisible = true;
-        this.reconnectAttempts = 0;
 
         // Settings with defaults
         this.settings = {
@@ -406,159 +387,70 @@ class CoverFlow {
     }
 
     // Controller/Gamepad Support
+    // COMPLETELY REWRITTEN GAMEPAD SYSTEM - SIMPLE AND RELIABLE
     initGamepadSupport() {
-        window.addEventListener('gamepadconnected', (e) => {
-            console.log('🎮 Gamepad connection event fired');
-            this.onGamepadConnected(e.gamepad);
-        });
+        console.log('🎮 Initializing gamepad support...');
 
-        window.addEventListener('gamepaddisconnected', (e) => {
-            console.log('🎮 Gamepad disconnection event fired');
-            this.onGamepadDisconnected();
-        });
+        // Just check for gamepads every frame in pollGamepad()
+        // No events needed - events are unreliable
+        this.findGamepad();
+    }
 
-        // Handle tab visibility changes
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                console.log('👁️ Tab hidden - pausing gamepad polling');
-                this.isTabVisible = false;
-            } else {
-                console.log('👁️ Tab visible - resuming gamepad polling');
-                this.isTabVisible = true;
-                this.reconnectAttempts = 0;
+    findGamepad() {
+        if (!navigator.getGamepads) return;
 
-                // Re-check for gamepad after tab becomes visible
-                if (this.gamepadIndex !== -1) {
-                    setTimeout(() => {
-                        this.checkGamepadConnection();
-                    }, 100);
-                }
-            }
-        });
-
-        // Also handle window focus/blur as backup
-        window.addEventListener('focus', () => {
-            if (this.gamepadIndex !== -1) {
-                console.log('🔄 Window focused - checking gamepad');
-                setTimeout(() => {
-                    this.checkGamepadConnection();
-                }, 100);
-            }
-        });
-
-        // Check for already connected gamepads
-        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gamepads = navigator.getGamepads();
         for (let i = 0; i < gamepads.length; i++) {
             if (gamepads[i]) {
-                this.onGamepadConnected(gamepads[i]);
-                break;
+                this.gamepadIndex = i;
+                console.log('✓ Found gamepad:', gamepads[i].id, 'at index', i);
+
+                // Update UI
+                const statusEl = document.getElementById('controller-status');
+                const nameEl = document.getElementById('controller-name');
+                if (statusEl) statusEl.classList.add('connected');
+                if (nameEl) nameEl.textContent = gamepads[i].id.substring(0, 30);
+
+                return true;
             }
         }
-    }
-
-    checkGamepadConnection() {
-        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-        const gamepad = gamepads[this.gamepadIndex];
-
-        if (gamepad && gamepad.connected) {
-            console.log('✓ Gamepad still connected:', gamepad.id);
-            this.reconnectAttempts = 0;
-        } else {
-            console.warn('⚠️ Gamepad not found, attempting to reconnect...');
-            // Try to find any connected gamepad
-            for (let i = 0; i < gamepads.length; i++) {
-                if (gamepads[i] && gamepads[i].connected) {
-                    console.log('✓ Found gamepad at index', i);
-                    this.onGamepadConnected(gamepads[i]);
-                    return;
-                }
-            }
-        }
-    }
-
-    onGamepadConnected(gamepad) {
-        this.gamepad = gamepad;
-        this.gamepadIndex = gamepad.index;
-
-        const statusEl = document.getElementById('controller-status');
-        const nameEl = document.getElementById('controller-name');
-
-        if (statusEl) statusEl.classList.add('connected');
-        if (nameEl) nameEl.textContent = gamepad.id.substring(0, 30);
-
-        console.log('✓ Gamepad connected:', gamepad.id, 'Index:', gamepad.index);
-
-        // Vibration feedback (wrapped in try-catch to prevent errors)
-        try {
-            if (this.settings.controllerVibration && gamepad.vibrationActuator) {
-                gamepad.vibrationActuator.playEffect('dual-rumble', {
-                    startDelay: 0,
-                    duration: 200,
-                    weakMagnitude: 0.3,
-                    strongMagnitude: 0.3
-                }).catch(err => {
-                    console.warn('Vibration failed:', err);
-                });
-            }
-        } catch (err) {
-            console.warn('Vibration not supported:', err);
-        }
-    }
-
-    onGamepadDisconnected() {
-        console.warn('✗ Gamepad disconnected - Index was:', this.gamepadIndex);
-
-        this.gamepad = null;
-        this.gamepadIndex = -1;
-
-        const statusEl = document.getElementById('controller-status');
-        const nameEl = document.getElementById('controller-name');
-
-        if (statusEl) statusEl.classList.remove('connected');
-        if (nameEl) nameEl.textContent = 'No Controller';
+        return false;
     }
 
     pollGamepad() {
-        // Skip polling if no gamepad or tab not visible
-        if (this.gamepadIndex === -1 || !this.isTabVisible) return;
+        if (!navigator.getGamepads) return;
 
-        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        // If no gamepad connected, try to find one
+        if (this.gamepadIndex === -1) {
+            this.findGamepad();
+            return;
+        }
+
+        const gamepads = navigator.getGamepads();
         const gamepad = gamepads[this.gamepadIndex];
 
-        // If gamepad not found, try to reconnect occasionally
+        // If gamepad gone, reset
         if (!gamepad) {
-            this.reconnectAttempts++;
-
-            // Every 60 frames (~1 second), try to reconnect
-            if (this.reconnectAttempts % 60 === 0) {
-                console.warn('⚠️ Gamepad polling failed, attempting reconnect...');
-                this.checkGamepadConnection();
-            }
+            this.gamepadIndex = -1;
+            const statusEl = document.getElementById('controller-status');
+            const nameEl = document.getElementById('controller-name');
+            if (statusEl) statusEl.classList.remove('connected');
+            if (nameEl) nameEl.textContent = 'No Controller';
+            this.gamepadButtons = {};
             return;
         }
-
-        // Check if gamepad is actually connected (some browsers support this property)
-        if (gamepad.connected === false) {
-            console.warn('⚠️ Gamepad shows disconnected state');
-            return;
-        }
-
-        // Reset reconnect attempts since we got a valid gamepad
-        this.reconnectAttempts = 0;
 
         const sensitivity = this.settings.controllerSensitivity / 5;
 
-        // Analog stick navigation (left stick X-axis)
+        // ANALOG STICK - Left stick X-axis
         if (this.analogCooldown <= 0) {
-            const axisX = gamepad.axes[0];
-            if (Math.abs(axisX) > this.analogDeadzone) {
-                if (axisX < -this.analogDeadzone) {
+            const axisX = gamepad.axes[0] || 0;
+            if (Math.abs(axisX) > this.deadzone) {
+                if (axisX < -this.deadzone) {
                     this.navigate(-1);
-                    this.vibrateController(50, 0.1);
                     this.analogCooldown = 0.3 / sensitivity;
-                } else if (axisX > this.analogDeadzone) {
+                } else if (axisX > this.deadzone) {
                     this.navigate(1);
-                    this.vibrateController(50, 0.1);
                     this.analogCooldown = 0.3 / sensitivity;
                 }
             }
@@ -566,106 +458,67 @@ class CoverFlow {
             this.analogCooldown -= 0.016;
         }
 
-        // D-Pad
-        if (gamepad.buttons[14] && gamepad.buttons[14].pressed && !this.lastGamepadState.dpadLeft) {
-            this.navigate(-1);
-            this.vibrateController(50, 0.2);
-        }
-        if (gamepad.buttons[15] && gamepad.buttons[15].pressed && !this.lastGamepadState.dpadRight) {
-            this.navigate(1);
-            this.vibrateController(50, 0.2);
-        }
+        // BUTTONS - Simple press detection
+        const pressed = (btn) => btn && btn.pressed;
+        const wasPressed = (id) => this.gamepadButtons[id];
+        const justPressed = (btn, id) => pressed(btn) && !wasPressed(id);
 
-        // Shoulder buttons (fast navigation)
-        if (gamepad.buttons[4] && gamepad.buttons[4].pressed && !this.lastGamepadState.lb) {
-            this.navigate(-1);
-            this.vibrateController(80, 0.3);
-        }
-        if (gamepad.buttons[5] && gamepad.buttons[5].pressed && !this.lastGamepadState.rb) {
-            this.navigate(1);
-            this.vibrateController(80, 0.3);
-        }
+        // D-Pad Left/Right
+        if (justPressed(gamepad.buttons[14], 14)) this.navigate(-1);
+        if (justPressed(gamepad.buttons[15], 15)) this.navigate(1);
 
-        // Triggers (jump to start/end)
-        if (gamepad.buttons[6] && gamepad.buttons[6].value > 0.5 && !this.lastGamepadState.lt) {
+        // Shoulder buttons
+        if (justPressed(gamepad.buttons[4], 4)) this.navigate(-1);
+        if (justPressed(gamepad.buttons[5], 5)) this.navigate(1);
+
+        // Triggers
+        if (gamepad.buttons[6] && gamepad.buttons[6].value > 0.5 && !wasPressed(6)) {
             this.navigateToFirst();
-            this.vibrateController(150, 0.4);
+            this.gamepadButtons[6] = true;
+        } else if (!gamepad.buttons[6] || gamepad.buttons[6].value <= 0.5) {
+            this.gamepadButtons[6] = false;
         }
-        if (gamepad.buttons[7] && gamepad.buttons[7].value > 0.5 && !this.lastGamepadState.rt) {
+
+        if (gamepad.buttons[7] && gamepad.buttons[7].value > 0.5 && !wasPressed(7)) {
             this.navigateToLast();
-            this.vibrateController(150, 0.4);
+            this.gamepadButtons[7] = true;
+        } else if (!gamepad.buttons[7] || gamepad.buttons[7].value <= 0.5) {
+            this.gamepadButtons[7] = false;
         }
 
         // Face buttons
-        if (gamepad.buttons[0] && gamepad.buttons[0].pressed && !this.lastGamepadState.a) {
-            // A/Cross - Confirm (currently just vibrate)
-            this.vibrateController(100, 0.2);
+        if (justPressed(gamepad.buttons[0], 0)) {
+            // A button - currently does nothing
         }
-        if (gamepad.buttons[1] && gamepad.buttons[1].pressed && !this.lastGamepadState.b) {
-            // B/Circle - Back/Close modals
+        if (justPressed(gamepad.buttons[1], 1)) {
+            // B button - close modals
             this.closeAllModals();
-            this.vibrateController(100, 0.2);
         }
-        if (gamepad.buttons[2] && gamepad.buttons[2].pressed && !this.lastGamepadState.x) {
-            // X/Square - Show info modal
+        if (justPressed(gamepad.buttons[2], 2)) {
+            // X button - show info
             this.showInfoModal();
-            this.vibrateController(100, 0.2);
         }
-        if (gamepad.buttons[3] && gamepad.buttons[3].pressed && !this.lastGamepadState.y) {
-            // Y/Triangle - Random
+        if (justPressed(gamepad.buttons[3], 3)) {
+            // Y button - random
             this.navigateRandom();
-            this.vibrateController(150, 0.3);
         }
 
-        // Start button - Settings
-        if (gamepad.buttons[9] && gamepad.buttons[9].pressed && !this.lastGamepadState.start) {
+        // Start/Select
+        if (justPressed(gamepad.buttons[9], 9)) {
             this.openModal('settings-modal');
-            this.vibrateController(100, 0.2);
         }
-
-        // Select button - Fullscreen
-        if (gamepad.buttons[8] && gamepad.buttons[8].pressed && !this.lastGamepadState.select) {
+        if (justPressed(gamepad.buttons[8], 8)) {
             this.toggleFullscreen();
-            this.vibrateController(100, 0.2);
         }
 
-        // Store state for next frame
-        this.lastGamepadState = {
-            dpadLeft: gamepad.buttons[14] && gamepad.buttons[14].pressed,
-            dpadRight: gamepad.buttons[15] && gamepad.buttons[15].pressed,
-            lb: gamepad.buttons[4] && gamepad.buttons[4].pressed,
-            rb: gamepad.buttons[5] && gamepad.buttons[5].pressed,
-            lt: gamepad.buttons[6] && gamepad.buttons[6].value > 0.5,
-            rt: gamepad.buttons[7] && gamepad.buttons[7].value > 0.5,
-            a: gamepad.buttons[0] && gamepad.buttons[0].pressed,
-            b: gamepad.buttons[1] && gamepad.buttons[1].pressed,
-            x: gamepad.buttons[2] && gamepad.buttons[2].pressed,
-            y: gamepad.buttons[3] && gamepad.buttons[3].pressed,
-            start: gamepad.buttons[9] && gamepad.buttons[9].pressed,
-            select: gamepad.buttons[8] && gamepad.buttons[8].pressed
-        };
+        // Update button states
+        for (let i = 0; i < gamepad.buttons.length; i++) {
+            this.gamepadButtons[i] = pressed(gamepad.buttons[i]);
+        }
     }
 
     vibrateController(duration, intensity) {
-        if (!this.settings.controllerVibration || this.gamepadIndex === -1) return;
-
-        try {
-            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-            const gamepad = gamepads[this.gamepadIndex];
-
-            if (gamepad && gamepad.vibrationActuator) {
-                gamepad.vibrationActuator.playEffect('dual-rumble', {
-                    startDelay: 0,
-                    duration: duration,
-                    weakMagnitude: intensity,
-                    strongMagnitude: intensity
-                }).catch(() => {
-                    // Silently fail if vibration doesn't work
-                });
-            }
-        } catch (err) {
-            // Ignore vibration errors
-        }
+        // Vibration removed - was causing issues
     }
 
     // Show info modal for current album/image
