@@ -1255,5 +1255,35 @@ class CoverFlow {
 
 // Initialize
 window.addEventListener('DOMContentLoaded', () => {
-    new CoverFlow();
+    // Check if Three.js loaded successfully
+    if (typeof THREE === 'undefined') {
+        document.getElementById('loading-screen').innerHTML = `
+            <div style="color: #ff4444; padding: 20px; text-align: center;">
+                <h2>❌ Failed to Load Three.js</h2>
+                <p>The 3D library (Three.js) failed to load from CDN.</p>
+                <p style="margin-top: 20px;"><strong>Possible solutions:</strong></p>
+                <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                    <li>• Check your internet connection</li>
+                    <li>• Check if your firewall/antivirus is blocking CDN requests</li>
+                    <li>• Try using a different browser</li>
+                    <li>• Open browser console (F12) for more details</li>
+                </ul>
+            </div>
+        `;
+        console.error('Three.js failed to load. Check CDN availability.');
+        return;
+    }
+
+    try {
+        new CoverFlow();
+    } catch (error) {
+        document.getElementById('loading-screen').innerHTML = `
+            <div style="color: #ff4444; padding: 20px; text-align: center;">
+                <h2>❌ Initialization Error</h2>
+                <p>Failed to initialize CoverFlow: ${error.message}</p>
+                <p style="margin-top: 20px;">Check browser console (F12) for details.</p>
+            </div>
+        `;
+        console.error('CoverFlow initialization error:', error);
+    }
 });
