@@ -217,10 +217,6 @@
                         <span>Show album info/details</span>
                     </div>
                     <div class="shortcut-item">
-                        <kbd>K</kbd>
-                        <span>Open virtual keyboard</span>
-                    </div>
-                    <div class="shortcut-item">
                         <kbd>F</kbd>
                         <span>Toggle fullscreen</span>
                     </div>
@@ -330,27 +326,6 @@
         </div>
     </div>
 
-    <!-- On-Screen Keyboard Modal -->
-    <div id="keyboard-modal" class="modal">
-        <div class="modal-content keyboard-modal">
-            <div class="modal-header">
-                <h3>Virtual Keyboard</h3>
-                <button class="close-btn">×</button>
-            </div>
-            <div class="modal-body">
-                <div id="keyboard-input-display">
-                    <input type="text" id="keyboard-input" placeholder="Type here..." readonly>
-                    <button id="keyboard-clear">Clear</button>
-                </div>
-                <div id="virtual-keyboard"></div>
-                <div id="keyboard-actions">
-                    <button id="keyboard-cancel" class="btn secondary">Cancel</button>
-                    <button id="keyboard-submit" class="btn">Submit</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Controller Cursor -->
     <div id="controller-cursor" style="display: none;">
         <div class="cursor-inner"></div>
@@ -364,6 +339,7 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
