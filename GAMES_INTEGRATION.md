@@ -4,15 +4,47 @@ This guide explains how to integrate your installed games with the CoverFlow int
 
 ## Overview
 
-The CoverFlow application can now display and launch your games from Steam, Epic Games, and Xbox alongside your music albums and images. This is achieved using the Game Scanner tool included in this repository.
+The CoverFlow application can now display and launch your games from Steam, Epic Games, and Xbox alongside your music albums and images. You can scan for games directly from the CoverFlow interface!
 
 ## Quick Start
 
-### Option 1: Using Example Data (Testing)
+### Option 1: Scan Games from Interface (Recommended)
 
-An example games file is included at `gameinfodownload-main/game_data/games_export.json` with sample games. The CoverFlow app will automatically load this file when you open `index.html`.
+1. **Install dependencies:**
+   ```bash
+   cd gameinfodownload-main
+   pip install -r requirements.txt
+   ```
 
-### Option 2: Scan Your Real Games
+2. **Start the game scanner server:**
+   ```bash
+   python server.py
+   ```
+
+   You should see:
+   ```
+   ============================================================
+   CoverFlow Game Scanner Server
+   ============================================================
+
+   Server starting on http://localhost:5000
+   ...
+   ```
+
+3. **Open CoverFlow:**
+   - Open `index.html` in your browser
+   - Open Settings (⚙️ button or press 'S')
+   - Scroll to "🎮 Game Library" section
+   - Check that server shows "✓ Connected"
+   - Click "Scan for Games"
+   - Wait for the scan to complete (progress bar shows status)
+   - Games will automatically load into the interface!
+
+### Option 2: Using Example Data (Testing)
+
+An example games file is included at `gameinfodownload-main/game_data/games_export.json` with sample games. The CoverFlow app will automatically load this file when you open `index.html` (without server).
+
+### Option 3: Manual Command Line Scan
 
 1. **Install dependencies:**
    ```bash
@@ -66,14 +98,39 @@ All data is exported to `game_data/games_export.json` in the following format:
 }
 ```
 
+### Game Scanner Server
+
+The server (`server.py`) provides a REST API that allows the CoverFlow interface to:
+- **Trigger scans** - Start game scans from the web interface
+- **Monitor progress** - Real-time progress updates during scanning
+- **Load games** - Fetch scanned game data via HTTP
+- **Serve images** - Provide game boxart and icons to the interface
+
+**API Endpoints:**
+- `POST /api/scan/start` - Start a game scan
+- `GET /api/scan/status` - Get current scan progress
+- `GET /api/games` - Get all games
+- `GET /api/games/count` - Get game counts by platform
+- `GET /health` - Server health check
+
+The server runs locally on port 5000 and uses Flask with CORS enabled for local development.
+
 ### CoverFlow Integration
 
-The CoverFlow app (`coverflow.js`) automatically:
+The CoverFlow app (`coverflow.js`) can work in two modes:
+
+**With Server (Recommended):**
+1. Checks if server is running on startup
+2. Shows server status in settings
+3. Allows triggering scans from the interface
+4. Polls for scan progress and updates UI
+5. Loads games directly from server via API
+6. Serves game images through the server
+
+**Without Server (Static Mode):**
 1. Loads games from `gameinfodownload-main/game_data/games_export.json`
-2. Converts game data to the CoverFlow format
-3. Displays games in the carousel alongside albums and images
-4. Shows game metadata in the info modal (Developer, Publisher, Genres, etc.)
-5. Provides a "Launch Game" button that uses platform-specific launch commands
+2. Uses local file paths for images
+3. Manual scanning via command line required
 
 ## Launching Games
 
@@ -123,6 +180,38 @@ Games are displayed with:
 1. Run the game scanner while connected to the internet
 2. Check the `game_data/icons/` and `game_data/boxart/` directories
 3. Re-run the scanner if metadata is missing: `python game_scanner.py`
+
+### Server not connecting
+
+1. **Check if server is running:**
+   - Look for the server window/terminal
+   - Should show "Server starting on http://localhost:5000"
+
+2. **Verify dependencies are installed:**
+   ```bash
+   cd gameinfodownload-main
+   pip install -r requirements.txt
+   ```
+
+3. **Port 5000 already in use:**
+   - Close other applications using port 5000
+   - Or edit `server.py` and change the port number
+   - Also update `this.serverURL` in `coverflow.js` to match
+
+4. **CORS errors in browser console:**
+   - Make sure Flask-CORS is installed: `pip install flask-cors`
+   - Check that CORS is enabled in `server.py`
+
+5. **Firewall blocking connection:**
+   - Allow Python through your firewall
+   - Server only listens on localhost (no external access)
+
+### Scan button doesn't work
+
+1. Server must be running first (see above)
+2. Check that server status shows "✓ Connected" in settings
+3. Look at browser console (F12) for error messages
+4. Try clicking "Reload Games" to test server connection
 
 ## CLI Commands
 

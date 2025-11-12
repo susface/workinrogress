@@ -74,7 +74,9 @@ A feature-rich web-based recreation of the classic CoverFlow interface from Mac 
 - **Image Support**: Use actual images instead of colored placeholders
 - **Standalone Image Viewing**: Photo gallery support with full-size viewing
 - **🎮 Game Integration** (NEW!): Display and launch installed games
-  - Auto-loads games from Steam, Epic Games, and Xbox
+  - **Scan from interface** - Scan for games directly from settings
+  - Auto-detects Steam, Epic Games, and Xbox games
+  - Real-time scan progress with live updates
   - Platform-specific metadata and artwork
   - One-click game launching via protocol handlers
   - See [GAMES_INTEGRATION.md](GAMES_INTEGRATION.md) for setup guide

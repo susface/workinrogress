@@ -33,6 +33,11 @@ class CoverFlow {
         this.cursorX = window.innerWidth / 2;
         this.cursorY = window.innerHeight / 2;
 
+        // Game scanner server
+        this.serverURL = 'http://localhost:5000';
+        this.serverAvailable = false;
+        this.scanInterval = null;
+
         // Settings with defaults
         this.settings = {
             animationSpeed: 0.1,
@@ -729,6 +734,189 @@ class CoverFlow {
         }
     }
 
+    // Check if game scanner server is running
+    async checkServerStatus() {
+        try {
+            const response = await fetch(`${this.serverURL}/health`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                this.serverAvailable = true;
+                document.getElementById('server-status').textContent = '✓ Connected';
+                document.getElementById('server-status').style.color = '#4CAF50';
+
+                // Get game count
+                const countResponse = await fetch(`${this.serverURL}/api/games/count`);
+                if (countResponse.ok) {
+                    const data = await countResponse.json();
+                    const statusText = `${data.total} games found`;
+                    document.getElementById('game-count-info').innerHTML =
+                        `<span style="color: #4CAF50;">✓ Connected</span> - ${statusText}`;
+                }
+            } else {
+                throw new Error('Server not responding');
+            }
+        } catch (error) {
+            this.serverAvailable = false;
+            document.getElementById('server-status').textContent = '✗ Not running';
+            document.getElementById('server-status').style.color = '#f44336';
+            document.getElementById('game-count-info').innerHTML =
+                `<span style="color: #f44336;">✗ Server not running</span> - <a href="#" onclick="window.open('GAMES_INTEGRATION.md'); return false;" style="color: #667eea;">Setup Guide</a>`;
+        }
+    }
+
+    // Start game scan
+    async startGameScan() {
+        if (!this.serverAvailable) {
+            this.showToast('Game scanner server is not running. Please start the server first.', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.serverURL}/api/scan/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.showToast('Game scan started...', 'info');
+
+                // Show progress UI
+                document.getElementById('scan-progress-group').style.display = 'block';
+                document.getElementById('scan-games-btn').disabled = true;
+
+                // Start polling for status
+                this.pollScanStatus();
+            } else {
+                const error = await response.json();
+                this.showToast(error.error || 'Failed to start scan', 'error');
+            }
+        } catch (error) {
+            console.error('Scan start error:', error);
+            this.showToast('Failed to start game scan', 'error');
+        }
+    }
+
+    // Poll scan status
+    async pollScanStatus() {
+        if (this.scanInterval) {
+            clearInterval(this.scanInterval);
+        }
+
+        this.scanInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`${this.serverURL}/api/scan/status`);
+                if (response.ok) {
+                    const status = await response.json();
+
+                    // Update UI
+                    const statusText = document.getElementById('scan-status-text');
+                    const progressBar = document.getElementById('scan-progress-bar');
+
+                    statusText.textContent = status.message;
+                    progressBar.style.width = status.progress + '%';
+
+                    // Check if scan is complete
+                    if (!status.scanning) {
+                        clearInterval(this.scanInterval);
+                        this.scanInterval = null;
+
+                        // Hide progress UI after 2 seconds
+                        setTimeout(() => {
+                            document.getElementById('scan-progress-group').style.display = 'none';
+                            document.getElementById('scan-games-btn').disabled = false;
+                        }, 2000);
+
+                        if (status.error) {
+                            this.showToast(`Scan failed: ${status.error}`, 'error');
+                        } else {
+                            this.showToast(status.message, 'success');
+                            // Reload games automatically
+                            await this.reloadGamesFromServer();
+                        }
+
+                        // Update server status
+                        this.checkServerStatus();
+                    }
+                }
+            } catch (error) {
+                console.error('Poll error:', error);
+                clearInterval(this.scanInterval);
+                this.scanInterval = null;
+                document.getElementById('scan-progress-group').style.display = 'none';
+                document.getElementById('scan-games-btn').disabled = false;
+            }
+        }, 1000); // Poll every second
+    }
+
+    // Reload games from server
+    async reloadGamesFromServer() {
+        if (!this.serverAvailable) {
+            this.showToast('Server not available', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.serverURL}/api/games`);
+            if (response.ok) {
+                const data = await response.json();
+                const games = data.games || [];
+
+                if (games.length === 0) {
+                    this.showToast('No games found. Run a scan first.', 'info');
+                    return;
+                }
+
+                // Remove existing games from the list
+                this.allAlbums = this.allAlbums.filter(item => item.type !== 'game');
+                this.filteredAlbums = this.filteredAlbums.filter(item => item.type !== 'game');
+
+                // Convert and add games
+                const platformColors = {
+                    'steam': 0x1B2838,
+                    'epic': 0x313131,
+                    'xbox': 0x107C10
+                };
+
+                const convertedGames = games.map(game => ({
+                    type: 'game',
+                    title: game.title,
+                    platform: game.platform,
+                    developer: game.developer || 'Unknown',
+                    publisher: game.publisher || 'Unknown',
+                    year: game.release_date ? new Date(game.release_date).getFullYear().toString() : '-',
+                    genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
+                    description: game.description || game.short_description || game.long_description || 'No description available.',
+                    color: platformColors[game.platform] || 0x808080,
+                    image: game.boxart_path ? `${this.serverURL}/${game.boxart_path}` : (game.icon_path ? `${this.serverURL}/${game.icon_path}` : null),
+                    launchCommand: game.launch_command,
+                    installDir: game.install_directory,
+                    appId: game.app_id || game.package_name
+                }));
+
+                // Merge with existing albums/images
+                this.allAlbums = [...this.allAlbums, ...convertedGames];
+                this.filteredAlbums = [...this.allAlbums];
+                document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+
+                // Recreate UI
+                this.createCovers();
+                this.createThumbnails();
+                this.updateInfo();
+
+                this.showToast(`Loaded ${convertedGames.length} games from server!`, 'success');
+            } else {
+                this.showToast('Failed to load games from server', 'error');
+            }
+        } catch (error) {
+            console.error('Reload games error:', error);
+            this.showToast('Failed to connect to server', 'error');
+        }
+    }
+
     // Initialize controller cursor
     initControllerCursor() {
         this.controllerCursor = document.getElementById('controller-cursor');
@@ -1360,6 +1548,18 @@ class CoverFlow {
                 reader.readAsText(file);
             }
         });
+
+        // Game scanner buttons
+        document.getElementById('scan-games-btn').addEventListener('click', () => {
+            this.startGameScan();
+        });
+
+        document.getElementById('reload-games-btn').addEventListener('click', () => {
+            this.reloadGamesFromServer();
+        });
+
+        // Check server status on load
+        this.checkServerStatus();
     }
 
     openModal(modalId) {
