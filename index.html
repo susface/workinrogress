@@ -22,6 +22,7 @@
                 <button id="clear-search" title="Clear search">×</button>
             </div>
             <div id="top-controls">
+                <div id="controller-status" title="Controller Status">🎮 <span id="controller-name">No Controller</span></div>
                 <button id="settings-btn" title="Settings">⚙️</button>
                 <button id="shortcuts-btn" title="Keyboard Shortcuts">⌨️</button>
                 <button id="fullscreen-btn" title="Fullscreen (F)">⛶</button>
@@ -29,7 +30,14 @@
         </div>
 
         <!-- CoverFlow 3D Display -->
-        <div id="coverflow-container"></div>
+        <div id="coverflow-container">
+            <div id="fps-counter" style="display: none;">
+                <span id="fps-value">60</span> FPS
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container"></div>
 
         <!-- Info Panel -->
         <div id="info-panel">
@@ -94,6 +102,79 @@
                         Auto-Rotate (5s intervals)
                     </label>
                 </div>
+
+                <div class="setting-divider"></div>
+                <h4 class="setting-section-title">🎨 Hardware Rendering</h4>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="hardware-rendering">
+                        Enable GPU Acceleration
+                    </label>
+                    <small id="gpu-info" class="setting-info">Detecting GPU...</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="glass-effect">
+                        Glass Refraction Effect
+                    </label>
+                    <small class="setting-info">Realistic glass-like materials with refraction</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="bloom-effect">
+                        Bloom Glow Effect
+                    </label>
+                    <small class="setting-info">Soft glow around covers</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="ssao-effect">
+                        Ambient Occlusion (SSAO)
+                    </label>
+                    <small class="setting-info">Enhanced depth and shadows</small>
+                </div>
+                <div class="setting-group">
+                    <label>Bloom Intensity</label>
+                    <input type="range" id="bloom-intensity" min="0" max="30" value="15">
+                    <span id="bloom-value">1.5</span>
+                </div>
+
+                <div class="setting-divider"></div>
+                <h4 class="setting-section-title">🎮 Controller Settings</h4>
+
+                <div class="setting-group">
+                    <label>Controller Sensitivity</label>
+                    <input type="range" id="controller-sensitivity" min="1" max="10" value="5">
+                    <span id="sensitivity-value">5</span>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="controller-vibration" checked>
+                        Vibration Feedback
+                    </label>
+                </div>
+
+                <div class="setting-divider"></div>
+                <h4 class="setting-section-title">📊 Performance & Data</h4>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="fps-counter-toggle">
+                        Show FPS Counter
+                    </label>
+                    <small class="setting-info">Display performance metrics</small>
+                </div>
+                <div class="setting-group">
+                    <button id="export-settings-btn" class="btn">Export Settings</button>
+                </div>
+                <div class="setting-group">
+                    <button id="import-settings-btn" class="btn">Import Settings</button>
+                    <input type="file" id="settings-file-input" accept=".json" style="display: none;">
+                </div>
+
+                <div class="setting-divider"></div>
+
                 <div class="setting-group">
                     <button id="load-json-btn" class="btn">Load Albums from JSON</button>
                     <input type="file" id="json-file-input" accept=".json" style="display: none;">
@@ -113,6 +194,7 @@
                 <button class="close-btn">×</button>
             </div>
             <div class="modal-body">
+                <h4 class="shortcut-section">⌨️ Keyboard Controls</h4>
                 <div class="shortcut-list">
                     <div class="shortcut-item">
                         <kbd>←</kbd> <kbd>→</kbd>
@@ -147,11 +229,55 @@
                         <span>Jump to position (10%, 20%, ...)</span>
                     </div>
                 </div>
+
+                <h4 class="shortcut-section">🎮 Controller/Gamepad</h4>
+                <div class="shortcut-list">
+                    <div class="shortcut-item">
+                        <kbd>D-Pad ← →</kbd> <kbd>L-Stick</kbd>
+                        <span>Navigate left/right</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>A Button</kbd> <kbd>Cross ✕</kbd>
+                        <span>Select/Confirm</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>B Button</kbd> <kbd>Circle ○</kbd>
+                        <span>Back/Cancel</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Y Button</kbd> <kbd>Triangle △</kbd>
+                        <span>Random album</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>LB/RB</kbd> <kbd>L1/R1</kbd>
+                        <span>Navigate left/right (fast)</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>LT/RT</kbd> <kbd>L2/R2</kbd>
+                        <span>Jump to start/end</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Start</kbd> <kbd>Options</kbd>
+                        <span>Open settings</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Select</kbd> <kbd>Share</kbd>
+                        <span>Toggle fullscreen</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Post-processing effects -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
     <script src="coverflow.js"></script>
 </body>
 </html>
