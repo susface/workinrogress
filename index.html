@@ -3,20 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CoverFlow - Classic Interface</title>
+    <title>CoverFlow - Enhanced Classic Interface</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <p>Loading CoverFlow...</p>
+    </div>
+
+    <!-- Main Container -->
     <div id="container">
-        <div id="coverflow-container"></div>
-        <div id="info-panel">
-            <h2 id="album-title">Album Title</h2>
-            <p id="album-artist">Artist Name</p>
+        <!-- Top Bar -->
+        <div id="top-bar">
+            <div id="search-container">
+                <input type="text" id="search-input" placeholder="Search albums or artists...">
+                <button id="clear-search" title="Clear search">×</button>
+            </div>
+            <div id="top-controls">
+                <button id="settings-btn" title="Settings">⚙️</button>
+                <button id="shortcuts-btn" title="Keyboard Shortcuts">⌨️</button>
+                <button id="fullscreen-btn" title="Fullscreen (F)">⛶</button>
+            </div>
         </div>
+
+        <!-- CoverFlow 3D Display -->
+        <div id="coverflow-container"></div>
+
+        <!-- Info Panel -->
+        <div id="info-panel">
+            <div id="album-info">
+                <h2 id="album-title">Album Title</h2>
+                <p id="album-artist">Artist Name</p>
+                <p id="album-meta">
+                    <span id="album-year"></span>
+                    <span id="album-genre"></span>
+                </p>
+            </div>
+            <div id="album-stats">
+                <span id="current-position">1</span> / <span id="total-albums">0</span>
+            </div>
+        </div>
+
+        <!-- Thumbnail Navigation -->
+        <div id="thumbnail-nav">
+            <button id="thumb-prev" class="thumb-nav-btn">‹</button>
+            <div id="thumbnail-container"></div>
+            <button id="thumb-next" class="thumb-nav-btn">›</button>
+        </div>
+
+        <!-- Controls Info -->
         <div id="controls">
-            <p>← → Arrow keys to navigate | Mouse wheel to scroll | Click to select</p>
+            <p>← → Arrows | Wheel | Click | Home/End | Space | F (Fullscreen)</p>
         </div>
     </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Settings</h3>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label>Animation Speed</label>
+                    <input type="range" id="animation-speed" min="1" max="20" value="10">
+                    <span id="speed-value">10</span>
+                </div>
+                <div class="setting-group">
+                    <label>Cover Spacing</label>
+                    <input type="range" id="cover-spacing" min="15" max="40" value="25">
+                    <span id="spacing-value">2.5</span>
+                </div>
+                <div class="setting-group">
+                    <label>Side Angle</label>
+                    <input type="range" id="side-angle" min="30" max="90" value="60">
+                    <span id="angle-value">60°</span>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="reflection-toggle" checked>
+                        Show Reflections
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="auto-rotate">
+                        Auto-Rotate (5s intervals)
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <button id="load-json-btn" class="btn">Load Albums from JSON</button>
+                    <input type="file" id="json-file-input" accept=".json" style="display: none;">
+                </div>
+                <div class="setting-group">
+                    <button id="reset-settings" class="btn secondary">Reset to Defaults</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Keyboard Shortcuts</h3>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="shortcut-list">
+                    <div class="shortcut-item">
+                        <kbd>←</kbd> <kbd>→</kbd>
+                        <span>Navigate left/right</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Home</kbd>
+                        <span>Go to first album</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>End</kbd>
+                        <span>Go to last album</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Space</kbd>
+                        <span>Random album</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>F</kbd>
+                        <span>Toggle fullscreen</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Esc</kbd>
+                        <span>Exit fullscreen/Close modals</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>?</kbd>
+                        <span>Show this help</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>1-9</kbd>
+                        <span>Jump to position (10%, 20%, ...)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="coverflow.js"></script>
 </body>

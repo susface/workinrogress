@@ -1,0 +1,18 @@
+{
+  "albums": [
+    {
+      "title": "Custom Album 1",
+      "artist": "Your Artist",
+      "year": "2024",
+      "genre": "Custom Genre",
+      "color": 16737894
+    },
+    {
+      "title": "Custom Album 2",
+      "artist": "Another Artist",
+      "year": "2024",
+      "genre": "Rock",
+      "color": 5293188
+    }
+  ]
+}
