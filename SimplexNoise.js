@@ -118,4 +118,7 @@ THREE.SimplexNoise = function () {
 
     };
 
+    // Alias for compatibility with SSAOPass
+    this.noise3d = this.noise;
+
 };

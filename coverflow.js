@@ -14,7 +14,21 @@ class CoverFlow {
         // Gamepad/Controller support
         this.gamepad = null;
         this.gamepadIndex = -1;
-        this.lastGamepadState = {};
+        this.lastGamepadState = {
+            dpadLeft: false,
+            dpadRight: false,
+            lb: false,
+            rb: false,
+            lt: false,
+            rt: false,
+            a: false,
+            b: false,
+            x: false,
+            y: false,
+            start: false,
+            select: false,
+            cursorClick: false
+        };
         this.analogDeadzone = 0.2;
         this.analogCooldown = 0;
 
@@ -420,33 +434,39 @@ class CoverFlow {
         const statusEl = document.getElementById('controller-status');
         const nameEl = document.getElementById('controller-name');
 
-        statusEl.classList.add('connected');
-        nameEl.textContent = gamepad.id.substring(0, 30);
+        if (statusEl) statusEl.classList.add('connected');
+        if (nameEl) nameEl.textContent = gamepad.id.substring(0, 30);
 
-        console.log('Gamepad connected:', gamepad.id);
+        console.log('✓ Gamepad connected:', gamepad.id, 'Index:', gamepad.index);
 
-        // Vibration feedback
-        if (this.settings.controllerVibration && gamepad.vibrationActuator) {
-            gamepad.vibrationActuator.playEffect('dual-rumble', {
-                startDelay: 0,
-                duration: 200,
-                weakMagnitude: 0.3,
-                strongMagnitude: 0.3
-            });
+        // Vibration feedback (wrapped in try-catch to prevent errors)
+        try {
+            if (this.settings.controllerVibration && gamepad.vibrationActuator) {
+                gamepad.vibrationActuator.playEffect('dual-rumble', {
+                    startDelay: 0,
+                    duration: 200,
+                    weakMagnitude: 0.3,
+                    strongMagnitude: 0.3
+                }).catch(err => {
+                    console.warn('Vibration failed:', err);
+                });
+            }
+        } catch (err) {
+            console.warn('Vibration not supported:', err);
         }
     }
 
     onGamepadDisconnected() {
+        console.warn('✗ Gamepad disconnected - Index was:', this.gamepadIndex);
+
         this.gamepad = null;
         this.gamepadIndex = -1;
 
         const statusEl = document.getElementById('controller-status');
         const nameEl = document.getElementById('controller-name');
 
-        statusEl.classList.remove('connected');
-        nameEl.textContent = 'No Controller';
-
-        console.log('Gamepad disconnected');
+        if (statusEl) statusEl.classList.remove('connected');
+        if (nameEl) nameEl.textContent = 'No Controller';
     }
 
     pollGamepad() {
@@ -562,18 +582,24 @@ class CoverFlow {
     }
 
     vibrateController(duration, intensity) {
-        if (!this.settings.controllerVibration) return;
+        if (!this.settings.controllerVibration || this.gamepadIndex === -1) return;
 
-        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-        const gamepad = gamepads[this.gamepadIndex];
+        try {
+            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            const gamepad = gamepads[this.gamepadIndex];
 
-        if (gamepad && gamepad.vibrationActuator) {
-            gamepad.vibrationActuator.playEffect('dual-rumble', {
-                startDelay: 0,
-                duration: duration,
-                weakMagnitude: intensity,
-                strongMagnitude: intensity
-            });
+            if (gamepad && gamepad.vibrationActuator) {
+                gamepad.vibrationActuator.playEffect('dual-rumble', {
+                    startDelay: 0,
+                    duration: duration,
+                    weakMagnitude: intensity,
+                    strongMagnitude: intensity
+                }).catch(() => {
+                    // Silently fail if vibration doesn't work
+                });
+            }
+        } catch (err) {
+            // Ignore vibration errors
         }
     }
 
@@ -726,23 +752,7 @@ class CoverFlow {
         this.controllerCursor.style.left = (this.cursorX - 20) + 'px';
         this.controllerCursor.style.top = (this.cursorY - 20) + 'px';
 
-        // Check if cursor is over clickable elements
-        const element = document.elementFromPoint(this.cursorX, this.cursorY);
-        if (element && (element.tagName === 'BUTTON' || element.tagName === 'INPUT' || element.classList.contains('key'))) {
-            element.classList.add('selected');
-
-            // A button to click on focused element
-            if (gamepad.buttons[0] && gamepad.buttons[0].pressed && !this.lastGamepadState.cursorClick) {
-                element.click();
-                this.vibrateController(80, 0.3);
-            }
-        }
-
-        // Store cursor click state
-        if (!this.lastGamepadState.cursorClick) {
-            this.lastGamepadState.cursorClick = false;
-        }
-        this.lastGamepadState.cursorClick = gamepad.buttons[0] && gamepad.buttons[0].pressed;
+        // Note: Element highlighting and clicking handled in pollGamepad to avoid conflicts
     }
 
     // Show virtual keyboard
