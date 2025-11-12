@@ -663,3 +663,243 @@ kbd {
         transform: translateY(0);
     }
 }
+
+/* Info Modal Styles */
+.large-modal {
+    max-width: 900px;
+    width: 90%;
+}
+
+.info-modal-body {
+    padding: 0;
+}
+
+.info-modal-layout {
+    display: flex;
+    gap: 30px;
+    padding: 20px;
+}
+
+.info-modal-media {
+    flex: 0 0 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#info-cover-container {
+    width: 100%;
+    aspect-ratio: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#info-cover-container img,
+#info-cover-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#info-video-container {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+#info-video {
+    width: 100%;
+    display: block;
+    background: #000;
+}
+
+.info-modal-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+#info-modal-title {
+    font-size: 32px;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    color: #fff;
+}
+
+#info-modal-artist {
+    font-size: 24px;
+    color: #b0b0b0;
+    margin: 0 0 20px 0;
+}
+
+.info-divider {
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+    margin: 15px 0;
+}
+
+.info-row {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #888;
+    min-width: 80px;
+}
+
+#info-description-text {
+    margin: 10px 0 0 0;
+    line-height: 1.6;
+    color: #ccc;
+}
+
+/* Keyboard Modal Styles */
+.keyboard-modal {
+    max-width: 800px;
+    width: 90%;
+}
+
+#keyboard-input-display {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#keyboard-input {
+    flex: 1;
+    padding: 12px;
+    font-size: 18px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    color: #fff;
+}
+
+#keyboard-clear {
+    padding: 12px 20px;
+    background: rgba(255, 70, 70, 0.8);
+    border: none;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+#keyboard-clear:hover {
+    background: rgba(255, 70, 70, 1);
+}
+
+#virtual-keyboard {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.keyboard-row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+}
+
+.key {
+    min-width: 50px;
+    padding: 15px 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    user-select: none;
+}
+
+.key:hover,
+.key.selected {
+    background: rgba(100, 150, 255, 0.5);
+    border-color: rgba(100, 150, 255, 0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(100, 150, 255, 0.3);
+}
+
+.key.space {
+    flex: 1;
+    min-width: 200px;
+}
+
+.key.backspace {
+    min-width: 80px;
+}
+
+#keyboard-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* Controller Cursor */
+#controller-cursor {
+    position: fixed;
+    width: 40px;
+    height: 40px;
+    pointer-events: none;
+    z-index: 10000;
+    transition: transform 0.1s ease;
+}
+
+.cursor-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(100, 150, 255, 0.8) 0%, rgba(100, 150, 255, 0.4) 50%, transparent 100%);
+    border: 2px solid rgba(100, 150, 255, 0.9);
+    box-shadow: 0 0 20px rgba(100, 150, 255, 0.8),
+                0 0 40px rgba(100, 150, 255, 0.4),
+                inset 0 0 10px rgba(255, 255, 255, 0.5);
+    animation: cursorPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes cursorPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    .info-modal-layout {
+        flex-direction: column;
+    }
+
+    .info-modal-media {
+        flex: none;
+        width: 100%;
+    }
+
+    .keyboard-modal {
+        max-width: 95%;
+    }
+
+    .key {
+        min-width: 40px;
+        padding: 12px 8px;
+        font-size: 14px;
+    }
+}

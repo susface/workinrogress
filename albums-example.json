@@ -5,14 +5,25 @@
       "artist": "Your Artist",
       "year": "2024",
       "genre": "Custom Genre",
-      "color": 16737894
+      "color": 16737894,
+      "description": "Optional description of the album",
+      "image": "path/to/cover.jpg"
     },
     {
       "title": "Custom Album 2",
       "artist": "Another Artist",
       "year": "2024",
       "genre": "Rock",
-      "color": 5293188
+      "color": 5293188,
+      "description": "Another album description",
+      "video": "path/to/video.mp4"
+    },
+    {
+      "title": "Minimal Album",
+      "artist": "Minimal Artist",
+      "year": "2024",
+      "genre": "Electronic",
+      "color": 3394815
     }
   ]
 }

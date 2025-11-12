@@ -213,6 +213,14 @@
                         <span>Random album</span>
                     </div>
                     <div class="shortcut-item">
+                        <kbd>I</kbd>
+                        <span>Show album info/details</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>K</kbd>
+                        <span>Open virtual keyboard</span>
+                    </div>
+                    <div class="shortcut-item">
                         <kbd>F</kbd>
                         <span>Toggle fullscreen</span>
                     </div>
@@ -227,6 +235,10 @@
                     <div class="shortcut-item">
                         <kbd>1-9</kbd>
                         <span>Jump to position (10%, 20%, ...)</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Click Center</kbd>
+                        <span>Show album details</span>
                     </div>
                 </div>
 
@@ -245,8 +257,16 @@
                         <span>Back/Cancel</span>
                     </div>
                     <div class="shortcut-item">
+                        <kbd>X Button</kbd> <kbd>Square □</kbd>
+                        <span>Show album info/details</span>
+                    </div>
+                    <div class="shortcut-item">
                         <kbd>Y Button</kbd> <kbd>Triangle △</kbd>
                         <span>Random album</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>R-Stick</kbd>
+                        <span>Move glowing cursor</span>
                     </div>
                     <div class="shortcut-item">
                         <kbd>LB/RB</kbd> <kbd>L1/R1</kbd>
@@ -269,10 +289,77 @@
         </div>
     </div>
 
+    <!-- Detailed Info Modal -->
+    <div id="info-modal" class="modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>Album Details</h3>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body info-modal-body">
+                <div class="info-modal-layout">
+                    <div class="info-modal-media">
+                        <div id="info-cover-container"></div>
+                        <div id="info-video-container" style="display: none;">
+                            <video id="info-video" controls loop></video>
+                        </div>
+                    </div>
+                    <div class="info-modal-details">
+                        <h2 id="info-modal-title">Album Title</h2>
+                        <h3 id="info-modal-artist">Artist Name</h3>
+                        <div class="info-divider"></div>
+                        <div class="info-row">
+                            <span class="info-label">Year:</span>
+                            <span id="info-modal-year">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Genre:</span>
+                            <span id="info-modal-genre">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Color:</span>
+                            <span id="info-modal-color">-</span>
+                        </div>
+                        <div id="info-modal-description" style="margin-top: 20px;">
+                            <span class="info-label">Description:</span>
+                            <p id="info-description-text">No description available.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- On-Screen Keyboard Modal -->
+    <div id="keyboard-modal" class="modal">
+        <div class="modal-content keyboard-modal">
+            <div class="modal-header">
+                <h3>Virtual Keyboard</h3>
+                <button class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="keyboard-input-display">
+                    <input type="text" id="keyboard-input" placeholder="Type here..." readonly>
+                    <button id="keyboard-clear">Clear</button>
+                </div>
+                <div id="virtual-keyboard"></div>
+                <div id="keyboard-actions">
+                    <button id="keyboard-cancel" class="btn secondary">Cancel</button>
+                    <button id="keyboard-submit" class="btn">Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controller Cursor -->
+    <div id="controller-cursor" style="display: none;">
+        <div class="cursor-inner"></div>
+    </div>
+
     <!-- Three.js library -->
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <!-- Post-processing dependencies -->
-    <script src="https://unpkg.com/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
+    <script src="SimplexNoise.js"></script>
     <!-- Post-processing effects from unpkg (more reliable) -->
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>

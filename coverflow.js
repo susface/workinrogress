@@ -29,6 +29,16 @@ class CoverFlow {
         this.fpsFrames = [];
         this.fpsLastTime = performance.now();
 
+        // Controller cursor
+        this.controllerCursor = null;
+        this.cursorX = window.innerWidth / 2;
+        this.cursorY = window.innerHeight / 2;
+
+        // Virtual keyboard
+        this.virtualKeyboard = null;
+        this.keyboardCallback = null;
+        this.selectedKeyIndex = 0;
+
         // Settings with defaults
         this.settings = {
             animationSpeed: 0.1,
@@ -57,6 +67,8 @@ class CoverFlow {
         this.createThumbnails();
         this.addEventListeners();
         this.initGamepadSupport();
+        this.initControllerCursor();
+        this.initVirtualKeyboard();
         this.animate();
         this.updateInfo();
         this.hideLoadingScreen();
@@ -101,22 +113,22 @@ class CoverFlow {
 
     initAlbumData() {
         const albums = [
-            { title: 'Midnight Dreams', artist: 'Luna Eclipse', year: '2023', genre: 'Electronic', color: 0xFF6B6B },
-            { title: 'Ocean Waves', artist: 'Aqua Marina', year: '2022', genre: 'Ambient', color: 0x4ECDC4 },
-            { title: 'Urban Lights', artist: 'City Sounds', year: '2023', genre: 'Hip Hop', color: 0x45B7D1 },
-            { title: 'Sunset Boulevard', artist: 'Golden Hour', year: '2021', genre: 'Jazz', color: 0xFFA07A },
-            { title: 'Forest Whispers', artist: 'Nature\'s Voice', year: '2022', genre: 'Classical', color: 0x98D8C8 },
-            { title: 'Electric Storm', artist: 'Thunder Bay', year: '2023', genre: 'Rock', color: 0xF7DC6F },
-            { title: 'Neon Nights', artist: 'Synthwave Collective', year: '2022', genre: 'Synthwave', color: 0xBB8FCE },
-            { title: 'Mountain Peak', artist: 'Summit Sounds', year: '2021', genre: 'Folk', color: 0x85C1E2 },
-            { title: 'Desert Rose', artist: 'Sahara Ensemble', year: '2023', genre: 'World', color: 0xF8B195 },
-            { title: 'Cosmic Journey', artist: 'Space Travelers', year: '2022', genre: 'Psychedelic', color: 0xC06C84 },
-            { title: 'Velvet Dreams', artist: 'Midnight Lounge', year: '2021', genre: 'Lounge', color: 0x6C5B7B },
-            { title: 'Winter Solstice', artist: 'Arctic Symphony', year: '2023', genre: 'Orchestral', color: 0x355C7D },
-            { title: 'Tokyo Nights', artist: 'J-Wave', year: '2022', genre: 'J-Pop', color: 0xFF69B4 },
-            { title: 'Latin Fire', artist: 'Salsa Kings', year: '2023', genre: 'Latin', color: 0xFF4500 },
-            { title: 'Deep Blue', artist: 'Ocean Jazz Quartet', year: '2021', genre: 'Jazz', color: 0x191970 },
-            { title: 'Retro Wave', artist: '80s Revival', year: '2022', genre: 'Synthpop', color: 0xFF1493 }
+            { title: 'Midnight Dreams', artist: 'Luna Eclipse', year: '2023', genre: 'Electronic', color: 0xFF6B6B, description: 'A journey through ethereal soundscapes and pulsing beats.' },
+            { title: 'Ocean Waves', artist: 'Aqua Marina', year: '2022', genre: 'Ambient', color: 0x4ECDC4, description: 'Calming oceanic ambience for deep meditation and relaxation.' },
+            { title: 'Urban Lights', artist: 'City Sounds', year: '2023', genre: 'Hip Hop', color: 0x45B7D1, description: 'Street poetry meets modern production in this urban masterpiece.' },
+            { title: 'Sunset Boulevard', artist: 'Golden Hour', year: '2021', genre: 'Jazz', color: 0xFFA07A, description: 'Smooth jazz melodies inspired by California sunsets.' },
+            { title: 'Forest Whispers', artist: 'Nature\'s Voice', year: '2022', genre: 'Classical', color: 0x98D8C8, description: 'Classical compositions inspired by the serenity of ancient forests.' },
+            { title: 'Electric Storm', artist: 'Thunder Bay', year: '2023', genre: 'Rock', color: 0xF7DC6F, description: 'High-energy rock anthems that shake the foundation.' },
+            { title: 'Neon Nights', artist: 'Synthwave Collective', year: '2022', genre: 'Synthwave', color: 0xBB8FCE, description: 'Retro-futuristic synthwave that transports you to neon-lit streets.' },
+            { title: 'Mountain Peak', artist: 'Summit Sounds', year: '2021', genre: 'Folk', color: 0x85C1E2, description: 'Acoustic folk tales from the highest peaks.' },
+            { title: 'Desert Rose', artist: 'Sahara Ensemble', year: '2023', genre: 'World', color: 0xF8B195, description: 'Middle Eastern rhythms blended with contemporary world music.' },
+            { title: 'Cosmic Journey', artist: 'Space Travelers', year: '2022', genre: 'Psychedelic', color: 0xC06C84, description: 'Mind-bending psychedelic exploration through space and time.' },
+            { title: 'Velvet Dreams', artist: 'Midnight Lounge', year: '2021', genre: 'Lounge', color: 0x6C5B7B, description: 'Sophisticated lounge music for late-night conversations.' },
+            { title: 'Winter Solstice', artist: 'Arctic Symphony', year: '2023', genre: 'Orchestral', color: 0x355C7D, description: 'Epic orchestral movements inspired by winter\'s beauty.' },
+            { title: 'Tokyo Nights', artist: 'J-Wave', year: '2022', genre: 'J-Pop', color: 0xFF69B4, description: 'Energetic J-Pop hits straight from the streets of Tokyo.' },
+            { title: 'Latin Fire', artist: 'Salsa Kings', year: '2023', genre: 'Latin', color: 0xFF4500, description: 'Fiery Latin rhythms that make you want to dance.' },
+            { title: 'Deep Blue', artist: 'Ocean Jazz Quartet', year: '2021', genre: 'Jazz', color: 0x191970, description: 'Deep, soulful jazz inspired by the mysteries of the ocean.' },
+            { title: 'Retro Wave', artist: '80s Revival', year: '2022', genre: 'Synthpop', color: 0xFF1493, description: 'A nostalgic revival of 80s synthpop perfection.' }
         ];
 
         this.allAlbums = albums;
@@ -504,6 +516,11 @@ class CoverFlow {
             this.closeAllModals();
             this.vibrateController(100, 0.2);
         }
+        if (gamepad.buttons[2] && gamepad.buttons[2].pressed && !this.lastGamepadState.x) {
+            // X/Square - Show info modal
+            this.showInfoModal();
+            this.vibrateController(100, 0.2);
+        }
         if (gamepad.buttons[3] && gamepad.buttons[3].pressed && !this.lastGamepadState.y) {
             // Y/Triangle - Random
             this.navigateRandom();
@@ -532,6 +549,7 @@ class CoverFlow {
             rt: gamepad.buttons[7] && gamepad.buttons[7].value > 0.5,
             a: gamepad.buttons[0] && gamepad.buttons[0].pressed,
             b: gamepad.buttons[1] && gamepad.buttons[1].pressed,
+            x: gamepad.buttons[2] && gamepad.buttons[2].pressed,
             y: gamepad.buttons[3] && gamepad.buttons[3].pressed,
             start: gamepad.buttons[9] && gamepad.buttons[9].pressed,
             select: gamepad.buttons[8] && gamepad.buttons[8].pressed
@@ -552,6 +570,213 @@ class CoverFlow {
                 strongMagnitude: intensity
             });
         }
+    }
+
+    // Show info modal for current album
+    showInfoModal() {
+        const album = this.filteredAlbums[this.currentIndex];
+        if (!album) return;
+
+        document.getElementById('info-modal-title').textContent = album.title;
+        document.getElementById('info-modal-artist').textContent = album.artist;
+        document.getElementById('info-modal-year').textContent = album.year;
+        document.getElementById('info-modal-genre').textContent = album.genre;
+        document.getElementById('info-modal-color').textContent = '#' + album.color.toString(16).padStart(6, '0').toUpperCase();
+        document.getElementById('info-description-text').textContent = album.description || 'No description available.';
+
+        // Handle media (image or video)
+        const coverContainer = document.getElementById('info-cover-container');
+        const videoContainer = document.getElementById('info-video-container');
+        const video = document.getElementById('info-video');
+
+        // Clear previous content
+        coverContainer.innerHTML = '';
+        videoContainer.style.display = 'none';
+        video.src = '';
+
+        if (album.video) {
+            // Show video
+            video.src = album.video;
+            videoContainer.style.display = 'block';
+        } else if (album.image) {
+            // Show image
+            const img = document.createElement('img');
+            img.src = album.image;
+            img.alt = album.title;
+            coverContainer.appendChild(img);
+        } else {
+            // Show colored placeholder
+            const placeholder = document.createElement('div');
+            placeholder.style.width = '100%';
+            placeholder.style.height = '100%';
+            placeholder.style.background = '#' + album.color.toString(16).padStart(6, '0');
+            placeholder.style.display = 'flex';
+            placeholder.style.alignItems = 'center';
+            placeholder.style.justifyContent = 'center';
+            placeholder.style.fontSize = '48px';
+            placeholder.style.color = 'rgba(255,255,255,0.5)';
+            placeholder.textContent = '♪';
+            coverContainer.appendChild(placeholder);
+        }
+
+        this.openModal('info-modal');
+        this.vibrateController(100, 0.2);
+    }
+
+    // Initialize controller cursor
+    initControllerCursor() {
+        this.controllerCursor = document.getElementById('controller-cursor');
+
+        // Update cursor position when gamepad is active
+        document.addEventListener('mousemove', (e) => {
+            if (this.gamepadIndex === -1) {
+                this.cursorX = e.clientX;
+                this.cursorY = e.clientY;
+            }
+        });
+    }
+
+    // Update controller cursor position
+    updateControllerCursor() {
+        if (!this.controllerCursor || this.gamepadIndex === -1) {
+            if (this.controllerCursor) {
+                this.controllerCursor.style.display = 'none';
+            }
+            return;
+        }
+
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gamepad = gamepads[this.gamepadIndex];
+
+        if (!gamepad) return;
+
+        // Show cursor when controller is active
+        this.controllerCursor.style.display = 'block';
+
+        // Use right stick for cursor movement (axes 2 and 3)
+        const axisX = gamepad.axes[2] || 0;
+        const axisY = gamepad.axes[3] || 0;
+
+        const deadzone = 0.15;
+        const speed = 8;
+
+        if (Math.abs(axisX) > deadzone || Math.abs(axisY) > deadzone) {
+            this.cursorX += axisX * speed;
+            this.cursorY += axisY * speed;
+
+            // Keep cursor in bounds
+            this.cursorX = Math.max(0, Math.min(window.innerWidth, this.cursorX));
+            this.cursorY = Math.max(0, Math.min(window.innerHeight, this.cursorY));
+        }
+
+        // Update cursor DOM position
+        this.controllerCursor.style.left = (this.cursorX - 20) + 'px';
+        this.controllerCursor.style.top = (this.cursorY - 20) + 'px';
+
+        // Check if cursor is over clickable elements
+        const element = document.elementFromPoint(this.cursorX, this.cursorY);
+        if (element && (element.tagName === 'BUTTON' || element.tagName === 'INPUT' || element.classList.contains('key'))) {
+            element.classList.add('selected');
+
+            // A button to click on focused element
+            if (gamepad.buttons[0] && gamepad.buttons[0].pressed && !this.lastGamepadState.cursorClick) {
+                element.click();
+                this.vibrateController(80, 0.3);
+            }
+        }
+
+        // Store cursor click state
+        if (!this.lastGamepadState.cursorClick) {
+            this.lastGamepadState.cursorClick = false;
+        }
+        this.lastGamepadState.cursorClick = gamepad.buttons[0] && gamepad.buttons[0].pressed;
+    }
+
+    // Show virtual keyboard
+    showVirtualKeyboard(callback) {
+        this.keyboardCallback = callback;
+        document.getElementById('keyboard-input').value = '';
+        this.selectedKeyIndex = 0;
+        this.openModal('keyboard-modal');
+        this.highlightSelectedKey();
+    }
+
+    // Initialize virtual keyboard
+    initVirtualKeyboard() {
+        const keyboard = document.getElementById('virtual-keyboard');
+        const keys = [
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+            ['Space', 'Backspace']
+        ];
+
+        keyboard.innerHTML = '';
+        keys.forEach(row => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'keyboard-row';
+
+            row.forEach(key => {
+                const keyDiv = document.createElement('div');
+                keyDiv.className = 'key';
+                keyDiv.textContent = key;
+                keyDiv.dataset.key = key;
+
+                if (key === 'Space') keyDiv.classList.add('space');
+                if (key === 'Backspace') keyDiv.classList.add('backspace');
+
+                keyDiv.addEventListener('click', () => {
+                    this.handleVirtualKey(key);
+                });
+
+                rowDiv.appendChild(keyDiv);
+            });
+
+            keyboard.appendChild(rowDiv);
+        });
+
+        // Clear button
+        document.getElementById('keyboard-clear').addEventListener('click', () => {
+            document.getElementById('keyboard-input').value = '';
+        });
+
+        // Cancel button
+        document.getElementById('keyboard-cancel').addEventListener('click', () => {
+            this.closeModal('keyboard-modal');
+        });
+
+        // Submit button
+        document.getElementById('keyboard-submit').addEventListener('click', () => {
+            const value = document.getElementById('keyboard-input').value;
+            if (this.keyboardCallback) {
+                this.keyboardCallback(value);
+            }
+            this.closeModal('keyboard-modal');
+        });
+    }
+
+    handleVirtualKey(key) {
+        const input = document.getElementById('keyboard-input');
+
+        if (key === 'Backspace') {
+            input.value = input.value.slice(0, -1);
+        } else if (key === 'Space') {
+            input.value += ' ';
+        } else {
+            input.value += key;
+        }
+    }
+
+    highlightSelectedKey() {
+        const keys = document.querySelectorAll('.key');
+        keys.forEach((key, index) => {
+            if (index === this.selectedKeyIndex) {
+                key.classList.add('selected');
+            } else {
+                key.classList.remove('selected');
+            }
+        });
     }
 
     navigate(direction) {
@@ -802,9 +1027,20 @@ class CoverFlow {
                     e.preventDefault();
                     this.navigateRandom();
                     break;
+                case 'i':
+                case 'I':
+                    this.showInfoModal();
+                    break;
                 case 'f':
                 case 'F':
                     this.toggleFullscreen();
+                    break;
+                case 'k':
+                case 'K':
+                    this.showVirtualKeyboard((text) => {
+                        document.getElementById('search-input').value = text;
+                        this.handleSearch();
+                    });
                     break;
                 case '?':
                     this.openModal('shortcuts-modal');
@@ -845,7 +1081,13 @@ class CoverFlow {
             if (intersects.length > 0) {
                 const clickedCover = intersects[0].object;
                 if (clickedCover.userData.isCover) {
-                    this.navigateTo(clickedCover.userData.index);
+                    // If clicking the current center cover, show info modal
+                    if (clickedCover.userData.index === this.currentIndex) {
+                        this.showInfoModal();
+                    } else {
+                        // Otherwise navigate to that cover
+                        this.navigateTo(clickedCover.userData.index);
+                    }
                 }
             }
         });
@@ -1250,6 +1492,9 @@ class CoverFlow {
 
         // Poll gamepad input
         this.pollGamepad();
+
+        // Update controller cursor
+        this.updateControllerCursor();
 
         // Update cover positions
         this.updateCoverPositions(false);
