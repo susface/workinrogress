@@ -48,6 +48,10 @@ class CoverFlow {
         this.cursorX = window.innerWidth / 2;
         this.cursorY = window.innerHeight / 2;
 
+        // Tab visibility state
+        this.isTabVisible = true;
+        this.reconnectAttempts = 0;
+
         // Virtual keyboard
         this.virtualKeyboard = null;
         this.keyboardCallback = null;
@@ -410,11 +414,42 @@ class CoverFlow {
     // Controller/Gamepad Support
     initGamepadSupport() {
         window.addEventListener('gamepadconnected', (e) => {
+            console.log('🎮 Gamepad connection event fired');
             this.onGamepadConnected(e.gamepad);
         });
 
         window.addEventListener('gamepaddisconnected', (e) => {
+            console.log('🎮 Gamepad disconnection event fired');
             this.onGamepadDisconnected();
+        });
+
+        // Handle tab visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('👁️ Tab hidden - pausing gamepad polling');
+                this.isTabVisible = false;
+            } else {
+                console.log('👁️ Tab visible - resuming gamepad polling');
+                this.isTabVisible = true;
+                this.reconnectAttempts = 0;
+
+                // Re-check for gamepad after tab becomes visible
+                if (this.gamepadIndex !== -1) {
+                    setTimeout(() => {
+                        this.checkGamepadConnection();
+                    }, 100);
+                }
+            }
+        });
+
+        // Also handle window focus/blur as backup
+        window.addEventListener('focus', () => {
+            if (this.gamepadIndex !== -1) {
+                console.log('🔄 Window focused - checking gamepad');
+                setTimeout(() => {
+                    this.checkGamepadConnection();
+                }, 100);
+            }
         });
 
         // Check for already connected gamepads
@@ -423,6 +458,26 @@ class CoverFlow {
             if (gamepads[i]) {
                 this.onGamepadConnected(gamepads[i]);
                 break;
+            }
+        }
+    }
+
+    checkGamepadConnection() {
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gamepad = gamepads[this.gamepadIndex];
+
+        if (gamepad && gamepad.connected) {
+            console.log('✓ Gamepad still connected:', gamepad.id);
+            this.reconnectAttempts = 0;
+        } else {
+            console.warn('⚠️ Gamepad not found, attempting to reconnect...');
+            // Try to find any connected gamepad
+            for (let i = 0; i < gamepads.length; i++) {
+                if (gamepads[i] && gamepads[i].connected) {
+                    console.log('✓ Found gamepad at index', i);
+                    this.onGamepadConnected(gamepads[i]);
+                    return;
+                }
             }
         }
     }
@@ -470,16 +525,32 @@ class CoverFlow {
     }
 
     pollGamepad() {
-        if (this.gamepadIndex === -1) return;
+        // Skip polling if no gamepad or tab not visible
+        if (this.gamepadIndex === -1 || !this.isTabVisible) return;
 
         const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
         const gamepad = gamepads[this.gamepadIndex];
 
-        // Just return if gamepad not found in this poll - don't disconnect
-        // The gamepaddisconnected event will handle actual disconnection
+        // If gamepad not found, try to reconnect occasionally
         if (!gamepad) {
+            this.reconnectAttempts++;
+
+            // Every 60 frames (~1 second), try to reconnect
+            if (this.reconnectAttempts % 60 === 0) {
+                console.warn('⚠️ Gamepad polling failed, attempting reconnect...');
+                this.checkGamepadConnection();
+            }
             return;
         }
+
+        // Check if gamepad is actually connected (some browsers support this property)
+        if (gamepad.connected === false) {
+            console.warn('⚠️ Gamepad shows disconnected state');
+            return;
+        }
+
+        // Reset reconnect attempts since we got a valid gamepad
+        this.reconnectAttempts = 0;
 
         const sensitivity = this.settings.controllerSensitivity / 5;
 
@@ -717,7 +788,7 @@ class CoverFlow {
 
     // Update controller cursor position
     updateControllerCursor() {
-        if (!this.controllerCursor || this.gamepadIndex === -1) {
+        if (!this.controllerCursor || this.gamepadIndex === -1 || !this.isTabVisible) {
             if (this.controllerCursor) {
                 this.controllerCursor.style.display = 'none';
             }
@@ -727,7 +798,7 @@ class CoverFlow {
         const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
         const gamepad = gamepads[this.gamepadIndex];
 
-        if (!gamepad) return;
+        if (!gamepad || gamepad.connected === false) return;
 
         // Show cursor when controller is active
         this.controllerCursor.style.display = 'block';
