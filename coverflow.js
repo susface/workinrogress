@@ -29,6 +29,16 @@ class CoverFlow {
         this.fpsFrames = [];
         this.fpsLastTime = performance.now();
 
+        // Controller cursor
+        this.controllerCursor = null;
+        this.cursorX = window.innerWidth / 2;
+        this.cursorY = window.innerHeight / 2;
+
+        // Virtual keyboard
+        this.virtualKeyboard = null;
+        this.keyboardCallback = null;
+        this.selectedKeyIndex = 0;
+
         // Settings with defaults
         this.settings = {
             animationSpeed: 0.1,
@@ -57,6 +67,8 @@ class CoverFlow {
         this.createThumbnails();
         this.addEventListeners();
         this.initGamepadSupport();
+        this.initControllerCursor();
+        this.initVirtualKeyboard();
         this.animate();
         this.updateInfo();
         this.hideLoadingScreen();
@@ -101,22 +113,26 @@ class CoverFlow {
 
     initAlbumData() {
         const albums = [
-            { title: 'Midnight Dreams', artist: 'Luna Eclipse', year: '2023', genre: 'Electronic', color: 0xFF6B6B },
-            { title: 'Ocean Waves', artist: 'Aqua Marina', year: '2022', genre: 'Ambient', color: 0x4ECDC4 },
-            { title: 'Urban Lights', artist: 'City Sounds', year: '2023', genre: 'Hip Hop', color: 0x45B7D1 },
-            { title: 'Sunset Boulevard', artist: 'Golden Hour', year: '2021', genre: 'Jazz', color: 0xFFA07A },
-            { title: 'Forest Whispers', artist: 'Nature\'s Voice', year: '2022', genre: 'Classical', color: 0x98D8C8 },
-            { title: 'Electric Storm', artist: 'Thunder Bay', year: '2023', genre: 'Rock', color: 0xF7DC6F },
-            { title: 'Neon Nights', artist: 'Synthwave Collective', year: '2022', genre: 'Synthwave', color: 0xBB8FCE },
-            { title: 'Mountain Peak', artist: 'Summit Sounds', year: '2021', genre: 'Folk', color: 0x85C1E2 },
-            { title: 'Desert Rose', artist: 'Sahara Ensemble', year: '2023', genre: 'World', color: 0xF8B195 },
-            { title: 'Cosmic Journey', artist: 'Space Travelers', year: '2022', genre: 'Psychedelic', color: 0xC06C84 },
-            { title: 'Velvet Dreams', artist: 'Midnight Lounge', year: '2021', genre: 'Lounge', color: 0x6C5B7B },
-            { title: 'Winter Solstice', artist: 'Arctic Symphony', year: '2023', genre: 'Orchestral', color: 0x355C7D },
-            { title: 'Tokyo Nights', artist: 'J-Wave', year: '2022', genre: 'J-Pop', color: 0xFF69B4 },
-            { title: 'Latin Fire', artist: 'Salsa Kings', year: '2023', genre: 'Latin', color: 0xFF4500 },
-            { title: 'Deep Blue', artist: 'Ocean Jazz Quartet', year: '2021', genre: 'Jazz', color: 0x191970 },
-            { title: 'Retro Wave', artist: '80s Revival', year: '2022', genre: 'Synthpop', color: 0xFF1493 }
+            { type: 'album', title: 'Midnight Dreams', artist: 'Luna Eclipse', year: '2023', genre: 'Electronic', color: 0xFF6B6B, description: 'A journey through ethereal soundscapes and pulsing beats.' },
+            { type: 'album', title: 'Ocean Waves', artist: 'Aqua Marina', year: '2022', genre: 'Ambient', color: 0x4ECDC4, description: 'Calming oceanic ambience for deep meditation and relaxation.' },
+            { type: 'image', title: 'Sunset Over Mountains', category: 'Nature', year: '2023', tags: 'landscape, sunset, mountains', color: 0xFF8C42, description: 'A breathtaking view of the sun setting behind mountain peaks.', image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80' },
+            { type: 'album', title: 'Urban Lights', artist: 'City Sounds', year: '2023', genre: 'Hip Hop', color: 0x45B7D1, description: 'Street poetry meets modern production in this urban masterpiece.' },
+            { type: 'image', title: 'Northern Lights', category: 'Nature', year: '2023', tags: 'aurora, night sky, nature', color: 0x00CED1, description: 'The aurora borealis dancing across the Arctic sky.', image: 'https://images.unsplash.com/photo-1579033461380-adb47c3eb938?w=800&q=80' },
+            { type: 'album', title: 'Sunset Boulevard', artist: 'Golden Hour', year: '2021', genre: 'Jazz', color: 0xFFA07A, description: 'Smooth jazz melodies inspired by California sunsets.' },
+            { type: 'album', title: 'Forest Whispers', artist: 'Nature\'s Voice', year: '2022', genre: 'Classical', color: 0x98D8C8, description: 'Classical compositions inspired by the serenity of ancient forests.' },
+            { type: 'image', title: 'Tokyo Street', category: 'Urban', year: '2023', tags: 'city, night, neon', color: 0xFF1493, description: 'Neon-lit streets of downtown Tokyo at night.', image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&q=80' },
+            { type: 'album', title: 'Electric Storm', artist: 'Thunder Bay', year: '2023', genre: 'Rock', color: 0xF7DC6F, description: 'High-energy rock anthems that shake the foundation.' },
+            { type: 'album', title: 'Neon Nights', artist: 'Synthwave Collective', year: '2022', genre: 'Synthwave', color: 0xBB8FCE, description: 'Retro-futuristic synthwave that transports you to neon-lit streets.' },
+            { type: 'image', title: 'Ocean Waves', category: 'Nature', year: '2022', tags: 'ocean, waves, beach', color: 0x4682B4, description: 'Powerful waves crashing on a pristine beach.', image: 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&q=80' },
+            { type: 'album', title: 'Mountain Peak', artist: 'Summit Sounds', year: '2021', genre: 'Folk', color: 0x85C1E2, description: 'Acoustic folk tales from the highest peaks.' },
+            { type: 'album', title: 'Desert Rose', artist: 'Sahara Ensemble', year: '2023', genre: 'World', color: 0xF8B195, description: 'Middle Eastern rhythms blended with contemporary world music.' },
+            { type: 'image', title: 'Starry Night Sky', category: 'Astronomy', year: '2023', tags: 'stars, milky way, night', color: 0x191970, description: 'The Milky Way galaxy stretching across the night sky.', image: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&q=80' },
+            { type: 'album', title: 'Cosmic Journey', artist: 'Space Travelers', year: '2022', genre: 'Psychedelic', color: 0xC06C84, description: 'Mind-bending psychedelic exploration through space and time.' },
+            { type: 'album', title: 'Velvet Dreams', artist: 'Midnight Lounge', year: '2021', genre: 'Lounge', color: 0x6C5B7B, description: 'Sophisticated lounge music for late-night conversations.' },
+            { type: 'album', title: 'Winter Solstice', artist: 'Arctic Symphony', year: '2023', genre: 'Orchestral', color: 0x355C7D, description: 'Epic orchestral movements inspired by winter\'s beauty.' },
+            { type: 'image', title: 'Cherry Blossoms', category: 'Nature', year: '2023', tags: 'flowers, spring, japan', color: 0xFFB7C5, description: 'Delicate cherry blossoms in full bloom.', image: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&q=80' },
+            { type: 'album', title: 'Tokyo Nights', artist: 'J-Wave', year: '2022', genre: 'J-Pop', color: 0xFF69B4, description: 'Energetic J-Pop hits straight from the streets of Tokyo.' },
+            { type: 'album', title: 'Latin Fire', artist: 'Salsa Kings', year: '2023', genre: 'Latin', color: 0xFF4500, description: 'Fiery Latin rhythms that make you want to dance.' }
         ];
 
         this.allAlbums = albums;
@@ -504,6 +520,11 @@ class CoverFlow {
             this.closeAllModals();
             this.vibrateController(100, 0.2);
         }
+        if (gamepad.buttons[2] && gamepad.buttons[2].pressed && !this.lastGamepadState.x) {
+            // X/Square - Show info modal
+            this.showInfoModal();
+            this.vibrateController(100, 0.2);
+        }
         if (gamepad.buttons[3] && gamepad.buttons[3].pressed && !this.lastGamepadState.y) {
             // Y/Triangle - Random
             this.navigateRandom();
@@ -532,6 +553,7 @@ class CoverFlow {
             rt: gamepad.buttons[7] && gamepad.buttons[7].value > 0.5,
             a: gamepad.buttons[0] && gamepad.buttons[0].pressed,
             b: gamepad.buttons[1] && gamepad.buttons[1].pressed,
+            x: gamepad.buttons[2] && gamepad.buttons[2].pressed,
             y: gamepad.buttons[3] && gamepad.buttons[3].pressed,
             start: gamepad.buttons[9] && gamepad.buttons[9].pressed,
             select: gamepad.buttons[8] && gamepad.buttons[8].pressed
@@ -552,6 +574,247 @@ class CoverFlow {
                 strongMagnitude: intensity
             });
         }
+    }
+
+    // Show info modal for current album/image
+    showInfoModal() {
+        const item = this.filteredAlbums[this.currentIndex];
+        if (!item) return;
+
+        const isImage = item.type === 'image';
+
+        // Update modal title and details based on type
+        document.getElementById('info-modal-title').textContent = item.title;
+
+        if (isImage) {
+            // For images, show category and tags
+            document.getElementById('info-modal-artist').textContent = item.category || 'Image';
+            document.getElementById('info-modal-year').textContent = item.year || '-';
+            document.getElementById('info-modal-genre').textContent = item.tags || '-';
+            // Update labels
+            document.querySelector('#info-modal-genre').previousElementSibling.textContent = 'Tags:';
+        } else {
+            // For albums, show artist and genre
+            document.getElementById('info-modal-artist').textContent = item.artist;
+            document.getElementById('info-modal-year').textContent = item.year;
+            document.getElementById('info-modal-genre').textContent = item.genre;
+            document.querySelector('#info-modal-genre').previousElementSibling.textContent = 'Genre:';
+        }
+
+        document.getElementById('info-modal-color').textContent = '#' + item.color.toString(16).padStart(6, '0').toUpperCase();
+        document.getElementById('info-description-text').textContent = item.description || 'No description available.';
+
+        // Handle media (image or video)
+        const coverContainer = document.getElementById('info-cover-container');
+        const videoContainer = document.getElementById('info-video-container');
+        const video = document.getElementById('info-video');
+
+        // Clear previous content
+        coverContainer.innerHTML = '';
+        videoContainer.style.display = 'none';
+        video.src = '';
+
+        if (item.video) {
+            // Show video
+            video.src = item.video;
+            videoContainer.style.display = 'block';
+        } else if (item.image) {
+            // Show image
+            const img = document.createElement('img');
+            img.src = item.image;
+            img.alt = item.title;
+            img.style.cursor = 'pointer';
+
+            // Click to view full size in new tab
+            img.addEventListener('click', () => {
+                window.open(item.image, '_blank');
+            });
+
+            coverContainer.appendChild(img);
+
+            // Add click hint for images
+            if (isImage) {
+                const hint = document.createElement('div');
+                hint.style.textAlign = 'center';
+                hint.style.marginTop = '10px';
+                hint.style.fontSize = '12px';
+                hint.style.color = '#888';
+                hint.textContent = '(Click image to view full size)';
+                coverContainer.appendChild(hint);
+            }
+        } else {
+            // Show colored placeholder
+            const placeholder = document.createElement('div');
+            placeholder.style.width = '100%';
+            placeholder.style.height = '100%';
+            placeholder.style.background = '#' + item.color.toString(16).padStart(6, '0');
+            placeholder.style.display = 'flex';
+            placeholder.style.alignItems = 'center';
+            placeholder.style.justifyContent = 'center';
+            placeholder.style.fontSize = '48px';
+            placeholder.style.color = 'rgba(255,255,255,0.5)';
+            placeholder.textContent = isImage ? '🖼️' : '♪';
+            coverContainer.appendChild(placeholder);
+        }
+
+        this.openModal('info-modal');
+        this.vibrateController(100, 0.2);
+    }
+
+    // Initialize controller cursor
+    initControllerCursor() {
+        this.controllerCursor = document.getElementById('controller-cursor');
+
+        // Update cursor position when gamepad is active
+        document.addEventListener('mousemove', (e) => {
+            if (this.gamepadIndex === -1) {
+                this.cursorX = e.clientX;
+                this.cursorY = e.clientY;
+            }
+        });
+    }
+
+    // Update controller cursor position
+    updateControllerCursor() {
+        if (!this.controllerCursor || this.gamepadIndex === -1) {
+            if (this.controllerCursor) {
+                this.controllerCursor.style.display = 'none';
+            }
+            return;
+        }
+
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gamepad = gamepads[this.gamepadIndex];
+
+        if (!gamepad) return;
+
+        // Show cursor when controller is active
+        this.controllerCursor.style.display = 'block';
+
+        // Use right stick for cursor movement (axes 2 and 3)
+        const axisX = gamepad.axes[2] || 0;
+        const axisY = gamepad.axes[3] || 0;
+
+        const deadzone = 0.15;
+        const speed = 8;
+
+        if (Math.abs(axisX) > deadzone || Math.abs(axisY) > deadzone) {
+            this.cursorX += axisX * speed;
+            this.cursorY += axisY * speed;
+
+            // Keep cursor in bounds
+            this.cursorX = Math.max(0, Math.min(window.innerWidth, this.cursorX));
+            this.cursorY = Math.max(0, Math.min(window.innerHeight, this.cursorY));
+        }
+
+        // Update cursor DOM position
+        this.controllerCursor.style.left = (this.cursorX - 20) + 'px';
+        this.controllerCursor.style.top = (this.cursorY - 20) + 'px';
+
+        // Check if cursor is over clickable elements
+        const element = document.elementFromPoint(this.cursorX, this.cursorY);
+        if (element && (element.tagName === 'BUTTON' || element.tagName === 'INPUT' || element.classList.contains('key'))) {
+            element.classList.add('selected');
+
+            // A button to click on focused element
+            if (gamepad.buttons[0] && gamepad.buttons[0].pressed && !this.lastGamepadState.cursorClick) {
+                element.click();
+                this.vibrateController(80, 0.3);
+            }
+        }
+
+        // Store cursor click state
+        if (!this.lastGamepadState.cursorClick) {
+            this.lastGamepadState.cursorClick = false;
+        }
+        this.lastGamepadState.cursorClick = gamepad.buttons[0] && gamepad.buttons[0].pressed;
+    }
+
+    // Show virtual keyboard
+    showVirtualKeyboard(callback) {
+        this.keyboardCallback = callback;
+        document.getElementById('keyboard-input').value = '';
+        this.selectedKeyIndex = 0;
+        this.openModal('keyboard-modal');
+        this.highlightSelectedKey();
+    }
+
+    // Initialize virtual keyboard
+    initVirtualKeyboard() {
+        const keyboard = document.getElementById('virtual-keyboard');
+        const keys = [
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+            ['Space', 'Backspace']
+        ];
+
+        keyboard.innerHTML = '';
+        keys.forEach(row => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'keyboard-row';
+
+            row.forEach(key => {
+                const keyDiv = document.createElement('div');
+                keyDiv.className = 'key';
+                keyDiv.textContent = key;
+                keyDiv.dataset.key = key;
+
+                if (key === 'Space') keyDiv.classList.add('space');
+                if (key === 'Backspace') keyDiv.classList.add('backspace');
+
+                keyDiv.addEventListener('click', () => {
+                    this.handleVirtualKey(key);
+                });
+
+                rowDiv.appendChild(keyDiv);
+            });
+
+            keyboard.appendChild(rowDiv);
+        });
+
+        // Clear button
+        document.getElementById('keyboard-clear').addEventListener('click', () => {
+            document.getElementById('keyboard-input').value = '';
+        });
+
+        // Cancel button
+        document.getElementById('keyboard-cancel').addEventListener('click', () => {
+            this.closeModal('keyboard-modal');
+        });
+
+        // Submit button
+        document.getElementById('keyboard-submit').addEventListener('click', () => {
+            const value = document.getElementById('keyboard-input').value;
+            if (this.keyboardCallback) {
+                this.keyboardCallback(value);
+            }
+            this.closeModal('keyboard-modal');
+        });
+    }
+
+    handleVirtualKey(key) {
+        const input = document.getElementById('keyboard-input');
+
+        if (key === 'Backspace') {
+            input.value = input.value.slice(0, -1);
+        } else if (key === 'Space') {
+            input.value += ' ';
+        } else {
+            input.value += key;
+        }
+    }
+
+    highlightSelectedKey() {
+        const keys = document.querySelectorAll('.key');
+        keys.forEach((key, index) => {
+            if (index === this.selectedKeyIndex) {
+                key.classList.add('selected');
+            } else {
+                key.classList.remove('selected');
+            }
+        });
     }
 
     navigate(direction) {
@@ -599,11 +862,23 @@ class CoverFlow {
     }
 
     updateInfo() {
-        const album = this.filteredAlbums[this.currentIndex];
-        document.getElementById('album-title').textContent = album.title;
-        document.getElementById('album-artist').textContent = album.artist;
-        document.getElementById('album-year').textContent = album.year;
-        document.getElementById('album-genre').textContent = album.genre;
+        const item = this.filteredAlbums[this.currentIndex];
+        const isImage = item.type === 'image';
+
+        document.getElementById('album-title').textContent = item.title;
+
+        if (isImage) {
+            // For images, show category instead of artist
+            document.getElementById('album-artist').textContent = item.category || 'Image';
+            document.getElementById('album-year').textContent = item.year || '-';
+            document.getElementById('album-genre').textContent = item.tags || '-';
+        } else {
+            // For albums, show artist and genre
+            document.getElementById('album-artist').textContent = item.artist;
+            document.getElementById('album-year').textContent = item.year;
+            document.getElementById('album-genre').textContent = item.genre;
+        }
+
         document.getElementById('current-position').textContent = this.currentIndex + 1;
     }
 
@@ -649,17 +924,35 @@ class CoverFlow {
         document.getElementById('thumb-next').disabled = this.currentIndex === this.filteredAlbums.length - 1;
     }
 
+    handleSearch() {
+        const searchInput = document.getElementById('search-input');
+        this.filterAlbums(searchInput.value);
+    }
+
     filterAlbums(query) {
         const lowerQuery = query.toLowerCase().trim();
 
         if (!lowerQuery) {
             this.filteredAlbums = [...this.allAlbums];
         } else {
-            this.filteredAlbums = this.allAlbums.filter(album =>
-                album.title.toLowerCase().includes(lowerQuery) ||
-                album.artist.toLowerCase().includes(lowerQuery) ||
-                album.genre.toLowerCase().includes(lowerQuery)
-            );
+            this.filteredAlbums = this.allAlbums.filter(item => {
+                // Search in title (common to both)
+                if (item.title.toLowerCase().includes(lowerQuery)) return true;
+
+                // For albums, search in artist and genre
+                if (item.type === 'album' || !item.type) {
+                    if (item.artist && item.artist.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.genre && item.genre.toLowerCase().includes(lowerQuery)) return true;
+                }
+
+                // For images, search in category and tags
+                if (item.type === 'image') {
+                    if (item.category && item.category.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.tags && item.tags.toLowerCase().includes(lowerQuery)) return true;
+                }
+
+                return false;
+            });
         }
 
         this.clearScene();
@@ -802,9 +1095,20 @@ class CoverFlow {
                     e.preventDefault();
                     this.navigateRandom();
                     break;
+                case 'i':
+                case 'I':
+                    this.showInfoModal();
+                    break;
                 case 'f':
                 case 'F':
                     this.toggleFullscreen();
+                    break;
+                case 'k':
+                case 'K':
+                    this.showVirtualKeyboard((text) => {
+                        document.getElementById('search-input').value = text;
+                        this.handleSearch();
+                    });
                     break;
                 case '?':
                     this.openModal('shortcuts-modal');
@@ -845,7 +1149,13 @@ class CoverFlow {
             if (intersects.length > 0) {
                 const clickedCover = intersects[0].object;
                 if (clickedCover.userData.isCover) {
-                    this.navigateTo(clickedCover.userData.index);
+                    // If clicking the current center cover, show info modal
+                    if (clickedCover.userData.index === this.currentIndex) {
+                        this.showInfoModal();
+                    } else {
+                        // Otherwise navigate to that cover
+                        this.navigateTo(clickedCover.userData.index);
+                    }
                 }
             }
         });
@@ -1250,6 +1560,9 @@ class CoverFlow {
 
         // Poll gamepad input
         this.pollGamepad();
+
+        // Update controller cursor
+        this.updateControllerCursor();
 
         // Update cover positions
         this.updateCoverPositions(false);

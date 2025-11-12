@@ -1,18 +1,52 @@
 {
   "albums": [
     {
+      "type": "album",
       "title": "Custom Album 1",
       "artist": "Your Artist",
       "year": "2024",
       "genre": "Custom Genre",
-      "color": 16737894
+      "color": 16737894,
+      "description": "Optional description of the album",
+      "image": "path/to/cover.jpg"
     },
     {
+      "type": "album",
       "title": "Custom Album 2",
       "artist": "Another Artist",
       "year": "2024",
       "genre": "Rock",
-      "color": 5293188
+      "color": 5293188,
+      "description": "Another album description",
+      "video": "path/to/video.mp4"
+    },
+    {
+      "type": "image",
+      "title": "Beautiful Landscape",
+      "category": "Nature",
+      "year": "2024",
+      "tags": "landscape, mountains, sunset",
+      "color": 16744272,
+      "description": "A stunning mountain landscape at sunset",
+      "image": "path/to/photo.jpg"
+    },
+    {
+      "type": "image",
+      "title": "City Lights",
+      "category": "Urban",
+      "year": "2024",
+      "tags": "city, night, architecture",
+      "color": 5636095,
+      "description": "Downtown skyline illuminated at night",
+      "image": "https://images.unsplash.com/photo-1514565131-fce0801e5785"
+    },
+    {
+      "type": "album",
+      "title": "Minimal Album",
+      "artist": "Minimal Artist",
+      "year": "2024",
+      "genre": "Electronic",
+      "color": 3394815
     }
   ]
 }
