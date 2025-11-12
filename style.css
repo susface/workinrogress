@@ -123,6 +123,34 @@ body {
 #top-controls {
     display: flex;
     gap: 10px;
+    align-items: center;
+}
+
+#controller-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 14px;
+    opacity: 0.6;
+    transition: all 0.3s ease;
+}
+
+#controller-status.connected {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: rgba(76, 175, 80, 0.4);
+    opacity: 1;
+}
+
+#controller-status #controller-name {
+    font-size: 12px;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 #top-controls button {
@@ -380,6 +408,30 @@ body {
     color: #fff;
 }
 
+.setting-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 30px 0 20px 0;
+}
+
+.setting-section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.setting-info {
+    display: block;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 5px;
+    font-style: italic;
+}
+
 .btn {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -406,10 +458,24 @@ body {
 }
 
 /* Keyboard Shortcuts */
+.shortcut-section {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 20px 0 15px 0;
+    color: #fff;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shortcut-section:first-of-type {
+    margin-top: 0;
+}
+
 .shortcut-list {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    margin-bottom: 20px;
 }
 
 .shortcut-item {

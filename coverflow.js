@@ -1,4 +1,4 @@
-// Enhanced CoverFlow Implementation using Three.js
+// Enhanced CoverFlow with Controller Support and GPU Rendering
 class CoverFlow {
     constructor() {
         this.container = document.getElementById('coverflow-container');
@@ -11,24 +11,74 @@ class CoverFlow {
         this.isAnimating = false;
         this.autoRotateInterval = null;
 
+        // Gamepad/Controller support
+        this.gamepad = null;
+        this.gamepadIndex = -1;
+        this.lastGamepadState = {};
+        this.analogDeadzone = 0.2;
+        this.analogCooldown = 0;
+
+        // GPU and rendering features
+        this.gpuInfo = null;
+        this.composer = null;
+        this.bloomPass = null;
+        this.ssaoPass = null;
+
         // Settings with defaults
         this.settings = {
             animationSpeed: 0.1,
             coverSpacing: 2.5,
             sideAngle: Math.PI / 3,
             showReflections: true,
-            autoRotate: false
+            autoRotate: false,
+            // Hardware rendering settings
+            hardwareRendering: false,
+            glassEffect: false,
+            bloomEffect: false,
+            ssaoEffect: false,
+            bloomIntensity: 1.5,
+            // Controller settings
+            controllerSensitivity: 5,
+            controllerVibration: true
         };
 
         this.loadSettings();
         this.initAlbumData();
+        this.detectGPU();
         this.init();
         this.createCovers();
         this.createThumbnails();
         this.addEventListeners();
+        this.initGamepadSupport();
         this.animate();
         this.updateInfo();
         this.hideLoadingScreen();
+    }
+
+    detectGPU() {
+        const gl = document.createElement('canvas').getContext('webgl2') ||
+                   document.createElement('canvas').getContext('webgl');
+
+        if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+                const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+                const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                this.gpuInfo = {
+                    vendor: vendor,
+                    renderer: renderer,
+                    webgl2: !!document.createElement('canvas').getContext('webgl2')
+                };
+
+                // Update GPU info display
+                setTimeout(() => {
+                    const gpuInfoEl = document.getElementById('gpu-info');
+                    if (gpuInfoEl) {
+                        gpuInfoEl.textContent = `${renderer}`;
+                    }
+                }, 100);
+            }
+        }
     }
 
     loadSettings() {
@@ -43,7 +93,6 @@ class CoverFlow {
     }
 
     initAlbumData() {
-        // Enhanced album data with more information
         const albums = [
             { title: 'Midnight Dreams', artist: 'Luna Eclipse', year: '2023', genre: 'Electronic', color: 0xFF6B6B },
             { title: 'Ocean Waves', artist: 'Aqua Marina', year: '2022', genre: 'Ambient', color: 0x4ECDC4 },
@@ -72,7 +121,7 @@ class CoverFlow {
         // Scene setup
         this.scene = new THREE.Scene();
 
-        // Camera setup with better perspective
+        // Camera setup
         this.camera = new THREE.PerspectiveCamera(
             45,
             this.container.clientWidth / this.container.clientHeight,
@@ -82,34 +131,84 @@ class CoverFlow {
         this.camera.position.set(0, 0.5, 9);
         this.camera.lookAt(0, 0, 0);
 
-        // Renderer setup with better quality
+        // Renderer setup with GPU optimizations
         this.renderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: true,
-            powerPreference: 'high-performance'
+            powerPreference: 'high-performance',
+            stencil: true
         });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.setClearColor(0x000000, 0);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.2;
         this.container.appendChild(this.renderer.domElement);
 
-        // Enhanced lighting for better visuals
+        // Enhanced lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
 
         const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
         mainLight.position.set(5, 5, 5);
         mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
         this.scene.add(mainLight);
 
         const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
         fillLight.position.set(-5, 3, -5);
         this.scene.add(fillLight);
 
+        const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        rimLight.position.set(0, 2, -5);
+        this.scene.add(rimLight);
+
+        // Initialize post-processing if available
+        this.initPostProcessing();
+
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
+    }
+
+    initPostProcessing() {
+        if (typeof THREE.EffectComposer === 'undefined') {
+            console.warn('Post-processing not available');
+            return;
+        }
+
+        this.composer = new THREE.EffectComposer(this.renderer);
+        this.renderPass = new THREE.RenderPass(this.scene, this.camera);
+        this.composer.addPass(this.renderPass);
+
+        // Bloom effect
+        if (typeof THREE.UnrealBloomPass !== 'undefined') {
+            this.bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(this.container.clientWidth, this.container.clientHeight),
+                this.settings.bloomIntensity,
+                0.4,
+                0.85
+            );
+            this.bloomPass.enabled = this.settings.bloomEffect;
+            this.composer.addPass(this.bloomPass);
+        }
+
+        // SSAO effect
+        if (typeof THREE.SSAOPass !== 'undefined') {
+            this.ssaoPass = new THREE.SSAOPass(
+                this.scene,
+                this.camera,
+                this.container.clientWidth,
+                this.container.clientHeight
+            );
+            this.ssaoPass.kernelRadius = 16;
+            this.ssaoPass.minDistance = 0.005;
+            this.ssaoPass.maxDistance = 0.1;
+            this.ssaoPass.enabled = this.settings.ssaoEffect;
+            this.composer.addPass(this.ssaoPass);
+        }
     }
 
     createCovers() {
@@ -117,15 +216,28 @@ class CoverFlow {
         const coverHeight = 2;
 
         this.filteredAlbums.forEach((album, index) => {
-            // Create cover group (for cover + reflection)
             const coverGroup = new THREE.Group();
 
-            // Create cover geometry
             const geometry = new THREE.PlaneGeometry(coverWidth, coverHeight);
 
-            // Create material - support for images or colors
+            // Material selection based on settings
             let material;
-            if (album.image) {
+            if (this.settings.glassEffect && this.settings.hardwareRendering) {
+                // Glass material with refraction
+                material = new THREE.MeshPhysicalMaterial({
+                    color: album.color,
+                    metalness: 0.1,
+                    roughness: 0.1,
+                    transmission: 0.9,
+                    thickness: 0.5,
+                    envMapIntensity: 1.5,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.1,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.95
+                });
+            } else if (album.image) {
                 const texture = new THREE.TextureLoader().load(album.image);
                 material = new THREE.MeshPhongMaterial({
                     map: texture,
@@ -136,15 +248,18 @@ class CoverFlow {
                 material = new THREE.MeshPhongMaterial({
                     color: album.color,
                     side: THREE.DoubleSide,
-                    shininess: 80
+                    shininess: 80,
+                    emissive: album.color,
+                    emissiveIntensity: this.settings.bloomEffect ? 0.2 : 0
                 });
             }
 
             const cover = new THREE.Mesh(geometry, material);
             cover.castShadow = true;
+            cover.receiveShadow = true;
             cover.userData = { index, album, isCover: true };
 
-            // Add border/frame with subtle glow
+            // Border
             const borderGeometry = new THREE.EdgesGeometry(geometry);
             const borderMaterial = new THREE.LineBasicMaterial({
                 color: 0xffffff,
@@ -155,7 +270,7 @@ class CoverFlow {
 
             coverGroup.add(cover);
 
-            // Create reflection
+            // Reflection
             const reflectionMaterial = material.clone();
             reflectionMaterial.opacity = 0.3;
             reflectionMaterial.transparent = true;
@@ -170,7 +285,7 @@ class CoverFlow {
             this.reflections.push(reflection);
 
             this.scene.add(coverGroup);
-            this.covers.push(coverGroup.children[0]); // Store the actual cover, not the group
+            this.covers.push(coverGroup.children[0]);
         });
 
         this.updateCoverPositions(true);
@@ -190,21 +305,18 @@ class CoverFlow {
             let targetX, targetZ, targetRotY, targetScale, targetY;
 
             if (diff === 0) {
-                // Center cover - flat and prominent
                 targetX = 0;
                 targetY = 0;
                 targetZ = 0;
                 targetRotY = 0;
                 targetScale = 1.3;
             } else if (diff < 0) {
-                // Left side covers
                 targetX = diff * spacing - sideOffset;
                 targetY = -0.2 - Math.abs(diff) * 0.05;
                 targetZ = -depthOffset - Math.abs(diff) * 0.4;
                 targetRotY = sideAngle;
                 targetScale = Math.max(0.7, 1 - Math.abs(diff) * 0.1);
             } else {
-                // Right side covers
                 targetX = diff * spacing + sideOffset;
                 targetY = -0.2 - Math.abs(diff) * 0.05;
                 targetZ = -depthOffset - Math.abs(diff) * 0.4;
@@ -212,7 +324,6 @@ class CoverFlow {
                 targetScale = Math.max(0.7, 1 - Math.abs(diff) * 0.1);
             }
 
-            // Smooth animation with easing
             if (immediate) {
                 parent.position.x = targetX;
                 parent.position.y = targetY;
@@ -220,7 +331,6 @@ class CoverFlow {
                 parent.rotation.y = targetRotY;
                 parent.scale.set(targetScale, targetScale, 1);
             } else {
-                // Cubic easing for smoother motion
                 parent.position.x += (targetX - parent.position.x) * speed;
                 parent.position.y += (targetY - parent.position.y) * speed;
                 parent.position.z += (targetZ - parent.position.z) * speed;
@@ -231,18 +341,193 @@ class CoverFlow {
                 parent.scale.set(newScale, newScale, 1);
             }
 
-            // Update opacity based on distance from center
             const opacity = 1 - Math.min(Math.abs(diff) * 0.12, 0.6);
             cover.material.opacity = opacity;
             cover.material.transparent = true;
 
-            // Update reflection visibility
             const reflection = parent.children[1];
             if (reflection && reflection.userData.isReflection) {
                 reflection.visible = this.settings.showReflections;
                 reflection.material.opacity = opacity * 0.3;
             }
         });
+    }
+
+    // Controller/Gamepad Support
+    initGamepadSupport() {
+        window.addEventListener('gamepadconnected', (e) => {
+            this.onGamepadConnected(e.gamepad);
+        });
+
+        window.addEventListener('gamepaddisconnected', (e) => {
+            this.onGamepadDisconnected();
+        });
+
+        // Check for already connected gamepads
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        for (let i = 0; i < gamepads.length; i++) {
+            if (gamepads[i]) {
+                this.onGamepadConnected(gamepads[i]);
+                break;
+            }
+        }
+    }
+
+    onGamepadConnected(gamepad) {
+        this.gamepad = gamepad;
+        this.gamepadIndex = gamepad.index;
+
+        const statusEl = document.getElementById('controller-status');
+        const nameEl = document.getElementById('controller-name');
+
+        statusEl.classList.add('connected');
+        nameEl.textContent = gamepad.id.substring(0, 30);
+
+        console.log('Gamepad connected:', gamepad.id);
+
+        // Vibration feedback
+        if (this.settings.controllerVibration && gamepad.vibrationActuator) {
+            gamepad.vibrationActuator.playEffect('dual-rumble', {
+                startDelay: 0,
+                duration: 200,
+                weakMagnitude: 0.3,
+                strongMagnitude: 0.3
+            });
+        }
+    }
+
+    onGamepadDisconnected() {
+        this.gamepad = null;
+        this.gamepadIndex = -1;
+
+        const statusEl = document.getElementById('controller-status');
+        const nameEl = document.getElementById('controller-name');
+
+        statusEl.classList.remove('connected');
+        nameEl.textContent = 'No Controller';
+
+        console.log('Gamepad disconnected');
+    }
+
+    pollGamepad() {
+        if (this.gamepadIndex === -1) return;
+
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gamepad = gamepads[this.gamepadIndex];
+
+        if (!gamepad) {
+            this.onGamepadDisconnected();
+            return;
+        }
+
+        const sensitivity = this.settings.controllerSensitivity / 5;
+
+        // Analog stick navigation (left stick X-axis)
+        if (this.analogCooldown <= 0) {
+            const axisX = gamepad.axes[0];
+            if (Math.abs(axisX) > this.analogDeadzone) {
+                if (axisX < -this.analogDeadzone) {
+                    this.navigate(-1);
+                    this.vibrateController(50, 0.1);
+                    this.analogCooldown = 0.3 / sensitivity;
+                } else if (axisX > this.analogDeadzone) {
+                    this.navigate(1);
+                    this.vibrateController(50, 0.1);
+                    this.analogCooldown = 0.3 / sensitivity;
+                }
+            }
+        } else {
+            this.analogCooldown -= 0.016;
+        }
+
+        // D-Pad
+        if (gamepad.buttons[14] && gamepad.buttons[14].pressed && !this.lastGamepadState.dpadLeft) {
+            this.navigate(-1);
+            this.vibrateController(50, 0.2);
+        }
+        if (gamepad.buttons[15] && gamepad.buttons[15].pressed && !this.lastGamepadState.dpadRight) {
+            this.navigate(1);
+            this.vibrateController(50, 0.2);
+        }
+
+        // Shoulder buttons (fast navigation)
+        if (gamepad.buttons[4] && gamepad.buttons[4].pressed && !this.lastGamepadState.lb) {
+            this.navigate(-1);
+            this.vibrateController(80, 0.3);
+        }
+        if (gamepad.buttons[5] && gamepad.buttons[5].pressed && !this.lastGamepadState.rb) {
+            this.navigate(1);
+            this.vibrateController(80, 0.3);
+        }
+
+        // Triggers (jump to start/end)
+        if (gamepad.buttons[6] && gamepad.buttons[6].value > 0.5 && !this.lastGamepadState.lt) {
+            this.navigateToFirst();
+            this.vibrateController(150, 0.4);
+        }
+        if (gamepad.buttons[7] && gamepad.buttons[7].value > 0.5 && !this.lastGamepadState.rt) {
+            this.navigateToLast();
+            this.vibrateController(150, 0.4);
+        }
+
+        // Face buttons
+        if (gamepad.buttons[0] && gamepad.buttons[0].pressed && !this.lastGamepadState.a) {
+            // A/Cross - Confirm (currently just vibrate)
+            this.vibrateController(100, 0.2);
+        }
+        if (gamepad.buttons[1] && gamepad.buttons[1].pressed && !this.lastGamepadState.b) {
+            // B/Circle - Back/Close modals
+            this.closeAllModals();
+            this.vibrateController(100, 0.2);
+        }
+        if (gamepad.buttons[3] && gamepad.buttons[3].pressed && !this.lastGamepadState.y) {
+            // Y/Triangle - Random
+            this.navigateRandom();
+            this.vibrateController(150, 0.3);
+        }
+
+        // Start button - Settings
+        if (gamepad.buttons[9] && gamepad.buttons[9].pressed && !this.lastGamepadState.start) {
+            this.openModal('settings-modal');
+            this.vibrateController(100, 0.2);
+        }
+
+        // Select button - Fullscreen
+        if (gamepad.buttons[8] && gamepad.buttons[8].pressed && !this.lastGamepadState.select) {
+            this.toggleFullscreen();
+            this.vibrateController(100, 0.2);
+        }
+
+        // Store state for next frame
+        this.lastGamepadState = {
+            dpadLeft: gamepad.buttons[14] && gamepad.buttons[14].pressed,
+            dpadRight: gamepad.buttons[15] && gamepad.buttons[15].pressed,
+            lb: gamepad.buttons[4] && gamepad.buttons[4].pressed,
+            rb: gamepad.buttons[5] && gamepad.buttons[5].pressed,
+            lt: gamepad.buttons[6] && gamepad.buttons[6].value > 0.5,
+            rt: gamepad.buttons[7] && gamepad.buttons[7].value > 0.5,
+            a: gamepad.buttons[0] && gamepad.buttons[0].pressed,
+            b: gamepad.buttons[1] && gamepad.buttons[1].pressed,
+            y: gamepad.buttons[3] && gamepad.buttons[3].pressed,
+            start: gamepad.buttons[9] && gamepad.buttons[9].pressed,
+            select: gamepad.buttons[8] && gamepad.buttons[8].pressed
+        };
+    }
+
+    vibrateController(duration, intensity) {
+        if (!this.settings.controllerVibration) return;
+
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gamepad = gamepads[this.gamepadIndex];
+
+        if (gamepad && gamepad.vibrationActuator) {
+            gamepad.vibrationActuator.playEffect('dual-rumble', {
+                startDelay: 0,
+                duration: duration,
+                weakMagnitude: intensity,
+                strongMagnitude: intensity
+            });
+        }
     }
 
     navigate(direction) {
@@ -309,12 +594,9 @@ class CoverFlow {
             thumb.height = 60;
 
             const ctx = thumb.getContext('2d');
-
-            // Draw colored background
             ctx.fillStyle = '#' + album.color.toString(16).padStart(6, '0');
             ctx.fillRect(0, 0, 60, 60);
 
-            // Add subtle gradient
             const gradient = ctx.createLinearGradient(0, 0, 60, 60);
             gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
             gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
@@ -334,13 +616,11 @@ class CoverFlow {
             thumb.classList.toggle('active', index === this.currentIndex);
         });
 
-        // Scroll active thumbnail into view
         const activeThumb = thumbs[this.currentIndex];
         if (activeThumb) {
             activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         }
 
-        // Update navigation buttons
         document.getElementById('thumb-prev').disabled = this.currentIndex === 0;
         document.getElementById('thumb-next').disabled = this.currentIndex === this.filteredAlbums.length - 1;
     }
@@ -358,7 +638,6 @@ class CoverFlow {
             );
         }
 
-        // Rebuild the scene
         this.clearScene();
         this.currentIndex = 0;
         this.targetIndex = 0;
@@ -391,7 +670,7 @@ class CoverFlow {
             document.getElementById('total-albums').textContent = this.filteredAlbums.length;
         } catch (error) {
             console.error('Error loading JSON:', error);
-            alert('Failed to load albums from JSON file. Please check the format.');
+            alert('Failed to load albums from JSON file.');
         }
     }
 
@@ -423,10 +702,63 @@ class CoverFlow {
         }
     }
 
+    toggleHardwareRendering() {
+        this.settings.hardwareRendering = !this.settings.hardwareRendering;
+
+        // Rebuild covers with new materials
+        this.clearScene();
+        this.createCovers();
+        this.createThumbnails();
+        this.updateInfo();
+
+        this.saveSettings();
+    }
+
+    toggleGlassEffect() {
+        this.settings.glassEffect = !this.settings.glassEffect;
+
+        // Rebuild covers with new materials
+        this.clearScene();
+        this.createCovers();
+        this.createThumbnails();
+        this.updateInfo();
+
+        this.saveSettings();
+    }
+
+    toggleBloomEffect() {
+        this.settings.bloomEffect = !this.settings.bloomEffect;
+
+        if (this.bloomPass) {
+            this.bloomPass.enabled = this.settings.bloomEffect;
+        }
+
+        this.saveSettings();
+    }
+
+    toggleSSAOEffect() {
+        this.settings.ssaoEffect = !this.settings.ssaoEffect;
+
+        if (this.ssaoPass) {
+            this.ssaoPass.enabled = this.settings.ssaoEffect;
+        }
+
+        this.saveSettings();
+    }
+
+    updateBloomIntensity(value) {
+        this.settings.bloomIntensity = value;
+
+        if (this.bloomPass) {
+            this.bloomPass.strength = value;
+        }
+
+        this.saveSettings();
+    }
+
     addEventListeners() {
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
-            // Don't interfere when typing in search
             if (e.target.tagName === 'INPUT') return;
 
             switch(e.key) {
@@ -460,7 +792,6 @@ class CoverFlow {
                     }
                     break;
                 default:
-                    // Number keys 1-9 for percentage jumps
                     if (e.key >= '1' && e.key <= '9') {
                         const percent = parseInt(e.key) / 10;
                         const targetIndex = Math.floor((this.filteredAlbums.length - 1) * percent);
@@ -495,7 +826,7 @@ class CoverFlow {
             }
         });
 
-        // Touch support for mobile
+        // Touch support
         let touchStartX = 0;
         this.container.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
@@ -525,7 +856,7 @@ class CoverFlow {
             this.filterAlbums('');
         });
 
-        // Thumbnail navigation buttons
+        // Thumbnail navigation
         document.getElementById('thumb-prev').addEventListener('click', () => this.navigate(-1));
         document.getElementById('thumb-next').addEventListener('click', () => this.navigate(1));
 
@@ -539,7 +870,6 @@ class CoverFlow {
             btn.addEventListener('click', () => this.closeAllModals());
         });
 
-        // Click outside modal to close
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
@@ -548,11 +878,11 @@ class CoverFlow {
             });
         });
 
-        // Settings controls
         this.setupSettingsControls();
     }
 
     setupSettingsControls() {
+        // Basic settings
         const speedSlider = document.getElementById('animation-speed');
         const spacingSlider = document.getElementById('cover-spacing');
         const angleSlider = document.getElementById('side-angle');
@@ -594,13 +924,74 @@ class CoverFlow {
             }
         });
 
+        // Hardware rendering settings
+        const hardwareToggle = document.getElementById('hardware-rendering');
+        const glassToggle = document.getElementById('glass-effect');
+        const bloomToggle = document.getElementById('bloom-effect');
+        const ssaoToggle = document.getElementById('ssao-effect');
+        const bloomIntensity = document.getElementById('bloom-intensity');
+
+        hardwareToggle.checked = this.settings.hardwareRendering;
+        glassToggle.checked = this.settings.glassEffect;
+        bloomToggle.checked = this.settings.bloomEffect;
+        ssaoToggle.checked = this.settings.ssaoEffect;
+        bloomIntensity.value = this.settings.bloomIntensity * 10;
+
+        hardwareToggle.addEventListener('change', (e) => {
+            this.toggleHardwareRendering();
+        });
+
+        glassToggle.addEventListener('change', (e) => {
+            this.toggleGlassEffect();
+        });
+
+        bloomToggle.addEventListener('change', (e) => {
+            this.toggleBloomEffect();
+        });
+
+        ssaoToggle.addEventListener('change', (e) => {
+            this.toggleSSAOEffect();
+        });
+
+        bloomIntensity.addEventListener('input', (e) => {
+            const value = e.target.value / 10;
+            this.updateBloomIntensity(value);
+            document.getElementById('bloom-value').textContent = value.toFixed(1);
+        });
+
+        // Controller settings
+        const sensitivitySlider = document.getElementById('controller-sensitivity');
+        const vibrationToggle = document.getElementById('controller-vibration');
+
+        sensitivitySlider.value = this.settings.controllerSensitivity;
+        vibrationToggle.checked = this.settings.controllerVibration;
+
+        sensitivitySlider.addEventListener('input', (e) => {
+            this.settings.controllerSensitivity = parseInt(e.target.value);
+            document.getElementById('sensitivity-value').textContent = e.target.value;
+            this.saveSettings();
+        });
+
+        vibrationToggle.addEventListener('change', (e) => {
+            this.settings.controllerVibration = e.target.checked;
+            this.saveSettings();
+        });
+
+        // Reset settings
         document.getElementById('reset-settings').addEventListener('click', () => {
             this.settings = {
                 animationSpeed: 0.1,
                 coverSpacing: 2.5,
                 sideAngle: Math.PI / 3,
                 showReflections: true,
-                autoRotate: false
+                autoRotate: false,
+                hardwareRendering: false,
+                glassEffect: false,
+                bloomEffect: false,
+                ssaoEffect: false,
+                bloomIntensity: 1.5,
+                controllerSensitivity: 5,
+                controllerVibration: true
             };
             this.saveSettings();
             this.setupSettingsControls();
@@ -608,6 +999,11 @@ class CoverFlow {
                 clearInterval(this.autoRotateInterval);
                 this.autoRotateInterval = null;
             }
+            // Rebuild scene
+            this.clearScene();
+            this.createCovers();
+            this.createThumbnails();
+            this.updateInfo();
         });
 
         // JSON file loading
@@ -648,6 +1044,10 @@ class CoverFlow {
         this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+
+        if (this.composer) {
+            this.composer.setSize(this.container.clientWidth, this.container.clientHeight);
+        }
     }
 
     hideLoadingScreen() {
@@ -659,21 +1059,29 @@ class CoverFlow {
     animate() {
         requestAnimationFrame(() => this.animate());
 
-        // Update cover positions with smooth interpolation
+        // Poll gamepad input
+        this.pollGamepad();
+
+        // Update cover positions
         this.updateCoverPositions(false);
 
-        // Add subtle floating animation to center cover
+        // Floating animation for center cover
         const centerCover = this.covers[this.currentIndex];
         if (centerCover) {
             const baseY = centerCover.parent.position.y;
             centerCover.parent.position.y = baseY + Math.sin(Date.now() * 0.001) * 0.03;
         }
 
-        this.renderer.render(this.scene, this.camera);
+        // Render with post-processing if enabled, otherwise normal render
+        if (this.composer && (this.settings.bloomEffect || this.settings.ssaoEffect)) {
+            this.composer.render();
+        } else {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
 }
 
-// Initialize CoverFlow when DOM is loaded
+// Initialize
 window.addEventListener('DOMContentLoaded', () => {
     new CoverFlow();
 });

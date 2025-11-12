@@ -25,6 +25,15 @@ A feature-rich web-based recreation of the classic CoverFlow interface from Mac 
   - Mouse wheel to scroll through albums
 - **Touch Support**: Swipe left/right on mobile devices
 - **Thumbnail Navigation**: Bottom bar with clickable thumbnails
+- **🎮 Controller/Gamepad Support** (NEW!):
+  - Full Xbox, PlayStation, and generic gamepad support
+  - D-Pad & Analog stick navigation
+  - Face buttons (A/Cross, B/Circle, Y/Triangle)
+  - Shoulder buttons (LB/RB, L1/R1) for fast navigation
+  - Triggers (LT/RT, L2/R2) to jump to start/end
+  - Haptic feedback/vibration support
+  - Auto-detection with visual status indicator
+  - Adjustable sensitivity (1-10)
 
 ### Search & Filter
 - **Real-time Search**: Filter albums by title, artist, or genre
@@ -39,6 +48,26 @@ A feature-rich web-based recreation of the classic CoverFlow interface from Mac 
 - **Auto-Rotate**: Automatically cycle through albums every 5 seconds
 - **Persistent Settings**: All preferences saved to localStorage
 - **Reset to Defaults**: One-click restore of original settings
+
+###🎨 GPU/Hardware Rendering (NEW!)
+- **GPU Detection**: Automatic detection and display of graphics card info
+- **Hardware Acceleration**: Toggle GPU-accelerated rendering
+- **Glass Refraction Effect**: Realistic glass-like materials with:
+  - Physical-based rendering (PBR) using MeshPhysicalMaterial
+  - Transmission and thickness properties
+  - Clearcoat and roughness simulation
+  - True refraction and light transmission
+- **Bloom Glow Effect**: Soft, ethereal glow around covers
+  - Adjustable intensity (0-3.0)
+  - UnrealBloomPass post-processing
+  - Emissive properties on materials
+- **SSAO (Screen Space Ambient Occlusion)**: Enhanced depth and shadows
+  - Realistic contact shadows
+  - Improved depth perception
+  - Adjustable kernel radius
+- **Advanced Lighting**: 4-point lighting setup with rim lights
+- **Tone Mapping**: ACES Filmic tone mapping for cinematic look
+- **High-Quality Shadows**: 2048x2048 shadow maps with PCF soft shadows
 
 ### Data Management
 - **JSON Import**: Load your own album collections from JSON files
@@ -193,12 +222,34 @@ Works on all modern browsers with WebGL support:
 
 ```
 coverflow/
-├── index.html           # Main HTML structure
+├── index.html           # Main HTML structure with post-processing scripts
 ├── style.css            # All styles and animations
-├── coverflow.js         # Core CoverFlow logic (680 lines)
+├── coverflow.js         # Core CoverFlow logic (1088 lines)
 ├── albums-example.json  # Sample JSON template
 └── README.md           # This file
 ```
+
+## Controller Support
+
+### Connecting a Controller
+1. Connect your Xbox, PlayStation, or compatible USB/Bluetooth gamepad
+2. The controller status indicator in the top bar will turn green
+3. Controller name will be displayed
+4. You'll feel a welcome vibration (if enabled)
+
+### Controller Mapping
+- **D-Pad/Left Stick**: Navigate left/right through albums
+- **A Button/Cross (✕)**: Confirm selection
+- **B Button/Circle (○)**: Close modals/Go back
+- **Y Button/Triangle (△)**: Random album
+- **LB/RB or L1/R1**: Fast navigation (shoulder buttons)
+- **LT/RT or L2/R2**: Jump to first/last album (triggers)
+- **Start/Options**: Open settings
+- **Select/Share**: Toggle fullscreen
+
+### Controller Settings
+- **Sensitivity**: Adjust how responsive the analog stick is (1-10)
+- **Vibration**: Toggle haptic feedback on/off
 
 ## Performance Tips
 
@@ -207,23 +258,32 @@ coverflow/
 3. **Optimize images**: Use compressed JPG/PNG files
 4. **Reduce animation speed**: Lower values = better performance on slower devices
 5. **Disable reflections**: Turn off in settings if performance is an issue
+6. **GPU Effects**: Bloom and SSAO are GPU-intensive - disable on slower hardware
+7. **Glass Effect**: Most demanding feature - requires good GPU
 
 ## Features Comparison
 
-| Feature | Basic Version | Enhanced Version |
-|---------|--------------|------------------|
-| 3D Carousel | ✅ | ✅ |
-| Reflections | ❌ | ✅ |
-| Search/Filter | ❌ | ✅ |
-| Thumbnail Nav | ❌ | ✅ |
-| Settings Panel | ❌ | ✅ |
-| Fullscreen | ❌ | ✅ |
-| JSON Import | ❌ | ✅ |
-| Auto-Rotate | ❌ | ✅ |
-| Keyboard Shortcuts | Basic | 15+ shortcuts |
-| Albums | 12 | 16 |
-| Loading Screen | ❌ | ✅ |
-| Persistent Settings | ❌ | ✅ |
+| Feature | Basic Version | Enhanced V1 | Enhanced V2 (Current) |
+|---------|--------------|-------------|----------------------|
+| 3D Carousel | ✅ | ✅ | ✅ |
+| Reflections | ❌ | ✅ | ✅ |
+| Search/Filter | ❌ | ✅ | ✅ |
+| Thumbnail Nav | ❌ | ✅ | ✅ |
+| Settings Panel | ❌ | ✅ | ✅ (Expanded) |
+| Fullscreen | ❌ | ✅ | ✅ |
+| JSON Import | ❌ | ✅ | ✅ |
+| Auto-Rotate | ❌ | ✅ | ✅ |
+| Keyboard Shortcuts | Basic | 15+ | 15+ |
+| **Controller Support** | ❌ | ❌ | **✅** |
+| **GPU Detection** | ❌ | ❌ | **✅** |
+| **Glass Refraction** | ❌ | ❌ | **✅** |
+| **Bloom Effect** | ❌ | ❌ | **✅** |
+| **SSAO** | ❌ | ❌ | **✅** |
+| **Haptic Feedback** | ❌ | ❌ | **✅** |
+| Albums | 12 | 16 | 16 |
+| Loading Screen | ❌ | ✅ | ✅ |
+| Persistent Settings | ❌ | ✅ | ✅ |
+| Lines of Code | ~269 | ~680 | ~1088 |
 
 ## Advanced Customization
 
