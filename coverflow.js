@@ -204,17 +204,34 @@ class CoverFlow {
 
         // SSAO effect
         if (typeof THREE.SSAOPass !== 'undefined') {
-            this.ssaoPass = new THREE.SSAOPass(
-                this.scene,
-                this.camera,
-                this.container.clientWidth,
-                this.container.clientHeight
-            );
-            this.ssaoPass.kernelRadius = 16;
-            this.ssaoPass.minDistance = 0.005;
-            this.ssaoPass.maxDistance = 0.1;
-            this.ssaoPass.enabled = this.settings.ssaoEffect;
-            this.composer.addPass(this.ssaoPass);
+            try {
+                this.ssaoPass = new THREE.SSAOPass(
+                    this.scene,
+                    this.camera,
+                    this.container.clientWidth,
+                    this.container.clientHeight
+                );
+                this.ssaoPass.kernelRadius = 16;
+                this.ssaoPass.minDistance = 0.005;
+                this.ssaoPass.maxDistance = 0.1;
+                this.ssaoPass.enabled = this.settings.ssaoEffect;
+                this.composer.addPass(this.ssaoPass);
+            } catch (error) {
+                console.warn('SSAO effect not available:', error.message);
+                this.ssaoPass = null;
+                this.settings.ssaoEffect = false;
+                // Disable SSAO checkbox if it exists
+                const ssaoCheckbox = document.getElementById('ssao-effect');
+                if (ssaoCheckbox) {
+                    ssaoCheckbox.checked = false;
+                    ssaoCheckbox.disabled = true;
+                    const parent = ssaoCheckbox.closest('.setting-group');
+                    if (parent) {
+                        const info = parent.querySelector('.setting-info');
+                        if (info) info.textContent = 'Not available (missing dependencies)';
+                    }
+                }
+            }
         }
     }
 
