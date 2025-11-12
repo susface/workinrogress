@@ -455,8 +455,9 @@ class CoverFlow {
         const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
         const gamepad = gamepads[this.gamepadIndex];
 
+        // Just return if gamepad not found in this poll - don't disconnect
+        // The gamepaddisconnected event will handle actual disconnection
         if (!gamepad) {
-            this.onGamepadDisconnected();
             return;
         }
 
@@ -620,28 +621,42 @@ class CoverFlow {
             videoContainer.style.display = 'block';
         } else if (item.image) {
             // Show image
+            const imgWrapper = document.createElement('div');
+            imgWrapper.style.display = 'flex';
+            imgWrapper.style.flexDirection = 'column';
+            imgWrapper.style.gap = '10px';
+            imgWrapper.style.width = '100%';
+            imgWrapper.style.height = '100%';
+
             const img = document.createElement('img');
             img.src = item.image;
             img.alt = item.title;
             img.style.cursor = 'pointer';
+            img.style.flex = '1';
+            img.style.objectFit = 'cover';
+            img.style.width = '100%';
+            img.style.borderRadius = '5px';
 
             // Click to view full size in new tab
             img.addEventListener('click', () => {
                 window.open(item.image, '_blank');
             });
 
-            coverContainer.appendChild(img);
+            imgWrapper.appendChild(img);
 
             // Add click hint for images
             if (isImage) {
                 const hint = document.createElement('div');
                 hint.style.textAlign = 'center';
-                hint.style.marginTop = '10px';
                 hint.style.fontSize = '12px';
                 hint.style.color = '#888';
+                hint.style.padding = '5px';
+                hint.style.width = '100%';
                 hint.textContent = '(Click image to view full size)';
-                coverContainer.appendChild(hint);
+                imgWrapper.appendChild(hint);
             }
+
+            coverContainer.appendChild(imgWrapper);
         } else {
             // Show colored placeholder
             const placeholder = document.createElement('div');
