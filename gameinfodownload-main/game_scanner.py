@@ -127,11 +127,14 @@ class GameScanner:
 
 def main():
     """Main entry point for the application"""
-    scanner = GameScanner()
+    # Check for custom data directory from environment variable (for Electron)
+    data_dir = os.getenv('GAME_DATA_DIR', 'game_data')
+    scanner = GameScanner(data_dir=data_dir)
 
     print("=" * 60)
     print("Game Scanner - Multi-Platform Game Detector")
     print("=" * 60)
+    print(f"Data directory: {scanner.data_dir.absolute()}")
 
     # Scan for all games
     games = scanner.scan_all_games()
@@ -141,7 +144,7 @@ def main():
 
     print("\n" + "=" * 60)
     print("Scan complete! Game data has been saved.")
-    print(f"Data directory: {scanner.data_dir.absolute()}")
+    print(f"Total games: {sum(len(g) for g in games.values())}")
     print("=" * 60)
 
 
