@@ -52,11 +52,6 @@ class CoverFlow {
         this.isTabVisible = true;
         this.reconnectAttempts = 0;
 
-        // Virtual keyboard
-        this.virtualKeyboard = null;
-        this.keyboardCallback = null;
-        this.selectedKeyIndex = 0;
-
         // Settings with defaults
         this.settings = {
             animationSpeed: 0.1,
@@ -86,7 +81,6 @@ class CoverFlow {
         this.addEventListeners();
         this.initGamepadSupport();
         this.initControllerCursor();
-        this.initVirtualKeyboard();
         this.animate();
         this.updateInfo();
         this.hideLoadingScreen();
@@ -826,93 +820,6 @@ class CoverFlow {
         // Note: Element highlighting and clicking handled in pollGamepad to avoid conflicts
     }
 
-    // Show virtual keyboard
-    showVirtualKeyboard(callback) {
-        this.keyboardCallback = callback;
-        document.getElementById('keyboard-input').value = '';
-        this.selectedKeyIndex = 0;
-        this.openModal('keyboard-modal');
-        this.highlightSelectedKey();
-    }
-
-    // Initialize virtual keyboard
-    initVirtualKeyboard() {
-        const keyboard = document.getElementById('virtual-keyboard');
-        const keys = [
-            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-            ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
-            ['Space', 'Backspace']
-        ];
-
-        keyboard.innerHTML = '';
-        keys.forEach(row => {
-            const rowDiv = document.createElement('div');
-            rowDiv.className = 'keyboard-row';
-
-            row.forEach(key => {
-                const keyDiv = document.createElement('div');
-                keyDiv.className = 'key';
-                keyDiv.textContent = key;
-                keyDiv.dataset.key = key;
-
-                if (key === 'Space') keyDiv.classList.add('space');
-                if (key === 'Backspace') keyDiv.classList.add('backspace');
-
-                keyDiv.addEventListener('click', () => {
-                    this.handleVirtualKey(key);
-                });
-
-                rowDiv.appendChild(keyDiv);
-            });
-
-            keyboard.appendChild(rowDiv);
-        });
-
-        // Clear button
-        document.getElementById('keyboard-clear').addEventListener('click', () => {
-            document.getElementById('keyboard-input').value = '';
-        });
-
-        // Cancel button
-        document.getElementById('keyboard-cancel').addEventListener('click', () => {
-            this.closeModal('keyboard-modal');
-        });
-
-        // Submit button
-        document.getElementById('keyboard-submit').addEventListener('click', () => {
-            const value = document.getElementById('keyboard-input').value;
-            if (this.keyboardCallback) {
-                this.keyboardCallback(value);
-            }
-            this.closeModal('keyboard-modal');
-        });
-    }
-
-    handleVirtualKey(key) {
-        const input = document.getElementById('keyboard-input');
-
-        if (key === 'Backspace') {
-            input.value = input.value.slice(0, -1);
-        } else if (key === 'Space') {
-            input.value += ' ';
-        } else {
-            input.value += key;
-        }
-    }
-
-    highlightSelectedKey() {
-        const keys = document.querySelectorAll('.key');
-        keys.forEach((key, index) => {
-            if (index === this.selectedKeyIndex) {
-                key.classList.add('selected');
-            } else {
-                key.classList.remove('selected');
-            }
-        });
-    }
-
     navigate(direction) {
         if (this.isAnimating) return;
 
@@ -1198,13 +1105,6 @@ class CoverFlow {
                 case 'f':
                 case 'F':
                     this.toggleFullscreen();
-                    break;
-                case 'k':
-                case 'K':
-                    this.showVirtualKeyboard((text) => {
-                        document.getElementById('search-input').value = text;
-                        this.handleSearch();
-                    });
                     break;
                 case '?':
                     this.openModal('shortcuts-modal');
