@@ -257,8 +257,14 @@ class CoverFlow {
         this.filteredAlbums = [];
         document.getElementById('total-albums').textContent = this.filteredAlbums.length;
 
-        // Try to load games from JSON file
-        this.loadGamesFromJSON();
+        // Load games from database (Electron) or JSON file (browser)
+        if (this.isElectron) {
+            // In Electron mode, load from database which has correct paths
+            this.reloadGamesFromServer();
+        } else {
+            // In browser mode, load from JSON file
+            this.loadGamesFromJSON();
+        }
     }
 
     async loadGamesFromJSON(filepath = 'gameinfodownload-main/game_data/games_export.json') {
@@ -1322,7 +1328,19 @@ class CoverFlow {
 
     updateInfo() {
         const item = this.filteredAlbums[this.currentIndex];
+
+        // Handle empty library
+        if (!item) {
+            document.getElementById('album-title').textContent = 'No Items';
+            document.getElementById('album-artist').textContent = 'Library is empty';
+            document.getElementById('album-year').textContent = '';
+            document.getElementById('album-genre').textContent = '';
+            document.getElementById('current-position').textContent = '0';
+            return;
+        }
+
         const isImage = item.type === 'image';
+        const isGame = item.type === 'game';
 
         document.getElementById('album-title').textContent = item.title;
 
@@ -1331,11 +1349,16 @@ class CoverFlow {
             document.getElementById('album-artist').textContent = item.category || 'Image';
             document.getElementById('album-year').textContent = item.year || '-';
             document.getElementById('album-genre').textContent = item.tags || '-';
+        } else if (isGame) {
+            // For games, show developer
+            document.getElementById('album-artist').textContent = item.developer || 'Unknown';
+            document.getElementById('album-year').textContent = item.year || '-';
+            document.getElementById('album-genre').textContent = item.genre || '-';
         } else {
             // For albums, show artist and genre
-            document.getElementById('album-artist').textContent = item.artist;
-            document.getElementById('album-year').textContent = item.year;
-            document.getElementById('album-genre').textContent = item.genre;
+            document.getElementById('album-artist').textContent = item.artist || 'Unknown';
+            document.getElementById('album-year').textContent = item.year || '-';
+            document.getElementById('album-genre').textContent = item.genre || '-';
         }
 
         document.getElementById('current-position').textContent = this.currentIndex + 1;
