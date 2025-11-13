@@ -59,6 +59,8 @@ class CoverFlow {
             sideAngle: Math.PI / 3,
             showReflections: true,
             autoRotate: false,
+            // Appearance
+            backgroundColor: '#000000',
             // Hardware rendering settings
             hardwareRendering: false,
             glassEffect: false,
@@ -344,6 +346,10 @@ class CoverFlow {
         // Scene setup
         this.scene = new THREE.Scene();
 
+        // Set background color from settings
+        const bgColor = new THREE.Color(this.settings.backgroundColor);
+        this.scene.background = bgColor;
+
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
             45,
@@ -357,13 +363,12 @@ class CoverFlow {
         // Renderer setup with GPU optimizations
         this.renderer = new THREE.WebGLRenderer({
             antialias: true,
-            alpha: true,
+            alpha: false,
             powerPreference: 'high-performance',
             stencil: true
         });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.setClearColor(0x000000, 0);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1648,6 +1653,16 @@ class CoverFlow {
         this.saveSettings();
     }
 
+    updateBackgroundColor(color) {
+        this.settings.backgroundColor = color;
+
+        if (this.scene) {
+            this.scene.background = new THREE.Color(color);
+        }
+
+        this.saveSettings();
+    }
+
     addEventListeners() {
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -1819,12 +1834,14 @@ class CoverFlow {
         const angleSlider = document.getElementById('side-angle');
         const reflectionToggle = document.getElementById('reflection-toggle');
         const autoRotateToggle = document.getElementById('auto-rotate');
+        const backgroundColorPicker = document.getElementById('background-color');
 
         speedSlider.value = this.settings.animationSpeed * 100;
         spacingSlider.value = this.settings.coverSpacing * 10;
         angleSlider.value = (this.settings.sideAngle * 180 / Math.PI);
         reflectionToggle.checked = this.settings.showReflections;
         autoRotateToggle.checked = this.settings.autoRotate;
+        backgroundColorPicker.value = this.settings.backgroundColor;
 
         speedSlider.addEventListener('input', (e) => {
             this.settings.animationSpeed = e.target.value / 100;
@@ -1853,6 +1870,10 @@ class CoverFlow {
             if (e.target.checked !== this.settings.autoRotate) {
                 this.toggleAutoRotate();
             }
+        });
+
+        backgroundColorPicker.addEventListener('input', (e) => {
+            this.updateBackgroundColor(e.target.value);
         });
 
         // Hardware rendering settings

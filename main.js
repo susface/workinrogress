@@ -1,10 +1,14 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification, Tray, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const Database = require('better-sqlite3');
 
+// Windows-specific features flag
+const isWindows = process.platform === 'win32';
+
 let mainWindow;
+let tray = null;
 let scanningProcess = null;
 let scanStatus = {
     scanning: false,
@@ -98,6 +102,22 @@ function createWindow() {
         mainWindow.webContents.openDevTools();
     }
 
+    // Windows: Minimize to tray instead of closing
+    if (isWindows) {
+        mainWindow.on('minimize', (event) => {
+            event.preventDefault();
+            mainWindow.hide();
+        });
+
+        mainWindow.on('close', (event) => {
+            if (!app.isQuitting) {
+                event.preventDefault();
+                mainWindow.hide();
+                return false;
+            }
+        });
+    }
+
     mainWindow.on('closed', () => {
         mainWindow = null;
         if (scanningProcess) {
@@ -106,9 +126,62 @@ function createWindow() {
     });
 }
 
+function createTray() {
+    // Create system tray icon (Windows)
+    if (isWindows) {
+        const iconPath = path.join(__dirname, 'icon.png');
+        tray = new Tray(iconPath);
+
+        const contextMenu = Menu.buildFromTemplate([
+            {
+                label: 'Show CoverFlow Launcher',
+                click: () => {
+                    if (mainWindow) {
+                        mainWindow.show();
+                        mainWindow.focus();
+                    }
+                }
+            },
+            {
+                label: 'Scan for Games',
+                click: () => {
+                    if (mainWindow) {
+                        mainWindow.show();
+                        mainWindow.focus();
+                        mainWindow.webContents.send('open-settings');
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: 'Quit',
+                click: () => {
+                    app.isQuitting = true;
+                    app.quit();
+                }
+            }
+        ]);
+
+        tray.setToolTip('CoverFlow Game Launcher');
+        tray.setContextMenu(contextMenu);
+
+        tray.on('click', () => {
+            if (mainWindow) {
+                if (mainWindow.isVisible()) {
+                    mainWindow.hide();
+                } else {
+                    mainWindow.show();
+                    mainWindow.focus();
+                }
+            }
+        });
+    }
+}
+
 app.whenReady().then(() => {
     ensureDirectories();
     createWindow();
+    createTray();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
@@ -226,6 +299,11 @@ ipcMain.handle('start-scan', async () => {
         error: null
     };
 
+    // Set taskbar progress to indeterminate (Windows)
+    if (isWindows && mainWindow) {
+        mainWindow.setProgressBar(2); // 2 = indeterminate mode
+    }
+
     // Find Python executable
     const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
     const scannerPath = path.join(appPath, 'gameinfodownload-main', 'game_scanner.py');
@@ -260,9 +338,21 @@ ipcMain.handle('start-scan', async () => {
 
             // Parse output for progress updates
             if (output.includes('Scanning')) {
-                if (output.includes('STEAM')) scanStatus.current_platform = 'steam';
-                else if (output.includes('EPIC')) scanStatus.current_platform = 'epic';
-                else if (output.includes('XBOX')) scanStatus.current_platform = 'xbox';
+                if (output.includes('STEAM')) {
+                    scanStatus.current_platform = 'steam';
+                    scanStatus.progress = 0.33; // 33% when starting Steam
+                } else if (output.includes('EPIC')) {
+                    scanStatus.current_platform = 'epic';
+                    scanStatus.progress = 0.66; // 66% when starting Epic
+                } else if (output.includes('XBOX')) {
+                    scanStatus.current_platform = 'xbox';
+                    scanStatus.progress = 0.90; // 90% when starting Xbox
+                }
+
+                // Update taskbar progress (Windows)
+                if (isWindows && mainWindow) {
+                    mainWindow.setProgressBar(scanStatus.progress);
+                }
 
                 scanStatus.message = output.trim();
                 mainWindow?.webContents.send('scan-progress', scanStatus);
@@ -286,17 +376,51 @@ ipcMain.handle('start-scan', async () => {
             scanStatus.scanning = false;
             scanStatus.progress = 100;
 
+            // Clear taskbar progress (Windows)
+            if (isWindows && mainWindow) {
+                mainWindow.setProgressBar(-1);
+            }
+
             if (code === 0) {
                 // Load games into database
                 loadGamesFromJSON().then(count => {
                     scanStatus.total_games = count;
                     scanStatus.message = `Scan complete! Found ${count} games`;
                     mainWindow?.webContents.send('scan-complete', scanStatus);
+
+                    // Windows notification
+                    if (isWindows && Notification.isSupported()) {
+                        const notification = new Notification({
+                            title: 'Game Scan Complete',
+                            body: `Found ${count} games across all platforms`,
+                            icon: path.join(__dirname, 'icon.png')
+                        });
+                        notification.show();
+                    }
+
+                    // Flash taskbar to get attention (Windows)
+                    if (isWindows && mainWindow && !mainWindow.isFocused()) {
+                        mainWindow.flashFrame(true);
+                        mainWindow.once('focus', () => {
+                            mainWindow.flashFrame(false);
+                        });
+                    }
+
                     resolve({ success: true, message: scanStatus.message });
                 });
             } else {
                 scanStatus.error = `Scanner exited with code ${code}`;
                 scanStatus.message = 'Scan failed';
+
+                // Windows error notification
+                if (isWindows && Notification.isSupported()) {
+                    const notification = new Notification({
+                        title: 'Game Scan Failed',
+                        body: scanStatus.error,
+                        icon: path.join(__dirname, 'icon.png')
+                    });
+                    notification.show();
+                }
                 mainWindow?.webContents.send('scan-complete', scanStatus);
                 resolve({ success: false, error: scanStatus.error });
             }
