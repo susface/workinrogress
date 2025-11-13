@@ -118,6 +118,19 @@ Make sure Python is in your PATH:
 python --version  # or python3 --version
 ```
 
+### "better-sqlite3 module error" or "NODE_MODULE_VERSION" error
+This happens when native modules aren't built for your Electron version:
+```bash
+npm rebuild better-sqlite3
+```
+
+If that doesn't work:
+```bash
+# Clean and reinstall everything
+rm -rf node_modules package-lock.json
+npm install
+```
+
 ### Games not scanning
 1. Check Python dependencies:
 ```bash
