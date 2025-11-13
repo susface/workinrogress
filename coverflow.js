@@ -474,14 +474,64 @@ class CoverFlow {
                     opacity: 0.95
                 });
             } else if (album.image) {
+                // For local file paths, ensure proper encoding
+                let imageSrc = album.image;
+                if (imageSrc && imageSrc.includes(':/') && !imageSrc.startsWith('http')) {
+                    // Local file path - ensure file:// protocol and proper encoding
+                    if (!imageSrc.startsWith('file://')) {
+                        imageSrc = 'file:///' + imageSrc;
+                    }
+                    // Encode special characters but preserve path separators
+                    imageSrc = imageSrc.replace(/\\/g, '/').split('/').map((part, index) => {
+                        // Don't encode the protocol part
+                        if (index < 3) return part;
+                        return encodeURIComponent(part);
+                    }).join('/');
+                }
+
                 const texture = new THREE.TextureLoader().load(
-                    album.image,
+                    imageSrc,
                     undefined, // onLoad
                     undefined, // onProgress
                     (error) => { // onError
-                        console.warn('Failed to load texture:', album.image, error);
+                        console.warn('Failed to load texture:', imageSrc, error);
                     }
                 );
+                material = new THREE.MeshPhongMaterial({
+                    map: texture,
+                    side: THREE.DoubleSide,
+                    shininess: 80
+                });
+            } else if (album.video) {
+                // Video placeholder with play icon
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+
+                // Gradient background
+                const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+                gradient.addColorStop(0, '#8B4789');
+                gradient.addColorStop(1, '#5A2D58');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 512, 512);
+
+                // Play icon
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.moveTo(180, 150);
+                ctx.lineTo(180, 362);
+                ctx.lineTo(350, 256);
+                ctx.closePath();
+                ctx.fill();
+
+                // "VIDEO" text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = 'bold 36px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('VIDEO', 256, 420);
+
+                const texture = new THREE.CanvasTexture(canvas);
                 material = new THREE.MeshPhongMaterial({
                     map: texture,
                     side: THREE.DoubleSide,
@@ -1615,8 +1665,8 @@ class CoverFlow {
 
         // Mouse click on covers
         this.container.addEventListener('click', (e) => {
-            const mouse = new THREE.Vector2();
             const rect = this.container.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
             mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -1640,8 +1690,8 @@ class CoverFlow {
 
         // Double-click to launch game
         this.container.addEventListener('dblclick', (e) => {
-            const mouse = new THREE.Vector2();
             const rect = this.container.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
             mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
