@@ -12,6 +12,12 @@ from typing import List, Dict, Optional
 import platform
 import xml.etree.ElementTree as ET
 
+try:
+    from .icon_extractor import extract_game_icon
+    ICON_EXTRACTOR_AVAILABLE = True
+except ImportError:
+    ICON_EXTRACTOR_AVAILABLE = False
+
 
 class XboxScanner:
     """Scanner for Xbox Store and Game Pass games"""
@@ -338,6 +344,21 @@ class XboxScanner:
             # Fallback to local logo
             if not icon_path and manifest_info.get('logo_path'):
                 icon_path = self._copy_local_icon(manifest_info['logo_path'], display_name)
+
+            # Fallback to Windows icon extraction if all else fails
+            if not icon_path and not boxart_path and ICON_EXTRACTOR_AVAILABLE:
+                install_dir = game_info.get('install_directory', '')
+                if install_dir and os.path.exists(install_dir):
+                    print(f"  Extracting icon from executable for: {display_name}")
+                    safe_name = re.sub(r'[<>:"/\\|?*]', '_', display_name)
+                    exe_icon_filename = f"xbox_{safe_name}_exe.png"
+                    exe_icon_path = self.icons_dir / exe_icon_filename
+
+                    extracted_path = extract_game_icon(install_dir, display_name, str(exe_icon_path))
+                    if extracted_path:
+                        icon_path = f"game_data/icons/{exe_icon_filename}"
+                        boxart_path = icon_path
+                        print(f"  ✓ Extracted icon from game executable")
 
             game_info['icon_path'] = icon_path
             game_info['boxart_path'] = boxart_path

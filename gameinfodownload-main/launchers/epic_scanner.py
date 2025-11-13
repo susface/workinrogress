@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import List, Dict, Optional
 import platform
 
+try:
+    from .icon_extractor import extract_game_icon
+    ICON_EXTRACTOR_AVAILABLE = True
+except ImportError:
+    ICON_EXTRACTOR_AVAILABLE = False
+
 
 class EpicScanner:
     """Scanner for Epic Games Launcher games"""
@@ -262,16 +268,47 @@ class EpicScanner:
 
                     # Download images
                     print(f"  Downloading assets for: {display_name}")
+                    icon_path = None
+                    boxart_path = None
+
                     if metadata.get('icon_url'):
                         icon_path = self._download_epic_image(metadata['icon_url'], display_name, 'icon')
-                        game_info['icon_path'] = icon_path
 
                     if metadata.get('boxart_url'):
                         boxart_path = self._download_epic_image(metadata['boxart_url'], display_name, 'boxart')
-                        game_info['boxart_path'] = boxart_path
+
+                    # Fallback to Windows icon extraction if downloads failed
+                    if not icon_path and not boxart_path and ICON_EXTRACTOR_AVAILABLE:
+                        if install_location and os.path.exists(install_location):
+                            print(f"  Extracting icon from executable for: {display_name}")
+                            safe_name = re.sub(r'[<>:"/\\|?*]', '_', display_name)
+                            exe_icon_filename = f"epic_{safe_name}_exe.png"
+                            exe_icon_path = self.icons_dir / exe_icon_filename
+
+                            extracted_path = extract_game_icon(install_location, display_name, str(exe_icon_path))
+                            if extracted_path:
+                                icon_path = f"game_data/icons/{exe_icon_filename}"
+                                boxart_path = icon_path
+                                print(f"  ✓ Extracted icon from game executable")
+
+                    game_info['icon_path'] = icon_path
+                    game_info['boxart_path'] = boxart_path
                 else:
                     game_info['icon_path'] = None
                     game_info['boxart_path'] = None
+
+                    # Try Windows icon extraction even if metadata not available
+                    if ICON_EXTRACTOR_AVAILABLE and install_location and os.path.exists(install_location):
+                        print(f"  Extracting icon from executable for: {display_name}")
+                        safe_name = re.sub(r'[<>:"/\\|?*]', '_', display_name)
+                        exe_icon_filename = f"epic_{safe_name}_exe.png"
+                        exe_icon_path = self.icons_dir / exe_icon_filename
+
+                        extracted_path = extract_game_icon(install_location, display_name, str(exe_icon_path))
+                        if extracted_path:
+                            game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
+                            game_info['boxart_path'] = game_info['icon_path']
+                            print(f"  ✓ Extracted icon from game executable")
 
                 games.append(game_info)
 
@@ -282,17 +319,32 @@ class EpicScanner:
                 app_name = install.get('AppName', '')
                 display_name = install.get('InstallLocation', '').split(os.sep)[-1]
 
+                install_dir = install.get('InstallLocation', '')
+
                 game_info = {
                     'platform': 'epic',
                     'app_name': app_name,
                     'title': display_name or app_name,
-                    'install_directory': install.get('InstallLocation', ''),
+                    'install_directory': install_dir,
                     'launch_command': f"com.epicgames.launcher://apps/{app_name}?action=launch&silent=true",
                     'namespace': install.get('NamespaceId', ''),
                     'icon_path': None,
                     'boxart_path': None,
                     'description': ''
                 }
+
+                # Try Windows icon extraction
+                if ICON_EXTRACTOR_AVAILABLE and install_dir and os.path.exists(install_dir):
+                    print(f"  Extracting icon from executable for: {display_name or app_name}")
+                    safe_name = re.sub(r'[<>:"/\\|?*]', '_', display_name or app_name)
+                    exe_icon_filename = f"epic_{safe_name}_exe.png"
+                    exe_icon_path = self.icons_dir / exe_icon_filename
+
+                    extracted_path = extract_game_icon(install_dir, display_name or app_name, str(exe_icon_path))
+                    if extracted_path:
+                        game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
+                        game_info['boxart_path'] = game_info['icon_path']
+                        print(f"  ✓ Extracted icon from game executable")
 
                 games.append(game_info)
 
