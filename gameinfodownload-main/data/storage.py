@@ -57,6 +57,13 @@ class GameDatabase:
                 metadata TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_favorite INTEGER DEFAULT 0,
+                is_hidden INTEGER DEFAULT 0,
+                launch_count INTEGER DEFAULT 0,
+                last_played TIMESTAMP,
+                total_play_time INTEGER DEFAULT 0,
+                user_rating INTEGER,
+                user_notes TEXT,
                 UNIQUE(platform, title)
             )
         ''')
@@ -68,6 +75,30 @@ class GameDatabase:
 
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_title ON games(title)
+        ''')
+
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_last_played ON games(last_played)
+        ''')
+
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_is_favorite ON games(is_favorite)
+        ''')
+
+        # Create game sessions table for detailed play time tracking
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS game_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                start_time TIMESTAMP NOT NULL,
+                end_time TIMESTAMP,
+                duration INTEGER,
+                FOREIGN KEY (game_id) REFERENCES games(id)
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id)
         ''')
 
         self.conn.commit()
@@ -263,3 +294,260 @@ class GameDatabase:
     def __del__(self):
         """Destructor to ensure connection is closed"""
         self.close()
+
+    # Play time tracking methods
+
+    def start_game_session(self, game_id: int) -> int:
+        """Start a new game session"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO game_sessions (game_id, start_time)
+            VALUES (?, CURRENT_TIMESTAMP)
+        ''', (game_id,))
+
+        # Update launch count and last played
+        cursor.execute('''
+            UPDATE games
+            SET launch_count = launch_count + 1,
+                last_played = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (game_id,))
+
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def end_game_session(self, session_id: int):
+        """End a game session and calculate duration"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            UPDATE game_sessions
+            SET end_time = CURRENT_TIMESTAMP,
+                duration = (julianday(CURRENT_TIMESTAMP) - julianday(start_time)) * 86400
+            WHERE id = ?
+        ''', (session_id,))
+
+        # Get the duration and game_id
+        cursor.execute('''
+            SELECT game_id, duration FROM game_sessions WHERE id = ?
+        ''', (session_id,))
+        result = cursor.fetchone()
+
+        if result:
+            game_id = result['game_id']
+            duration = result['duration']
+
+            # Update total play time
+            cursor.execute('''
+                UPDATE games
+                SET total_play_time = total_play_time + ?
+                WHERE id = ?
+            ''', (int(duration), game_id))
+
+        self.conn.commit()
+
+    def get_play_time(self, game_id: int) -> Dict:
+        """Get play time statistics for a game"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT
+                total_play_time,
+                launch_count,
+                last_played,
+                (SELECT COUNT(*) FROM game_sessions WHERE game_id = ?) as session_count
+            FROM games
+            WHERE id = ?
+        ''', (game_id, game_id))
+
+        result = cursor.fetchone()
+        if result:
+            return {
+                'total_play_time': result['total_play_time'],
+                'launch_count': result['launch_count'],
+                'last_played': result['last_played'],
+                'session_count': result['session_count'],
+                'average_session_time': result['total_play_time'] / max(result['session_count'], 1)
+            }
+        return {}
+
+    # Favorites and hidden games methods
+
+    def toggle_favorite(self, game_id: int) -> bool:
+        """Toggle favorite status of a game"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT is_favorite FROM games WHERE id = ?', (game_id,))
+        result = cursor.fetchone()
+
+        if result:
+            new_status = 0 if result['is_favorite'] else 1
+            cursor.execute('UPDATE games SET is_favorite = ? WHERE id = ?', (new_status, game_id))
+            self.conn.commit()
+            return bool(new_status)
+        return False
+
+    def set_favorite(self, game_id: int, is_favorite: bool):
+        """Set favorite status of a game"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE games SET is_favorite = ? WHERE id = ?', (1 if is_favorite else 0, game_id))
+        self.conn.commit()
+
+    def toggle_hidden(self, game_id: int) -> bool:
+        """Toggle hidden status of a game"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT is_hidden FROM games WHERE id = ?', (game_id,))
+        result = cursor.fetchone()
+
+        if result:
+            new_status = 0 if result['is_hidden'] else 1
+            cursor.execute('UPDATE games SET is_hidden = ? WHERE id = ?', (new_status, game_id))
+            self.conn.commit()
+            return bool(new_status)
+        return False
+
+    def set_hidden(self, game_id: int, is_hidden: bool):
+        """Set hidden status of a game"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE games SET is_hidden = ? WHERE id = ?', (1 if is_hidden else 0, game_id))
+        self.conn.commit()
+
+    def get_favorites(self) -> List[Dict]:
+        """Get all favorite games"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM games WHERE is_favorite = 1 ORDER BY title')
+        rows = cursor.fetchall()
+        return [self._row_to_dict(row) for row in rows]
+
+    def get_hidden_games(self) -> List[Dict]:
+        """Get all hidden games"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM games WHERE is_hidden = 1 ORDER BY title')
+        rows = cursor.fetchall()
+        return [self._row_to_dict(row) for row in rows]
+
+    # User ratings and notes
+
+    def set_rating(self, game_id: int, rating: int):
+        """Set user rating for a game (1-5 stars)"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE games SET user_rating = ? WHERE id = ?', (rating, game_id))
+        self.conn.commit()
+
+    def set_notes(self, game_id: int, notes: str):
+        """Set user notes for a game"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE games SET user_notes = ? WHERE id = ?', (notes, game_id))
+        self.conn.commit()
+
+    # Recently played and sorting methods
+
+    def get_recently_played(self, limit: int = 10) -> List[Dict]:
+        """Get recently played games"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM games
+            WHERE last_played IS NOT NULL AND is_hidden = 0
+            ORDER BY last_played DESC
+            LIMIT ?
+        ''', (limit,))
+        rows = cursor.fetchall()
+        return [self._row_to_dict(row) for row in rows]
+
+    def get_most_played(self, limit: int = 10) -> List[Dict]:
+        """Get most played games by total play time"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM games
+            WHERE total_play_time > 0 AND is_hidden = 0
+            ORDER BY total_play_time DESC
+            LIMIT ?
+        ''', (limit,))
+        rows = cursor.fetchall()
+        return [self._row_to_dict(row) for row in rows]
+
+    def get_recently_added(self, limit: int = 10) -> List[Dict]:
+        """Get recently added games"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM games
+            WHERE is_hidden = 0
+            ORDER BY created_at DESC
+            LIMIT ?
+        ''', (limit,))
+        rows = cursor.fetchall()
+        return [self._row_to_dict(row) for row in rows]
+
+    # Duplicate detection
+
+    def find_duplicates(self) -> List[Dict]:
+        """Find duplicate games across platforms"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT title, COUNT(*) as count, GROUP_CONCAT(platform) as platforms, GROUP_CONCAT(id) as game_ids
+            FROM games
+            GROUP BY LOWER(TRIM(title))
+            HAVING count > 1
+            ORDER BY count DESC, title
+        ''')
+
+        rows = cursor.fetchall()
+        duplicates = []
+
+        for row in rows:
+            duplicates.append({
+                'title': row['title'],
+                'count': row['count'],
+                'platforms': row['platforms'].split(',') if row['platforms'] else [],
+                'game_ids': [int(x) for x in row['game_ids'].split(',') if x]
+            })
+
+        return duplicates
+
+    # Advanced filtering
+
+    def filter_games(self,
+                      platform: Optional[str] = None,
+                      genre: Optional[str] = None,
+                      search_query: Optional[str] = None,
+                      show_hidden: bool = False,
+                      favorites_only: bool = False,
+                      sort_by: str = 'title',
+                      sort_order: str = 'ASC') -> List[Dict]:
+        """Advanced game filtering"""
+        cursor = self.conn.cursor()
+
+        query = 'SELECT * FROM games WHERE 1=1'
+        params = []
+
+        if not show_hidden:
+            query += ' AND is_hidden = 0'
+
+        if favorites_only:
+            query += ' AND is_favorite = 1'
+
+        if platform:
+            query += ' AND platform = ?'
+            params.append(platform)
+
+        if search_query:
+            query += ' AND (title LIKE ? OR description LIKE ? OR developer LIKE ?)'
+            search_pattern = f'%{search_query}%'
+            params.extend([search_pattern, search_pattern, search_pattern])
+
+        if genre:
+            query += ' AND genres LIKE ?'
+            params.append(f'%{genre}%')
+
+        # Add sorting
+        valid_sort_fields = ['title', 'last_played', 'total_play_time', 'launch_count', 'created_at', 'release_date']
+        if sort_by in valid_sort_fields:
+            sort_order = 'ASC' if sort_order.upper() == 'ASC' else 'DESC'
+            # Handle NULL values in sorting
+            if sort_by in ['last_played', 'release_date']:
+                query += f' ORDER BY {sort_by} IS NULL, {sort_by} {sort_order}'
+            else:
+                query += f' ORDER BY {sort_by} {sort_order}'
+        else:
+            query += ' ORDER BY title ASC'
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        return [self._row_to_dict(row) for row in rows]

@@ -2,7 +2,7 @@
 Flask server for CoverFlow game scanner integration
 Provides REST API endpoints for the web interface to trigger game scans
 """
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 import threading
 import json
@@ -169,6 +169,194 @@ def serve_game_data(filename):
 def health():
     """Health check endpoint"""
     return jsonify({'status': 'ok', 'message': 'CoverFlow Game Scanner Server'})
+
+
+# Play time tracking endpoints
+
+@app.route('/api/games/<int:game_id>/playtime', methods=['GET'])
+def get_play_time(game_id):
+    """Get play time stats for a game"""
+    try:
+        if scanner and scanner.db:
+            stats = scanner.db.get_play_time(game_id)
+            return jsonify({'success': True, 'stats': stats})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/games/<int:game_id>/session/start', methods=['POST'])
+def start_session(game_id):
+    """Start a game session"""
+    try:
+        if scanner and scanner.db:
+            session_id = scanner.db.start_game_session(game_id)
+            return jsonify({'success': True, 'session_id': session_id})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/games/session/<int:session_id>/end', methods=['POST'])
+def end_session(session_id):
+    """End a game session"""
+    try:
+        if scanner and scanner.db:
+            scanner.db.end_game_session(session_id)
+            return jsonify({'success': True})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Favorites and hidden endpoints
+
+@app.route('/api/games/<int:game_id>/favorite', methods=['POST'])
+def toggle_favorite(game_id):
+    """Toggle favorite status"""
+    try:
+        if scanner and scanner.db:
+            is_favorite = scanner.db.toggle_favorite(game_id)
+            return jsonify({'success': True, 'is_favorite': is_favorite})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/games/<int:game_id>/hidden', methods=['POST'])
+def toggle_hidden(game_id):
+    """Toggle hidden status"""
+    try:
+        if scanner and scanner.db:
+            is_hidden = scanner.db.toggle_hidden(game_id)
+            return jsonify({'success': True, 'is_hidden': is_hidden})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/games/favorites', methods=['GET'])
+def get_favorites():
+    """Get all favorite games"""
+    try:
+        if scanner and scanner.db:
+            favorites = scanner.db.get_favorites()
+            return jsonify({'success': True, 'games': favorites})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Rating and notes endpoints
+
+@app.route('/api/games/<int:game_id>/rating', methods=['POST'])
+def set_rating(game_id):
+    """Set game rating"""
+    try:
+        data = request.get_json()
+        rating = data.get('rating')
+
+        if not rating or rating < 1 or rating > 5:
+            return jsonify({'error': 'Rating must be between 1 and 5'}), 400
+
+        if scanner and scanner.db:
+            scanner.db.set_rating(game_id, rating)
+            return jsonify({'success': True})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/games/<int:game_id>/notes', methods=['POST'])
+def set_notes(game_id):
+    """Set game notes"""
+    try:
+        data = request.get_json()
+        notes = data.get('notes', '')
+
+        if scanner and scanner.db:
+            scanner.db.set_notes(game_id, notes)
+            return jsonify({'success': True})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Special lists endpoints
+
+@app.route('/api/games/recently-played', methods=['GET'])
+def get_recently_played():
+    """Get recently played games"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        if scanner and scanner.db:
+            games = scanner.db.get_recently_played(limit)
+            return jsonify({'success': True, 'games': games})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/games/most-played', methods=['GET'])
+def get_most_played():
+    """Get most played games"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        if scanner and scanner.db:
+            games = scanner.db.get_most_played(limit)
+            return jsonify({'success': True, 'games': games})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/games/recently-added', methods=['GET'])
+def get_recently_added():
+    """Get recently added games"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        if scanner and scanner.db:
+            games = scanner.db.get_recently_added(limit)
+            return jsonify({'success': True, 'games': games})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/games/duplicates', methods=['GET'])
+def find_duplicates():
+    """Find duplicate games"""
+    try:
+        if scanner and scanner.db:
+            duplicates = scanner.db.find_duplicates()
+            return jsonify({'success': True, 'duplicates': duplicates})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Advanced filtering endpoint
+
+@app.route('/api/games/filter', methods=['POST'])
+def filter_games():
+    """Advanced game filtering"""
+    try:
+        filters = request.get_json()
+
+        if scanner and scanner.db:
+            games = scanner.db.filter_games(
+                platform=filters.get('platform'),
+                genre=filters.get('genre'),
+                search_query=filters.get('search_query'),
+                show_hidden=filters.get('show_hidden', False),
+                favorites_only=filters.get('favorites_only', False),
+                sort_by=filters.get('sort_by', 'title'),
+                sort_order=filters.get('sort_order', 'ASC')
+            )
+            return jsonify({'success': True, 'games': games})
+        return jsonify({'error': 'Scanner not initialized'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

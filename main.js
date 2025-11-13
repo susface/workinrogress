@@ -64,12 +64,57 @@ function initDatabase() {
             metadata TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_favorite INTEGER DEFAULT 0,
+            is_hidden INTEGER DEFAULT 0,
+            launch_count INTEGER DEFAULT 0,
+            last_played TIMESTAMP,
+            total_play_time INTEGER DEFAULT 0,
+            user_rating INTEGER,
+            user_notes TEXT,
             UNIQUE(platform, title)
         )
     `);
 
     db.exec('CREATE INDEX IF NOT EXISTS idx_platform ON games(platform)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_title ON games(title)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_last_played ON games(last_played)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_is_favorite ON games(is_favorite)');
+
+    // Create game sessions table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS game_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_id INTEGER NOT NULL,
+            start_time TIMESTAMP NOT NULL,
+            end_time TIMESTAMP,
+            duration INTEGER,
+            FOREIGN KEY (game_id) REFERENCES games(id)
+        )
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id)');
+
+    // Migrate existing database (add new columns if they don't exist)
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN is_favorite INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN is_hidden INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN launch_count INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN last_played TIMESTAMP');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN total_play_time INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN user_rating INTEGER');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN user_notes TEXT');
+    } catch (e) { /* Column already exists */ }
 
     return db;
 }
@@ -550,13 +595,327 @@ ipcMain.handle('get-image-path', async (event, relativePath) => {
     return null;
 });
 
-// Launch game
-ipcMain.handle('launch-game', async (event, launchCommand) => {
+// Track active game sessions
+let activeGameSessions = new Map(); // gameId -> sessionId
+
+// Launch game with session tracking
+ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
     try {
+        // Start game session if gameId provided
+        if (gameId) {
+            const db = initDatabase();
+            const stmt = db.prepare(`
+                INSERT INTO game_sessions (game_id, start_time)
+                VALUES (?, CURRENT_TIMESTAMP)
+            `);
+            const result = stmt.run(gameId);
+            const sessionId = result.lastInsertId;
+
+            // Update launch count and last played
+            db.prepare(`
+                UPDATE games
+                SET launch_count = launch_count + 1,
+                    last_played = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `).run(gameId);
+
+            db.close();
+
+            // Store active session
+            activeGameSessions.set(gameId, sessionId);
+        }
+
         await shell.openExternal(launchCommand);
         return { success: true };
     } catch (error) {
         console.error('Error launching game:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// End game session
+ipcMain.handle('end-game-session', async (event, gameId) => {
+    try {
+        const sessionId = activeGameSessions.get(gameId);
+        if (!sessionId) {
+            return { success: false, error: 'No active session found' };
+        }
+
+        const db = initDatabase();
+
+        // Update session end time and calculate duration
+        db.prepare(`
+            UPDATE game_sessions
+            SET end_time = CURRENT_TIMESTAMP,
+                duration = (julianday(CURRENT_TIMESTAMP) - julianday(start_time)) * 86400
+            WHERE id = ?
+        `).run(sessionId);
+
+        // Get duration and update total play time
+        const session = db.prepare('SELECT game_id, duration FROM game_sessions WHERE id = ?').get(sessionId);
+
+        if (session && session.duration) {
+            db.prepare(`
+                UPDATE games
+                SET total_play_time = total_play_time + ?
+                WHERE id = ?
+            `).run(Math.floor(session.duration), gameId);
+        }
+
+        db.close();
+        activeGameSessions.delete(gameId);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error ending game session:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get play time stats
+ipcMain.handle('get-play-time', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const stats = db.prepare(`
+            SELECT
+                total_play_time,
+                launch_count,
+                last_played,
+                (SELECT COUNT(*) FROM game_sessions WHERE game_id = ?) as session_count
+            FROM games
+            WHERE id = ?
+        `).get(gameId, gameId);
+        db.close();
+
+        if (stats) {
+            return {
+                success: true,
+                stats: {
+                    total_play_time: stats.total_play_time || 0,
+                    launch_count: stats.launch_count || 0,
+                    last_played: stats.last_played,
+                    session_count: stats.session_count || 0,
+                    average_session_time: stats.total_play_time / Math.max(stats.session_count, 1)
+                }
+            };
+        }
+        return { success: false, error: 'Game not found' };
+    } catch (error) {
+        console.error('Error getting play time:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Toggle favorite
+ipcMain.handle('toggle-favorite', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT is_favorite FROM games WHERE id = ?').get(gameId);
+
+        if (game) {
+            const newStatus = game.is_favorite ? 0 : 1;
+            db.prepare('UPDATE games SET is_favorite = ? WHERE id = ?').run(newStatus, gameId);
+            db.close();
+            return { success: true, is_favorite: Boolean(newStatus) };
+        }
+
+        db.close();
+        return { success: false, error: 'Game not found' };
+    } catch (error) {
+        console.error('Error toggling favorite:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Toggle hidden
+ipcMain.handle('toggle-hidden', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT is_hidden FROM games WHERE id = ?').get(gameId);
+
+        if (game) {
+            const newStatus = game.is_hidden ? 0 : 1;
+            db.prepare('UPDATE games SET is_hidden = ? WHERE id = ?').run(newStatus, gameId);
+            db.close();
+            return { success: true, is_hidden: Boolean(newStatus) };
+        }
+
+        db.close();
+        return { success: false, error: 'Game not found' };
+    } catch (error) {
+        console.error('Error toggling hidden:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Set rating
+ipcMain.handle('set-rating', async (event, gameId, rating) => {
+    try {
+        const db = initDatabase();
+        db.prepare('UPDATE games SET user_rating = ? WHERE id = ?').run(rating, gameId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error setting rating:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Set notes
+ipcMain.handle('set-notes', async (event, gameId, notes) => {
+    try {
+        const db = initDatabase();
+        db.prepare('UPDATE games SET user_notes = ? WHERE id = ?').run(notes, gameId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error setting notes:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get favorites
+ipcMain.handle('get-favorites', async () => {
+    try {
+        const db = initDatabase();
+        const games = db.prepare('SELECT * FROM games WHERE is_favorite = 1 ORDER BY title').all();
+        db.close();
+        return { success: true, games };
+    } catch (error) {
+        console.error('Error getting favorites:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get recently played
+ipcMain.handle('get-recently-played', async (event, limit = 10) => {
+    try {
+        const db = initDatabase();
+        const games = db.prepare(`
+            SELECT * FROM games
+            WHERE last_played IS NOT NULL AND is_hidden = 0
+            ORDER BY last_played DESC
+            LIMIT ?
+        `).all(limit);
+        db.close();
+        return { success: true, games };
+    } catch (error) {
+        console.error('Error getting recently played:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get most played
+ipcMain.handle('get-most-played', async (event, limit = 10) => {
+    try {
+        const db = initDatabase();
+        const games = db.prepare(`
+            SELECT * FROM games
+            WHERE total_play_time > 0 AND is_hidden = 0
+            ORDER BY total_play_time DESC
+            LIMIT ?
+        `).all(limit);
+        db.close();
+        return { success: true, games };
+    } catch (error) {
+        console.error('Error getting most played:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get recently added
+ipcMain.handle('get-recently-added', async (event, limit = 10) => {
+    try {
+        const db = initDatabase();
+        const games = db.prepare(`
+            SELECT * FROM games
+            WHERE is_hidden = 0
+            ORDER BY created_at DESC
+            LIMIT ?
+        `).all(limit);
+        db.close();
+        return { success: true, games };
+    } catch (error) {
+        console.error('Error getting recently added:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Find duplicates
+ipcMain.handle('find-duplicates', async () => {
+    try {
+        const db = initDatabase();
+        const duplicates = db.prepare(`
+            SELECT title, COUNT(*) as count, GROUP_CONCAT(platform) as platforms, GROUP_CONCAT(id) as game_ids
+            FROM games
+            GROUP BY LOWER(TRIM(title))
+            HAVING count > 1
+            ORDER BY count DESC, title
+        `).all();
+
+        const result = duplicates.map(row => ({
+            title: row.title,
+            count: row.count,
+            platforms: row.platforms ? row.platforms.split(',') : [],
+            game_ids: row.game_ids ? row.game_ids.split(',').map(id => parseInt(id)) : []
+        }));
+
+        db.close();
+        return { success: true, duplicates: result };
+    } catch (error) {
+        console.error('Error finding duplicates:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Advanced filter
+ipcMain.handle('filter-games', async (event, filters) => {
+    try {
+        const db = initDatabase();
+        let query = 'SELECT * FROM games WHERE 1=1';
+        const params = [];
+
+        if (!filters.show_hidden) {
+            query += ' AND is_hidden = 0';
+        }
+
+        if (filters.favorites_only) {
+            query += ' AND is_favorite = 1';
+        }
+
+        if (filters.platform) {
+            query += ' AND platform = ?';
+            params.push(filters.platform);
+        }
+
+        if (filters.search_query) {
+            query += ' AND (title LIKE ? OR description LIKE ? OR developer LIKE ?)';
+            const searchPattern = `%${filters.search_query}%`;
+            params.push(searchPattern, searchPattern, searchPattern);
+        }
+
+        if (filters.genre) {
+            query += ' AND genres LIKE ?';
+            params.push(`%${filters.genre}%`);
+        }
+
+        // Add sorting
+        const validSortFields = ['title', 'last_played', 'total_play_time', 'launch_count', 'created_at', 'release_date'];
+        const sortBy = validSortFields.includes(filters.sort_by) ? filters.sort_by : 'title';
+        const sortOrder = filters.sort_order === 'DESC' ? 'DESC' : 'ASC';
+
+        if (['last_played', 'release_date'].includes(sortBy)) {
+            query += ` ORDER BY ${sortBy} IS NULL, ${sortBy} ${sortOrder}`;
+        } else {
+            query += ` ORDER BY ${sortBy} ${sortOrder}`;
+        }
+
+        const games = db.prepare(query).all(...params);
+        db.close();
+
+        return { success: true, games };
+    } catch (error) {
+        console.error('Error filtering games:', error);
         return { success: false, error: error.message };
     }
 });

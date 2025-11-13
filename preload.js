@@ -26,8 +26,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Images
     getImagePath: (relativePath) => ipcRenderer.invoke('get-image-path', relativePath),
 
-    // Game launching
-    launchGame: (launchCommand) => ipcRenderer.invoke('launch-game', launchCommand),
+    // Game launching and session tracking
+    launchGame: (launchCommand, gameId) => ipcRenderer.invoke('launch-game', launchCommand, gameId),
+    endGameSession: (gameId) => ipcRenderer.invoke('end-game-session', gameId),
+    getPlayTime: (gameId) => ipcRenderer.invoke('get-play-time', gameId),
+
+    // Favorites and hidden
+    toggleFavorite: (gameId) => ipcRenderer.invoke('toggle-favorite', gameId),
+    toggleHidden: (gameId) => ipcRenderer.invoke('toggle-hidden', gameId),
+    getFavorites: () => ipcRenderer.invoke('get-favorites'),
+
+    // Ratings and notes
+    setRating: (gameId, rating) => ipcRenderer.invoke('set-rating', gameId, rating),
+    setNotes: (gameId, notes) => ipcRenderer.invoke('set-notes', gameId, notes),
+
+    // Special lists
+    getRecentlyPlayed: (limit) => ipcRenderer.invoke('get-recently-played', limit),
+    getMostPlayed: (limit) => ipcRenderer.invoke('get-most-played', limit),
+    getRecentlyAdded: (limit) => ipcRenderer.invoke('get-recently-added', limit),
+    findDuplicates: () => ipcRenderer.invoke('find-duplicates'),
+
+    // Advanced filtering
+    filterGames: (filters) => ipcRenderer.invoke('filter-games', filters),
 
     // Error logging
     logError: (errorData) => ipcRenderer.invoke('log-error', errorData),
