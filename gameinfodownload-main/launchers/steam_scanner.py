@@ -130,6 +130,9 @@ class SteamScanner:
                     short_desc = re.sub(r'<[^>]+>', '', short_desc)
                     # Clean up extra whitespace
                     short_desc = ' '.join(short_desc.split())
+                    # Limit to 300 characters for cleaner display
+                    if len(short_desc) > 300:
+                        short_desc = short_desc[:297] + '...'
 
                     metadata['description'] = short_desc
                     metadata['short_description'] = short_desc
