@@ -151,10 +151,14 @@ ipcMain.handle('get-games', async () => {
 
             // Convert relative image paths to absolute paths
             if (parsed.icon_path && !parsed.icon_path.startsWith('http')) {
-                parsed.icon_path = path.join(gameDataPath, parsed.icon_path).replace(/\\/g, '/');
+                // Remove leading 'game_data/' if present to avoid duplication
+                let iconPath = parsed.icon_path.replace(/^game_data[\/\\]/, '');
+                parsed.icon_path = path.join(gameDataPath, iconPath).replace(/\\/g, '/');
             }
             if (parsed.boxart_path && !parsed.boxart_path.startsWith('http')) {
-                parsed.boxart_path = path.join(gameDataPath, parsed.boxart_path).replace(/\\/g, '/');
+                // Remove leading 'game_data/' if present to avoid duplication
+                let boxartPath = parsed.boxart_path.replace(/^game_data[\/\\]/, '');
+                parsed.boxart_path = path.join(gameDataPath, boxartPath).replace(/\\/g, '/');
             }
 
             return parsed;
