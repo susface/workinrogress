@@ -19,6 +19,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Game launching
     launchGame: (launchCommand) => ipcRenderer.invoke('launch-game', launchCommand),
 
+    // Error logging
+    logError: (errorData) => ipcRenderer.invoke('log-error', errorData),
+    getErrorLog: () => ipcRenderer.invoke('get-error-log'),
+    clearErrorLog: () => ipcRenderer.invoke('clear-error-log'),
+
     // Platform info
     platform: process.platform,
     isElectron: true

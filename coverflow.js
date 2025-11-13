@@ -69,10 +69,16 @@ class CoverFlow {
             controllerSensitivity: 5,
             controllerVibration: true,
             // Performance
-            showFpsCounter: false
+            showFpsCounter: false,
+            // Error logging
+            errorLogging: false
         };
 
+        // Error logging system
+        this.errorLog = [];
+
         this.loadSettings();
+        this.setupErrorLogging();
         this.initAlbumData();
         this.detectGPU();
         this.init();
@@ -121,6 +127,128 @@ class CoverFlow {
 
     saveSettings() {
         localStorage.setItem('coverflow-settings', JSON.stringify(this.settings));
+    }
+
+    setupErrorLogging() {
+        if (!this.settings.errorLogging) return;
+
+        // Global error handler
+        window.addEventListener('error', (event) => {
+            this.logError({
+                type: 'UNCAUGHT_ERROR',
+                message: event.message,
+                stack: event.error?.stack,
+                context: {
+                    filename: event.filename,
+                    lineno: event.lineno,
+                    colno: event.colno
+                }
+            });
+        });
+
+        // Unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', (event) => {
+            this.logError({
+                type: 'UNHANDLED_REJECTION',
+                message: event.reason?.message || String(event.reason),
+                stack: event.reason?.stack,
+                context: {
+                    promise: 'Promise rejection'
+                }
+            });
+        });
+
+        console.log('Error logging enabled');
+    }
+
+    logError(errorData) {
+        if (!this.settings.errorLogging) return;
+
+        const timestamp = new Date().toISOString();
+        const logEntry = {
+            timestamp,
+            ...errorData
+        };
+
+        // Store in memory
+        this.errorLog.push(logEntry);
+        if (this.errorLog.length > 100) {
+            this.errorLog.shift(); // Keep last 100 errors
+        }
+
+        // Log to console
+        console.error('[ERROR LOG]', logEntry);
+
+        // In Electron mode, write to file
+        if (this.isElectron && window.electronAPI) {
+            window.electronAPI.logError(errorData).catch(err => {
+                console.error('Failed to write error to file:', err);
+            });
+        }
+    }
+
+    async viewErrorLog() {
+        if (this.isElectron && window.electronAPI) {
+            try {
+                const result = await window.electronAPI.getErrorLog();
+                if (result.success) {
+                    // Create modal to display log
+                    const modal = document.createElement('div');
+                    modal.className = 'modal active';
+                    modal.innerHTML = `
+                        <div class="modal-content" style="max-width: 800px;">
+                            <div class="modal-header">
+                                <h3>Error Log</h3>
+                                <button class="close-btn" onclick="this.closest('.modal').remove()">×</button>
+                            </div>
+                            <div class="modal-body">
+                                <pre style="background: #1a1a1a; color: #00ff00; padding: 15px; border-radius: 5px; max-height: 500px; overflow-y: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap;">${result.content}</pre>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+                }
+            } catch (error) {
+                this.showToast('Failed to load error log', 'error');
+            }
+        } else {
+            // Browser mode - show in-memory log
+            const logText = this.errorLog.map(entry =>
+                `[${entry.timestamp}] ${entry.type}: ${entry.message}\n${entry.stack || ''}\n---`
+            ).join('\n\n');
+
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 800px;">
+                    <div class="modal-header">
+                        <h3>Error Log (In-Memory)</h3>
+                        <button class="close-btn" onclick="this.closest('.modal').remove()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <pre style="background: #1a1a1a; color: #00ff00; padding: 15px; border-radius: 5px; max-height: 500px; overflow-y: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap;">${logText || 'No errors logged yet.'}</pre>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+    }
+
+    async clearErrorLog() {
+        if (this.isElectron && window.electronAPI) {
+            try {
+                const result = await window.electronAPI.clearErrorLog();
+                if (result.success) {
+                    this.errorLog = [];
+                    this.showToast('Error log cleared', 'success');
+                }
+            } catch (error) {
+                this.showToast('Failed to clear error log', 'error');
+            }
+        } else {
+            this.errorLog = [];
+            this.showToast('Error log cleared', 'success');
+        }
     }
 
     initAlbumData() {
@@ -1690,6 +1818,52 @@ class CoverFlow {
             this.showToast(`FPS counter ${e.target.checked ? 'enabled' : 'disabled'}`, 'info');
         });
 
+        // Error logging toggle
+        const errorLoggingToggle = document.getElementById('error-logging-toggle');
+        errorLoggingToggle.checked = this.settings.errorLogging;
+
+        errorLoggingToggle.addEventListener('change', (e) => {
+            this.settings.errorLogging = e.target.checked;
+            this.saveSettings();
+
+            // Show/hide log buttons
+            const logGroup = document.getElementById('view-error-log-group');
+            if (logGroup) {
+                logGroup.style.display = e.target.checked ? 'block' : 'none';
+            }
+
+            if (e.target.checked) {
+                this.setupErrorLogging();
+                this.showToast('Error logging enabled - errors will be saved to file', 'info');
+            } else {
+                this.showToast('Error logging disabled', 'info');
+            }
+        });
+
+        // Initialize log buttons visibility
+        const logGroup = document.getElementById('view-error-log-group');
+        if (logGroup) {
+            logGroup.style.display = this.settings.errorLogging ? 'block' : 'none';
+        }
+
+        // View error log button
+        const viewLogBtn = document.getElementById('view-error-log-btn');
+        if (viewLogBtn) {
+            viewLogBtn.addEventListener('click', () => {
+                this.viewErrorLog();
+            });
+        }
+
+        // Clear error log button
+        const clearLogBtn = document.getElementById('clear-error-log-btn');
+        if (clearLogBtn) {
+            clearLogBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear the error log?')) {
+                    this.clearErrorLog();
+                }
+            });
+        }
+
         // Settings export/import
         document.getElementById('export-settings-btn').addEventListener('click', () => {
             this.exportSettings();
@@ -1731,7 +1905,8 @@ class CoverFlow {
                 bloomIntensity: 1.5,
                 controllerSensitivity: 5,
                 controllerVibration: true,
-                showFpsCounter: false
+                showFpsCounter: false,
+                errorLogging: false
             };
             this.saveSettings();
             this.setupSettingsControls();

@@ -166,6 +166,17 @@
                     <small class="setting-info">Display performance metrics</small>
                 </div>
                 <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="error-logging-toggle">
+                        Enable Error Logging
+                    </label>
+                    <small class="setting-info">Write errors to log file for debugging</small>
+                </div>
+                <div class="setting-group" id="view-error-log-group" style="display: none;">
+                    <button id="view-error-log-btn" class="btn">View Error Log</button>
+                    <button id="clear-error-log-btn" class="btn secondary">Clear Log</button>
+                </div>
+                <div class="setting-group">
                     <button id="export-settings-btn" class="btn">Export Settings</button>
                 </div>
                 <div class="setting-group">
