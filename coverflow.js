@@ -177,13 +177,22 @@ class CoverFlow {
                     'xbox': 0x107C10
                 };
 
+                // Safe date parsing
+                let year = '-';
+                if (game.release_date) {
+                    const date = new Date(game.release_date);
+                    if (!isNaN(date.getTime())) {
+                        year = date.getFullYear().toString();
+                    }
+                }
+
                 return {
                     type: 'game',
                     title: game.title,
                     platform: game.platform,
                     developer: game.developer || 'Unknown',
                     publisher: game.publisher || 'Unknown',
-                    year: game.release_date ? new Date(game.release_date).getFullYear().toString() : '-',
+                    year: year,
                     genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
                     description: game.description || game.short_description || game.long_description || 'No description available.',
                     color: platformColors[game.platform] || 0x808080,
@@ -349,7 +358,14 @@ class CoverFlow {
                     opacity: 0.95
                 });
             } else if (album.image) {
-                const texture = new THREE.TextureLoader().load(album.image);
+                const texture = new THREE.TextureLoader().load(
+                    album.image,
+                    undefined, // onLoad
+                    undefined, // onProgress
+                    (error) => { // onError
+                        console.warn('Failed to load texture:', album.image, error);
+                    }
+                );
                 material = new THREE.MeshPhongMaterial({
                     map: texture,
                     side: THREE.DoubleSide,
@@ -453,13 +469,17 @@ class CoverFlow {
             }
 
             const opacity = 1 - Math.min(Math.abs(diff) * 0.12, 0.6);
-            cover.material.opacity = opacity;
-            cover.material.transparent = true;
+            if (cover.material) {
+                cover.material.opacity = opacity;
+                cover.material.transparent = true;
+            }
 
-            const reflection = parent.children[1];
-            if (reflection && reflection.userData.isReflection) {
+            const reflection = parent.children && parent.children[1];
+            if (reflection && reflection.userData && reflection.userData.isReflection) {
                 reflection.visible = this.settings.showReflections;
-                reflection.material.opacity = opacity * 0.3;
+                if (reflection.material) {
+                    reflection.material.opacity = opacity * 0.3;
+                }
             }
         });
     }
@@ -640,7 +660,11 @@ class CoverFlow {
             genreLabel.textContent = 'Genre:';
         }
 
-        document.getElementById('info-modal-color').textContent = '#' + item.color.toString(16).padStart(6, '0').toUpperCase();
+        // Safe color conversion
+        const colorHex = typeof item.color === 'number' && !isNaN(item.color)
+            ? '#' + item.color.toString(16).padStart(6, '0').toUpperCase()
+            : '#808080';
+        document.getElementById('info-modal-color').textContent = colorHex;
         document.getElementById('info-description-text').textContent = item.description || 'No description available.';
 
         // Handle media (image or video)
@@ -700,7 +724,10 @@ class CoverFlow {
             const placeholder = document.createElement('div');
             placeholder.style.width = '100%';
             placeholder.style.height = '100%';
-            placeholder.style.background = '#' + item.color.toString(16).padStart(6, '0');
+            const bgColor = typeof item.color === 'number' && !isNaN(item.color)
+                ? '#' + item.color.toString(16).padStart(6, '0')
+                : '#808080';
+            placeholder.style.background = bgColor;
             placeholder.style.display = 'flex';
             placeholder.style.alignItems = 'center';
             placeholder.style.justifyContent = 'center';
@@ -763,10 +790,16 @@ class CoverFlow {
         if (this.isElectron) {
             // In Electron mode, always available
             this.serverAvailable = true;
-            const count = await window.electronAPI.getGamesCount();
-            if (count.success) {
+            try {
+                const count = await window.electronAPI.getGamesCount();
+                if (count && count.success) {
+                    document.getElementById('game-count-info').innerHTML =
+                        `<span style="color: #4CAF50;">✓ Desktop Mode</span> - ${count.total} games found`;
+                }
+            } catch (error) {
+                console.error('Error getting games count:', error);
                 document.getElementById('game-count-info').innerHTML =
-                    `<span style="color: #4CAF50;">✓ Desktop Mode</span> - ${count.total} games found`;
+                    `<span style="color: #f44336;">✗ Error loading game count</span>`;
             }
             return;
         }
@@ -960,21 +993,32 @@ class CoverFlow {
                     'xbox': 0x107C10
                 };
 
-                const convertedGames = games.map(game => ({
-                    type: 'game',
-                    title: game.title,
-                    platform: game.platform,
-                    developer: game.developer || 'Unknown',
-                    publisher: game.publisher || 'Unknown',
-                    year: game.release_date ? new Date(game.release_date).getFullYear().toString() : '-',
-                    genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
-                    description: game.description || game.short_description || game.long_description || 'No description available.',
-                    color: platformColors[game.platform] || 0x808080,
-                    image: game.boxart_path || game.icon_path,
-                    launchCommand: game.launch_command,
-                    installDir: game.install_directory,
-                    appId: game.app_id || game.package_name
-                }));
+                const convertedGames = games.map(game => {
+                    // Safe date parsing
+                    let year = '-';
+                    if (game.release_date) {
+                        const date = new Date(game.release_date);
+                        if (!isNaN(date.getTime())) {
+                            year = date.getFullYear().toString();
+                        }
+                    }
+
+                    return {
+                        type: 'game',
+                        title: game.title,
+                        platform: game.platform,
+                        developer: game.developer || 'Unknown',
+                        publisher: game.publisher || 'Unknown',
+                        year: year,
+                        genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
+                        description: game.description || game.short_description || game.long_description || 'No description available.',
+                        color: platformColors[game.platform] || 0x808080,
+                        image: game.boxart_path || game.icon_path,
+                        launchCommand: game.launch_command,
+                        installDir: game.install_directory,
+                        appId: game.app_id || game.package_name
+                    };
+                });
 
                 // Merge
                 this.allAlbums = [...this.allAlbums, ...convertedGames];
@@ -1022,21 +1066,32 @@ class CoverFlow {
                     'xbox': 0x107C10
                 };
 
-                const convertedGames = games.map(game => ({
-                    type: 'game',
-                    title: game.title,
-                    platform: game.platform,
-                    developer: game.developer || 'Unknown',
-                    publisher: game.publisher || 'Unknown',
-                    year: game.release_date ? new Date(game.release_date).getFullYear().toString() : '-',
-                    genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
-                    description: game.description || game.short_description || game.long_description || 'No description available.',
-                    color: platformColors[game.platform] || 0x808080,
-                    image: game.boxart_path ? `${this.serverURL}/${game.boxart_path}` : (game.icon_path ? `${this.serverURL}/${game.icon_path}` : null),
-                    launchCommand: game.launch_command,
-                    installDir: game.install_directory,
-                    appId: game.app_id || game.package_name
-                }));
+                const convertedGames = games.map(game => {
+                    // Safe date parsing
+                    let year = '-';
+                    if (game.release_date) {
+                        const date = new Date(game.release_date);
+                        if (!isNaN(date.getTime())) {
+                            year = date.getFullYear().toString();
+                        }
+                    }
+
+                    return {
+                        type: 'game',
+                        title: game.title,
+                        platform: game.platform,
+                        developer: game.developer || 'Unknown',
+                        publisher: game.publisher || 'Unknown',
+                        year: year,
+                        genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
+                        description: game.description || game.short_description || game.long_description || 'No description available.',
+                        color: platformColors[game.platform] || 0x808080,
+                        image: game.boxart_path ? `${this.serverURL}/${game.boxart_path}` : (game.icon_path ? `${this.serverURL}/${game.icon_path}` : null),
+                        launchCommand: game.launch_command,
+                        installDir: game.install_directory,
+                        appId: game.app_id || game.package_name
+                    };
+                });
 
                 // Merge with existing albums/images
                 this.allAlbums = [...this.allAlbums, ...convertedGames];
@@ -1073,7 +1128,7 @@ class CoverFlow {
 
     // Update controller cursor position
     updateControllerCursor() {
-        if (!this.controllerCursor || this.gamepadIndex === -1 || !this.isTabVisible) {
+        if (!this.controllerCursor || this.gamepadIndex === -1) {
             if (this.controllerCursor) {
                 this.controllerCursor.style.display = 'none';
             }
@@ -1187,7 +1242,10 @@ class CoverFlow {
             thumb.height = 60;
 
             const ctx = thumb.getContext('2d');
-            ctx.fillStyle = '#' + album.color.toString(16).padStart(6, '0');
+            const thumbColor = typeof album.color === 'number' && !isNaN(album.color)
+                ? '#' + album.color.toString(16).padStart(6, '0')
+                : '#808080';
+            ctx.fillStyle = thumbColor;
             ctx.fillRect(0, 0, 60, 60);
 
             const gradient = ctx.createLinearGradient(0, 0, 60, 60);
@@ -1891,7 +1949,7 @@ class CoverFlow {
 
         // Floating animation for center cover
         const centerCover = this.covers[this.currentIndex];
-        if (centerCover) {
+        if (centerCover && centerCover.parent) {
             const baseY = centerCover.parent.position.y;
             centerCover.parent.position.y = baseY + Math.sin(Date.now() * 0.001) * 0.03;
         }
