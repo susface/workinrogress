@@ -402,6 +402,51 @@ ipcMain.handle('launch-game', async (event, launchCommand) => {
     }
 });
 
+// Error logging
+const errorLogPath = path.join(gameDataPath, 'error.log');
+
+ipcMain.handle('log-error', async (event, errorData) => {
+    try {
+        const timestamp = new Date().toISOString();
+        const logEntry = `[${timestamp}] ${errorData.type || 'ERROR'}: ${errorData.message}\n`;
+        const stackTrace = errorData.stack ? `Stack: ${errorData.stack}\n` : '';
+        const context = errorData.context ? `Context: ${JSON.stringify(errorData.context)}\n` : '';
+        const fullEntry = logEntry + stackTrace + context + '---\n';
+
+        fs.appendFileSync(errorLogPath, fullEntry, 'utf8');
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to write error log:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-error-log', async () => {
+    try {
+        if (fs.existsSync(errorLogPath)) {
+            const content = fs.readFileSync(errorLogPath, 'utf8');
+            return { success: true, content };
+        }
+        return { success: true, content: 'No errors logged yet.' };
+    } catch (error) {
+        console.error('Failed to read error log:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('clear-error-log', async () => {
+    try {
+        if (fs.existsSync(errorLogPath)) {
+            fs.unlinkSync(errorLogPath);
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to clear error log:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 console.log('CoverFlow Game Launcher - Electron app starting...');
 console.log('Game data path:', gameDataPath);
 console.log('Database path:', dbPath);
+console.log('Error log path:', errorLogPath);
