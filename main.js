@@ -132,7 +132,7 @@ ipcMain.handle('get-games', async () => {
         const games = db.prepare('SELECT * FROM games ORDER BY platform, title').all();
         db.close();
 
-        // Parse JSON fields
+        // Parse JSON fields and fix image paths
         const parsedGames = games.map(game => {
             const parsed = { ...game };
             if (game.genres) {
@@ -148,6 +148,15 @@ ipcMain.handle('get-games', async () => {
                     Object.assign(parsed, meta);
                 } catch (e) {}
             }
+
+            // Convert relative image paths to absolute paths
+            if (parsed.icon_path && !parsed.icon_path.startsWith('http')) {
+                parsed.icon_path = path.join(gameDataPath, parsed.icon_path).replace(/\\/g, '/');
+            }
+            if (parsed.boxart_path && !parsed.boxart_path.startsWith('http')) {
+                parsed.boxart_path = path.join(gameDataPath, parsed.boxart_path).replace(/\\/g, '/');
+            }
+
             return parsed;
         });
 
@@ -442,6 +451,85 @@ ipcMain.handle('clear-error-log', async () => {
         return { success: true };
     } catch (error) {
         console.error('Failed to clear error log:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Media folder selection
+ipcMain.handle('select-media-folder', async () => {
+    try {
+        const { dialog } = require('electron');
+        const result = await dialog.showOpenDialog(mainWindow, {
+            properties: ['openDirectory'],
+            title: 'Select Media Folder',
+            message: 'Choose a folder containing images, music, or videos'
+        });
+
+        if (result.canceled) {
+            return { success: false, canceled: true };
+        }
+
+        return { success: true, folderPath: result.filePaths[0] };
+    } catch (error) {
+        console.error('Error selecting folder:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Scan media folder for images/videos
+ipcMain.handle('scan-media-folder', async (event, folderPath) => {
+    try {
+        const media = [];
+        const supportedImages = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+        const supportedVideos = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
+
+        function scanDirectory(dir) {
+            const items = fs.readdirSync(dir);
+
+            for (const item of items) {
+                const fullPath = path.join(dir, item);
+                const stat = fs.statSync(fullPath);
+
+                if (stat.isDirectory()) {
+                    scanDirectory(fullPath);
+                } else if (stat.isFile()) {
+                    const ext = path.extname(item).toLowerCase();
+
+                    if (supportedImages.includes(ext)) {
+                        media.push({
+                            type: 'image',
+                            title: path.basename(item, ext),
+                            image: fullPath.replace(/\\/g, '/'),
+                            category: 'User Media',
+                            year: new Date(stat.mtime).getFullYear().toString(),
+                            tags: path.dirname(fullPath).split(path.sep).pop(),
+                            color: 0x4682B4
+                        });
+                    } else if (supportedVideos.includes(ext)) {
+                        media.push({
+                            type: 'video',
+                            title: path.basename(item, ext),
+                            video: fullPath.replace(/\\/g, '/'),
+                            category: 'User Media',
+                            year: new Date(stat.mtime).getFullYear().toString(),
+                            tags: path.dirname(fullPath).split(path.sep).pop(),
+                            color: 0x8B4789
+                        });
+                    }
+                }
+            }
+        }
+
+        scanDirectory(folderPath);
+
+        return {
+            success: true,
+            media,
+            count: media.length,
+            folderPath
+        };
+    } catch (error) {
+        console.error('Error scanning media folder:', error);
         return { success: false, error: error.message };
     }
 });

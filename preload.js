@@ -24,6 +24,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getErrorLog: () => ipcRenderer.invoke('get-error-log'),
     clearErrorLog: () => ipcRenderer.invoke('clear-error-log'),
 
+    // Media folder selection
+    selectMediaFolder: () => ipcRenderer.invoke('select-media-folder'),
+    scanMediaFolder: (folderPath) => ipcRenderer.invoke('scan-media-folder', folderPath),
+
     // Platform info
     platform: process.platform,
     isElectron: true
