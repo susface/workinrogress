@@ -474,12 +474,27 @@ class CoverFlow {
                     opacity: 0.95
                 });
             } else if (album.image) {
+                // For local file paths, ensure proper encoding
+                let imageSrc = album.image;
+                if (imageSrc && imageSrc.includes(':/') && !imageSrc.startsWith('http')) {
+                    // Local file path - ensure file:// protocol and proper encoding
+                    if (!imageSrc.startsWith('file://')) {
+                        imageSrc = 'file:///' + imageSrc;
+                    }
+                    // Encode special characters but preserve path separators
+                    imageSrc = imageSrc.replace(/\\/g, '/').split('/').map((part, index) => {
+                        // Don't encode the protocol part
+                        if (index < 3) return part;
+                        return encodeURIComponent(part);
+                    }).join('/');
+                }
+
                 const texture = new THREE.TextureLoader().load(
-                    album.image,
+                    imageSrc,
                     undefined, // onLoad
                     undefined, // onProgress
                     (error) => { // onError
-                        console.warn('Failed to load texture:', album.image, error);
+                        console.warn('Failed to load texture:', imageSrc, error);
                     }
                 );
                 material = new THREE.MeshPhongMaterial({
@@ -1615,8 +1630,8 @@ class CoverFlow {
 
         // Mouse click on covers
         this.container.addEventListener('click', (e) => {
-            const mouse = new THREE.Vector2();
             const rect = this.container.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
             mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -1640,8 +1655,8 @@ class CoverFlow {
 
         // Double-click to launch game
         this.container.addEventListener('dblclick', (e) => {
-            const mouse = new THREE.Vector2();
             const rect = this.container.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
             mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
