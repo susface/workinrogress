@@ -313,6 +313,8 @@ class CoverFlow {
                     description: game.description || game.short_description || game.long_description || 'No description available.',
                     color: platformColors[game.platform] || 0x808080,
                     image: imagePath,
+                    icon_path: game.icon_path, // Store icon for fallback
+                    boxart_path: game.boxart_path, // Store boxart separately
                     launchCommand: game.launch_command,
                     installDir: game.install_directory,
                     appId: game.app_id || game.package_name
@@ -495,6 +497,34 @@ class CoverFlow {
                     undefined, // onProgress
                     (error) => { // onError
                         console.warn('Failed to load texture:', imageSrc, error);
+
+                        // For games, try fallback to icon if boxart failed
+                        if (album.type === 'game' && album.icon_path && album.boxart_path && imageSrc.includes(album.boxart_path.split('/').pop())) {
+                            let iconSrc = album.icon_path;
+                            if (iconSrc && iconSrc.includes(':/') && !iconSrc.startsWith('http')) {
+                                if (!iconSrc.startsWith('file://')) {
+                                    iconSrc = 'file:///' + iconSrc;
+                                }
+                                iconSrc = iconSrc.replace(/\\/g, '/').split('/').map((part, index) => {
+                                    if (index < 3) return part;
+                                    return encodeURIComponent(part);
+                                }).join('/');
+                            }
+
+                            console.log('Trying fallback icon:', iconSrc);
+                            const fallbackTexture = new THREE.TextureLoader().load(
+                                iconSrc,
+                                (loadedTexture) => {
+                                    // Replace the failed texture with the icon
+                                    material.map = loadedTexture;
+                                    material.needsUpdate = true;
+                                },
+                                undefined,
+                                (iconError) => {
+                                    console.warn('Fallback icon also failed:', iconSrc, iconError);
+                                }
+                            );
+                        }
                     }
                 );
                 material = new THREE.MeshPhongMaterial({
@@ -864,6 +894,14 @@ class CoverFlow {
             img.style.objectFit = 'cover';
             img.style.width = '100%';
             img.style.borderRadius = '5px';
+
+            // Fallback to icon if boxart fails to load (for games)
+            img.addEventListener('error', () => {
+                if (item.type === 'game' && item.icon_path && img.src !== item.icon_path) {
+                    console.log('Boxart failed in modal, trying icon:', item.icon_path);
+                    img.src = item.icon_path;
+                }
+            });
 
             // Click to view full size in new tab
             img.addEventListener('click', () => {
