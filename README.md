@@ -1,354 +1,136 @@
-# CoverFlow Interface - Enhanced Edition
+# CoverFlow Game Launcher
 
-A feature-rich web-based recreation of the classic CoverFlow interface from Mac OS X and iPod Touch, built with Three.js and modern web technologies.
+A beautiful 3D game launcher with CoverFlow-style interface, featuring comprehensive game library management, play time tracking, and cross-platform support.
 
-## Features
+![CoverFlow Interface](https://via.placeholder.com/800x400?text=CoverFlow+Game+Launcher)
 
-### Core Experience
-- **Authentic 3D Carousel**: Angled side covers with depth, prominent center display, and smooth animations
-- **Reflection Effects**: Classic mirror reflections below each album cover (can be toggled)
-- **Sample Content**: Pre-loaded with albums, images, and sample games (20+ items)
-- **Enhanced Lighting**: Multiple light sources for realistic 3D appearance
+## ✨ Key Features
 
-### Navigation
-- **Keyboard Controls**:
-  - `←` `→` Arrow keys: Navigate left/right
-  - `Home`: Jump to first album
-  - `End`: Jump to last album
-  - `Space`: Random album
-  - `F`: Toggle fullscreen
-  - `?`: Show keyboard shortcuts
-  - `Esc`: Close modals/Exit fullscreen
-  - `1-9`: Jump to position (10%, 20%, ... 90%)
-- **Mouse Controls**:
-  - Click any cover to select it
-  - Mouse wheel to scroll through albums
-- **Touch Support**: Swipe left/right on mobile devices
-- **Thumbnail Navigation**: Bottom bar with clickable thumbnails
-- **🎮 Controller/Gamepad Support** (NEW!):
-  - Full Xbox, PlayStation, and generic gamepad support
-  - D-Pad & Analog stick navigation
-  - Face buttons (A/Cross, B/Circle, Y/Triangle)
-  - Shoulder buttons (LB/RB, L1/R1) for fast navigation
-  - Triggers (LT/RT, L2/R2) to jump to start/end
-  - Haptic feedback/vibration support
-  - Auto-detection with visual status indicator
-  - Adjustable sensitivity (1-10)
+- **🎮 Multi-Platform Support**: Steam, Epic Games, Xbox/Game Pass integration
+- **⏱️ Play Time Tracking**: Automatic session tracking and statistics
+- **⭐ Favorites & Collections**: Organize your library your way
+- **🔍 Advanced Search & Filter**: Find games instantly
+- **📊 Statistics Dashboard**: Visualize your gaming habits
+- **🎨 Multiple View Modes**: CoverFlow 3D, Grid, and List views
+- **🎯 Duplicate Detection**: Manage games across multiple platforms
+- **⚙️ Highly Customizable**: Themes, layouts, and preferences
 
-### Search & Filter
-- **Real-time Search**: Filter albums, images, and games by title, artist, genre, developer, or tags
-- **Instant Results**: Search as you type with 300ms debounce
-- **Clear Button**: Quick reset of search results
+## 🚀 Quick Start
 
-### Customization (Settings Panel)
-- **Animation Speed**: Adjust transition speed (1-20)
-- **Cover Spacing**: Control distance between covers (1.5-4.0)
-- **Side Angle**: Adjust rotation angle (30-90 degrees)
-- **Reflection Toggle**: Show/hide reflections
-- **Auto-Rotate**: Automatically cycle through albums every 5 seconds
-- **Persistent Settings**: All preferences saved to localStorage
-- **Reset to Defaults**: One-click restore of original settings
-
-###🎨 GPU/Hardware Rendering (NEW!)
-- **GPU Detection**: Automatic detection and display of graphics card info
-- **Hardware Acceleration**: Toggle GPU-accelerated rendering
-- **Glass Refraction Effect**: Realistic glass-like materials with:
-  - Physical-based rendering (PBR) using MeshPhysicalMaterial
-  - Transmission and thickness properties
-  - Clearcoat and roughness simulation
-  - True refraction and light transmission
-- **Bloom Glow Effect**: Soft, ethereal glow around covers
-  - Adjustable intensity (0-3.0)
-  - UnrealBloomPass post-processing
-  - Emissive properties on materials
-- **SSAO (Screen Space Ambient Occlusion)**: Enhanced depth and shadows
-  - Realistic contact shadows
-  - Improved depth perception
-  - Adjustable kernel radius
-- **Advanced Lighting**: 4-point lighting setup with rim lights
-- **Tone Mapping**: ACES Filmic tone mapping for cinematic look
-- **High-Quality Shadows**: 2048x2048 shadow maps with PCF soft shadows
-
-### Data Management
-- **JSON Import**: Load your own album collections from JSON files
-- **Image Support**: Use actual images instead of colored placeholders
-- **Standalone Image Viewing**: Photo gallery support with full-size viewing
-- **🎮 Game Integration** (NEW!): Display and launch installed games
-  - **Scan from interface** - Scan for games directly from settings
-  - Auto-detects Steam, Epic Games, and Xbox games
-  - Real-time scan progress with live updates
-  - Platform-specific metadata and artwork
-  - One-click game launching via protocol handlers
-  - See [GAMES_INTEGRATION.md](GAMES_INTEGRATION.md) for setup guide
-- **Dynamic Loading**: Smooth loading screen with spinner
-
-### User Interface
-- **Top Bar**: Search, settings, shortcuts, and fullscreen controls
-- **Info Panel**: Displays title, artist, year, genre, and position counter
-- **Thumbnail Strip**: Visual navigation with auto-scrolling active indicator
-- **Modal Dialogs**: Professional settings and keyboard shortcuts panels
-- **Responsive Design**: Adapts to different screen sizes and devices
-
-### Performance
-- **Optimized Rendering**: High-performance WebGL with capped pixel ratio
-- **Shadow Mapping**: Soft shadows for depth perception
-- **Smooth Animations**: Eased transitions using lerp interpolation
-- **Memory Efficient**: Proper scene cleanup when filtering/reloading
-
-## Installation & Usage
-
-### Quick Start
-1. Open `index.html` in a modern web browser
-2. No build process or dependencies needed!
-
-### Recommended: Local Server
-For best performance and to avoid CORS issues when loading images:
+### Desktop App (Recommended)
 
 ```bash
-# Python 3
-python -m http.server 8000
+# Install dependencies
+npm install
 
-# Python 2
-python -m SimpleHTTPServer 8000
+# Run the app
+npm start
 
-# Node.js
-npx http-server
-
-# PHP
-php -S localhost:8000
+# Build for your platform
+npm run build:win   # Windows
+npm run build:mac   # macOS
+npm run build:linux # Linux
 ```
 
-Then open `http://localhost:8000` in your browser.
+### Web Version
 
-## Customization Guide
+```bash
+# Install Python dependencies
+cd gameinfodownload-main
+pip install -r requirements.txt
 
-### Loading Custom Albums from JSON
+# Start the Flask server
+python server.py
 
-1. Click the **Settings** button (⚙️)
-2. Click **"Load Albums from JSON"**
-3. Select your JSON file
-
-**JSON Format:**
-```json
-{
-  "albums": [
-    {
-      "title": "Album Title",
-      "artist": "Artist Name",
-      "year": "2024",
-      "genre": "Genre",
-      "color": 16711680,
-      "image": "path/to/image.jpg"
-    }
-  ]
-}
+# Open index.html in your browser
 ```
 
-**Notes:**
-- `color`: Hex color as decimal (e.g., 0xFF0000 = 16711680 for red)
-  - Use: `parseInt('FF0000', 16)` to convert
-- `image`: Optional. If provided, overrides color
-- See `albums-example.json` for a template
+## 📚 Documentation
 
-### Adding Images
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
 
-To use actual album cover images:
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Get running in 5 minutes
+- **[Features Overview](docs/FEATURES.md)** - All new features explained
+- **[Electron Desktop App](docs/ELECTRON.md)** - Desktop application guide
+- **[Game Integration](docs/GAMES_INTEGRATION.md)** - Steam/Epic/Xbox setup
+- **[Full Documentation Index](docs/README.md)** - Complete docs
 
-```json
-{
-  "title": "Dark Side of the Moon",
-  "artist": "Pink Floyd",
-  "year": "1973",
-  "genre": "Progressive Rock",
-  "image": "images/dark-side.jpg"
-}
-```
+## 🎮 Supported Platforms
 
-Place images in an `images/` folder or use URLs.
+| Platform | Status | Features |
+|----------|--------|----------|
+| Steam | ✅ Full | Auto-detection, metadata, box art |
+| Epic Games | ✅ Full | Auto-detection, metadata, box art |
+| Xbox/Game Pass | ✅ Full | Windows UWP detection, metadata |
+| GOG Galaxy | 🔜 Planned | Coming soon |
+| Origin/EA | 🔜 Planned | Coming soon |
 
-### Editing Default Albums
+## 📸 Screenshots
 
-Edit the `initAlbumData()` method in `coverflow.js` (line 45):
+<table>
+  <tr>
+    <td><img src="https://via.placeholder.com/400x250?text=CoverFlow+View" alt="CoverFlow View"/></td>
+    <td><img src="https://via.placeholder.com/400x250?text=Grid+View" alt="Grid View"/></td>
+  </tr>
+  <tr>
+    <td><img src="https://via.placeholder.com/400x250?text=Statistics" alt="Statistics"/></td>
+    <td><img src="https://via.placeholder.com/400x250?text=Filters" alt="Filters"/></td>
+  </tr>
+</table>
 
-```javascript
-initAlbumData() {
-    const albums = [
-        {
-            title: 'Your Album',
-            artist: 'Your Artist',
-            year: '2024',
-            genre: 'Your Genre',
-            color: 0xFF6B6B
-        },
-        // Add more albums...
-    ];
-    // ...
-}
-```
+## 🛠️ Technology Stack
 
-## Keyboard Shortcuts Reference
+- **Frontend**: Three.js, Vanilla JavaScript
+- **Desktop**: Electron 28
+- **Backend**: Python 3.7+, Flask
+- **Database**: SQLite (better-sqlite3)
+- **Game Scanners**: Steam VDF, Epic GraphQL, Windows UWP
 
-| Key | Action |
-|-----|--------|
-| `←` `→` | Navigate left/right |
-| `Home` | Go to first album |
-| `End` | Go to last album |
-| `Space` | Random album |
-| `F` | Toggle fullscreen |
-| `?` | Show shortcuts |
-| `Esc` | Close modals/Exit fullscreen |
-| `1-9` | Jump to 10%-90% position |
+## 🎯 Key Features Explained
 
-## Technology Stack
+### Play Time Tracking
+- Automatic session start when launching games
+- Total play time and session history
+- Average session time calculations
+- Launch count tracking
 
-- **Three.js r128**: 3D graphics and WebGL rendering
-- **Vanilla JavaScript**: No framework dependencies
-- **Modern CSS3**:
-  - Flexbox layout
-  - Backdrop filters for glassmorphism
-  - CSS animations
-  - Custom scrollbars
-  - Responsive media queries
-- **HTML5 Canvas**: Thumbnail generation
-- **LocalStorage API**: Settings persistence
+### Smart Organization
+- Favorites system for quick access
+- Hide games you don't want to see
+- Recently played / Most played lists
+- Recently added games
 
-## Browser Compatibility
+### Advanced Filtering
+- Filter by platform, genre, or custom query
+- Sort by play time, last played, title, etc.
+- Favorites-only mode
+- Show/hide hidden games
 
-Works on all modern browsers with WebGL support:
-- ✅ Chrome/Edge 90+ (recommended)
-- ✅ Firefox 88+
-- ✅ Safari 14+
-- ✅ Opera 76+
-- ✅ Mobile browsers (iOS Safari, Chrome Mobile)
+### Duplicate Detection
+- Find same games across platforms
+- Manage cross-platform libraries
+- One-click access to all versions
 
-**Requirements:**
-- WebGL support
-- ES6+ JavaScript
-- CSS backdrop-filter support (optional, degrades gracefully)
+## 🤝 Contributing
 
-## File Structure
+Contributions are welcome! Please read the [Contributing Guide](docs/CONTRIBUTING.md) first.
 
-```
-coverflow/
-├── index.html           # Main HTML structure with post-processing scripts
-├── style.css            # All styles and animations
-├── coverflow.js         # Core CoverFlow logic (1088 lines)
-├── albums-example.json  # Sample JSON template
-└── README.md           # This file
-```
+## 📝 License
 
-## Controller Support
+MIT License - see [LICENSE](LICENSE) file for details
 
-### Connecting a Controller
-1. Connect your Xbox, PlayStation, or compatible USB/Bluetooth gamepad
-2. The controller status indicator in the top bar will turn green
-3. Controller name will be displayed
-4. You'll feel a welcome vibration (if enabled)
+## 🙏 Acknowledgments
 
-### Controller Mapping
-- **D-Pad/Left Stick**: Navigate left/right through albums
-- **A Button/Cross (✕)**: Confirm selection
-- **B Button/Circle (○)**: Close modals/Go back
-- **Y Button/Triangle (△)**: Random album
-- **LB/RB or L1/R1**: Fast navigation (shoulder buttons)
-- **LT/RT or L2/R2**: Jump to first/last album (triggers)
-- **Start/Options**: Open settings
-- **Select/Share**: Toggle fullscreen
+- Inspired by Apple's classic CoverFlow interface
+- Built with [Three.js](https://threejs.org/)
+- Game metadata from Steam, Epic, and Microsoft APIs
 
-### Controller Settings
-- **Sensitivity**: Adjust how responsive the analog stick is (1-10)
-- **Vibration**: Toggle haptic feedback on/off
+## 📞 Support
 
-## Performance Tips
+- **Issues**: [GitHub Issues](https://github.com/yourusername/coverflow-launcher/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/coverflow-launcher/discussions)
+- **Documentation**: [docs/](docs/)
 
-1. **Use appropriate image sizes**: 512x512px or 1024x1024px recommended
-2. **Limit album count**: 50-100 albums for smooth performance
-3. **Optimize images**: Use compressed JPG/PNG files
-4. **Reduce animation speed**: Lower values = better performance on slower devices
-5. **Disable reflections**: Turn off in settings if performance is an issue
-6. **GPU Effects**: Bloom and SSAO are GPU-intensive - disable on slower hardware
-7. **Glass Effect**: Most demanding feature - requires good GPU
+---
 
-## Features Comparison
-
-| Feature | Basic Version | Enhanced V1 | Enhanced V2 (Current) |
-|---------|--------------|-------------|----------------------|
-| 3D Carousel | ✅ | ✅ | ✅ |
-| Reflections | ❌ | ✅ | ✅ |
-| Search/Filter | ❌ | ✅ | ✅ |
-| Thumbnail Nav | ❌ | ✅ | ✅ |
-| Settings Panel | ❌ | ✅ | ✅ (Expanded) |
-| Fullscreen | ❌ | ✅ | ✅ |
-| JSON Import | ❌ | ✅ | ✅ |
-| Auto-Rotate | ❌ | ✅ | ✅ |
-| Keyboard Shortcuts | Basic | 15+ | 15+ |
-| **Controller Support** | ❌ | ❌ | **✅** |
-| **GPU Detection** | ❌ | ❌ | **✅** |
-| **Glass Refraction** | ❌ | ❌ | **✅** |
-| **Bloom Effect** | ❌ | ❌ | **✅** |
-| **SSAO** | ❌ | ❌ | **✅** |
-| **Haptic Feedback** | ❌ | ❌ | **✅** |
-| Albums | 12 | 16 | 16 |
-| Loading Screen | ❌ | ✅ | ✅ |
-| Persistent Settings | ❌ | ✅ | ✅ |
-| Lines of Code | ~269 | ~680 | ~1088 |
-
-## Advanced Customization
-
-### Changing Camera Position
-
-Edit `coverflow.js` line 82:
-```javascript
-this.camera.position.set(0, 0.5, 9); // x, y, z
-```
-
-### Adjusting Lighting
-
-Edit `coverflow.js` lines 99-109 to modify light intensity and position.
-
-### Custom Easing Functions
-
-The animation speed can be adjusted in real-time via settings, but for custom easing curves, modify the `updateCoverPositions()` method (line 179).
-
-## Troubleshooting
-
-**Issue: Images not loading**
-- Use a local server (CORS restriction)
-- Check image paths are correct
-- Verify images are accessible
-
-**Issue: Slow performance**
-- Reduce number of albums
-- Disable reflections in settings
-- Lower animation speed
-- Use smaller images
-
-**Issue: Thumbnails not showing**
-- Check browser console for errors
-- Verify albums have valid color values
-- Try refreshing the page
-
-**Issue: Settings not saving**
-- Check if localStorage is enabled in browser
-- Clear browser cache and try again
-
-## Contributing
-
-Feel free to fork and customize! Some ideas for enhancements:
-- Audio playback integration
-- More animation presets
-- Grid view mode
-- Export/import settings
-- Theme customization
-- Playlist support
-- Album statistics
-
-## License
-
-MIT License - Free to use and modify as you wish!
-
-## Credits
-
-Inspired by the classic Apple CoverFlow interface designed by Jonathan del Strother and integrated into iTunes, iPod, and Mac OS X by Apple Inc.
-
-Built with Three.js - https://threejs.org
+**Made with ❤️ for gamers who love beautiful interfaces**
