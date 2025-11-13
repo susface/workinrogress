@@ -502,6 +502,41 @@ class CoverFlow {
                     side: THREE.DoubleSide,
                     shininess: 80
                 });
+            } else if (album.video) {
+                // Video placeholder with play icon
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+
+                // Gradient background
+                const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+                gradient.addColorStop(0, '#8B4789');
+                gradient.addColorStop(1, '#5A2D58');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 512, 512);
+
+                // Play icon
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.moveTo(180, 150);
+                ctx.lineTo(180, 362);
+                ctx.lineTo(350, 256);
+                ctx.closePath();
+                ctx.fill();
+
+                // "VIDEO" text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = 'bold 36px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('VIDEO', 256, 420);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                material = new THREE.MeshPhongMaterial({
+                    map: texture,
+                    side: THREE.DoubleSide,
+                    shininess: 80
+                });
             } else {
                 material = new THREE.MeshPhongMaterial({
                     color: album.color,
