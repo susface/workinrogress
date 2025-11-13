@@ -217,14 +217,29 @@ ipcMain.handle('start-scan', async () => {
     const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
     const scannerPath = path.join(appPath, 'gameinfodownload-main', 'game_scanner.py');
 
+    // Check if scanner file exists
+    if (!fs.existsSync(scannerPath)) {
+        const error = 'Game scanner not found. Please ensure gameinfodownload-main directory exists.';
+        scanStatus.scanning = false;
+        scanStatus.error = error;
+        return { success: false, error };
+    }
+
     return new Promise((resolve) => {
-        scanningProcess = spawn(pythonCmd, [scannerPath], {
-            cwd: path.join(appPath, 'gameinfodownload-main'),
-            env: {
-                ...process.env,
-                GAME_DATA_DIR: gameDataPath
-            }
-        });
+        try {
+            scanningProcess = spawn(pythonCmd, [scannerPath], {
+                cwd: path.join(appPath, 'gameinfodownload-main'),
+                env: {
+                    ...process.env,
+                    GAME_DATA_DIR: gameDataPath
+                }
+            });
+        } catch (error) {
+            scanStatus.scanning = false;
+            scanStatus.error = 'Failed to start Python: ' + error.message;
+            resolve({ success: false, error: scanStatus.error });
+            return;
+        }
 
         scanningProcess.stdout.on('data', (data) => {
             const output = data.toString();
@@ -243,6 +258,15 @@ ipcMain.handle('start-scan', async () => {
 
         scanningProcess.stderr.on('data', (data) => {
             console.error('Scanner error:', data.toString());
+        });
+
+        scanningProcess.on('error', (error) => {
+            console.error('Failed to start scanner:', error);
+            scanStatus.scanning = false;
+            scanStatus.error = `Failed to start Python. Make sure Python is installed and in PATH. Error: ${error.message}`;
+            mainWindow?.webContents.send('scan-complete', scanStatus);
+            resolve({ success: false, error: scanStatus.error });
+            scanningProcess = null;
         });
 
         scanningProcess.on('close', (code) => {
@@ -281,11 +305,19 @@ async function loadGamesFromJSON() {
     const jsonPath = path.join(gameDataPath, 'games_export.json');
 
     if (!fs.existsSync(jsonPath)) {
+        console.log('No games export file found');
         return 0;
     }
 
-    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-    const games = data.games || [];
+    try {
+        const fileContent = fs.readFileSync(jsonPath, 'utf8');
+        const data = JSON.parse(fileContent);
+        const games = data.games || [];
+
+        if (!Array.isArray(games)) {
+            console.error('Invalid games data format: expected array');
+            return 0;
+        }
 
     const db = initDatabase();
     const insert = db.prepare(`
@@ -327,15 +359,31 @@ async function loadGamesFromJSON() {
         }
     });
 
-    insertMany(games);
-    db.close();
+        insertMany(games);
+        db.close();
 
-    return games.length;
+        return games.length;
+    } catch (error) {
+        console.error('Error loading games from JSON:', error);
+        return 0;
+    }
 }
 
 // Get image path (for serving local images)
 ipcMain.handle('get-image-path', async (event, relativePath) => {
-    const fullPath = path.join(gameDataPath, relativePath);
+    // Prevent path traversal attacks
+    const normalizedPath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '');
+    const fullPath = path.join(gameDataPath, normalizedPath);
+
+    // Ensure the resolved path is still within gameDataPath
+    const resolvedPath = path.resolve(fullPath);
+    const resolvedGameDataPath = path.resolve(gameDataPath);
+
+    if (!resolvedPath.startsWith(resolvedGameDataPath)) {
+        console.error('Path traversal attempt detected:', relativePath);
+        return null;
+    }
+
     if (fs.existsSync(fullPath)) {
         return fullPath;
     }
