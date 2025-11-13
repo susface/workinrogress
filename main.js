@@ -102,22 +102,6 @@ function createWindow() {
         mainWindow.webContents.openDevTools();
     }
 
-    // Windows: Minimize to tray instead of closing
-    if (isWindows) {
-        mainWindow.on('minimize', (event) => {
-            event.preventDefault();
-            mainWindow.hide();
-        });
-
-        mainWindow.on('close', (event) => {
-            if (!app.isQuitting) {
-                event.preventDefault();
-                mainWindow.hide();
-                return false;
-            }
-        });
-    }
-
     mainWindow.on('closed', () => {
         mainWindow = null;
         if (scanningProcess) {
@@ -130,51 +114,79 @@ function createTray() {
     // Create system tray icon (Windows)
     if (isWindows) {
         const iconPath = path.join(__dirname, 'icon.png');
-        tray = new Tray(iconPath);
 
-        const contextMenu = Menu.buildFromTemplate([
-            {
-                label: 'Show CoverFlow Launcher',
-                click: () => {
-                    if (mainWindow) {
+        // Check if icon exists before creating tray
+        if (!fs.existsSync(iconPath)) {
+            console.log('Tray icon not found at:', iconPath);
+            console.log('Skipping system tray creation. Add icon.png to enable tray icon.');
+            return;
+        }
+
+        try {
+            tray = new Tray(iconPath);
+
+            const contextMenu = Menu.buildFromTemplate([
+                {
+                    label: 'Show CoverFlow Launcher',
+                    click: () => {
+                        if (mainWindow) {
+                            mainWindow.show();
+                            mainWindow.focus();
+                        }
+                    }
+                },
+                {
+                    label: 'Scan for Games',
+                    click: () => {
+                        if (mainWindow) {
+                            mainWindow.show();
+                            mainWindow.focus();
+                            mainWindow.webContents.send('open-settings');
+                        }
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Quit',
+                    click: () => {
+                        app.isQuitting = true;
+                        app.quit();
+                    }
+                }
+            ]);
+
+            tray.setToolTip('CoverFlow Game Launcher');
+            tray.setContextMenu(contextMenu);
+
+            tray.on('click', () => {
+                if (mainWindow) {
+                    if (mainWindow.isVisible()) {
+                        mainWindow.hide();
+                    } else {
                         mainWindow.show();
                         mainWindow.focus();
                     }
                 }
-            },
-            {
-                label: 'Scan for Games',
-                click: () => {
-                    if (mainWindow) {
-                        mainWindow.show();
-                        mainWindow.focus();
-                        mainWindow.webContents.send('open-settings');
-                    }
-                }
-            },
-            { type: 'separator' },
-            {
-                label: 'Quit',
-                click: () => {
-                    app.isQuitting = true;
-                    app.quit();
-                }
-            }
-        ]);
+            });
 
-        tray.setToolTip('CoverFlow Game Launcher');
-        tray.setContextMenu(contextMenu);
-
-        tray.on('click', () => {
+            // Set up minimize to tray behavior (only if tray was successfully created)
             if (mainWindow) {
-                if (mainWindow.isVisible()) {
+                mainWindow.on('minimize', (event) => {
+                    event.preventDefault();
                     mainWindow.hide();
-                } else {
-                    mainWindow.show();
-                    mainWindow.focus();
-                }
+                });
+
+                mainWindow.on('close', (event) => {
+                    if (!app.isQuitting) {
+                        event.preventDefault();
+                        mainWindow.hide();
+                        return false;
+                    }
+                });
             }
-        });
+        } catch (error) {
+            console.error('Failed to create system tray:', error);
+        }
     }
 }
 
@@ -390,11 +402,16 @@ ipcMain.handle('start-scan', async () => {
 
                     // Windows notification
                     if (isWindows && Notification.isSupported()) {
-                        const notification = new Notification({
+                        const iconPath = path.join(__dirname, 'icon.png');
+                        const notificationOptions = {
                             title: 'Game Scan Complete',
-                            body: `Found ${count} games across all platforms`,
-                            icon: path.join(__dirname, 'icon.png')
-                        });
+                            body: `Found ${count} games across all platforms`
+                        };
+                        // Only add icon if it exists
+                        if (fs.existsSync(iconPath)) {
+                            notificationOptions.icon = iconPath;
+                        }
+                        const notification = new Notification(notificationOptions);
                         notification.show();
                     }
 
@@ -414,11 +431,16 @@ ipcMain.handle('start-scan', async () => {
 
                 // Windows error notification
                 if (isWindows && Notification.isSupported()) {
-                    const notification = new Notification({
+                    const iconPath = path.join(__dirname, 'icon.png');
+                    const notificationOptions = {
                         title: 'Game Scan Failed',
-                        body: scanStatus.error,
-                        icon: path.join(__dirname, 'icon.png')
-                    });
+                        body: scanStatus.error
+                    };
+                    // Only add icon if it exists
+                    if (fs.existsSync(iconPath)) {
+                        notificationOptions.icon = iconPath;
+                    }
+                    const notification = new Notification(notificationOptions);
                     notification.show();
                 }
                 mainWindow?.webContents.send('scan-complete', scanStatus);
