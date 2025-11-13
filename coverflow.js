@@ -33,10 +33,24 @@ class CoverFlow {
         this.cursorX = window.innerWidth / 2;
         this.cursorY = window.innerHeight / 2;
 
-        // Game scanner server
+        // Detect if running in Electron or browser
+        this.isElectron = typeof window.electronAPI !== 'undefined';
+        console.log(`Running in ${this.isElectron ? 'Electron' : 'Browser'} mode`);
+
+        // Game scanner server (for browser mode)
         this.serverURL = 'http://localhost:5000';
         this.serverAvailable = false;
         this.scanInterval = null;
+
+        // Setup Electron IPC listeners if in Electron mode
+        if (this.isElectron) {
+            window.electronAPI.onScanProgress((status) => {
+                this.updateScanProgress(status);
+            });
+            window.electronAPI.onScanComplete((status) => {
+                this.handleScanComplete(status);
+            });
+        }
 
         // Settings with defaults
         this.settings = {
@@ -720,22 +734,44 @@ class CoverFlow {
 
         console.log('Launching game:', game.title, 'with command:', game.launchCommand);
 
-        // For Steam/Epic/Xbox URLs, open them directly
-        if (game.launchCommand.startsWith('steam://') ||
-            game.launchCommand.startsWith('com.epicgames.launcher://') ||
-            game.launchCommand.startsWith('xbox://')) {
-            window.location.href = game.launchCommand;
-            this.showToast(`Launching ${game.title}...`, 'success');
+        if (this.isElectron) {
+            // Use Electron shell API
+            window.electronAPI.launchGame(game.launchCommand).then(result => {
+                if (result.success) {
+                    this.showToast(`Launching ${game.title}...`, 'success');
+                } else {
+                    this.showToast('Failed to launch game', 'error');
+                }
+            });
         } else {
-            // For other launch commands, try to open as URL or show warning
-            this.showToast('Game launching is platform-specific. Please use your game launcher.', 'info');
-            console.log('Platform:', game.platform);
-            console.log('Launch command:', game.launchCommand);
+            // Browser mode - try URL protocols
+            if (game.launchCommand.startsWith('steam://') ||
+                game.launchCommand.startsWith('com.epicgames.launcher://') ||
+                game.launchCommand.startsWith('xbox://')) {
+                window.location.href = game.launchCommand;
+                this.showToast(`Launching ${game.title}...`, 'success');
+            } else {
+                this.showToast('Game launching is platform-specific. Please use your game launcher.', 'info');
+                console.log('Platform:', game.platform);
+                console.log('Launch command:', game.launchCommand);
+            }
         }
     }
 
     // Check if game scanner server is running
     async checkServerStatus() {
+        if (this.isElectron) {
+            // In Electron mode, always available
+            this.serverAvailable = true;
+            const count = await window.electronAPI.getGamesCount();
+            if (count.success) {
+                document.getElementById('game-count-info').innerHTML =
+                    `<span style="color: #4CAF50;">✓ Desktop Mode</span> - ${count.total} games found`;
+            }
+            return;
+        }
+
+        // Browser mode - check Flask server
         try {
             const response = await fetch(`${this.serverURL}/health`, {
                 method: 'GET',
@@ -769,6 +805,20 @@ class CoverFlow {
 
     // Start game scan
     async startGameScan() {
+        if (this.isElectron) {
+            // Electron mode - use IPC
+            const result = await window.electronAPI.startScan();
+            if (result.success) {
+                this.showToast('Game scan started...', 'info');
+                document.getElementById('scan-progress-group').style.display = 'block';
+                document.getElementById('scan-games-btn').disabled = true;
+            } else {
+                this.showToast(result.error || 'Failed to start scan', 'error');
+            }
+            return;
+        }
+
+        // Browser mode - existing code
         if (!this.serverAvailable) {
             this.showToast('Game scanner server is not running. Please start the server first.', 'error');
             return;
@@ -852,8 +902,99 @@ class CoverFlow {
         }, 1000); // Poll every second
     }
 
+    // Handle scan progress updates from Electron
+    updateScanProgress(status) {
+        if (!this.isElectron) return;
+
+        const statusText = document.getElementById('scan-status-text');
+        const progressBar = document.getElementById('scan-progress-bar');
+
+        if (statusText) statusText.textContent = status.message;
+        if (progressBar) progressBar.style.width = status.progress + '%';
+    }
+
+    // Handle scan completion from Electron
+    async handleScanComplete(status) {
+        if (!this.isElectron) return;
+
+        setTimeout(() => {
+            document.getElementById('scan-progress-group').style.display = 'none';
+            document.getElementById('scan-games-btn').disabled = false;
+        }, 2000);
+
+        if (status.error) {
+            this.showToast(`Scan failed: ${status.error}`, 'error');
+        } else {
+            this.showToast(status.message, 'success');
+            await this.reloadGamesFromServer();
+        }
+
+        this.checkServerStatus();
+    }
+
     // Reload games from server
     async reloadGamesFromServer() {
+        if (this.isElectron) {
+            // Electron mode - use IPC
+            try {
+                const result = await window.electronAPI.getGames();
+                if (!result.success) {
+                    this.showToast('Failed to load games', 'error');
+                    return;
+                }
+
+                const games = result.games || [];
+                if (games.length === 0) {
+                    this.showToast('No games found. Run a scan first.', 'info');
+                    return;
+                }
+
+                // Remove existing games
+                this.allAlbums = this.allAlbums.filter(item => item.type !== 'game');
+                this.filteredAlbums = this.filteredAlbums.filter(item => item.type !== 'game');
+
+                // Convert games
+                const platformColors = {
+                    'steam': 0x1B2838,
+                    'epic': 0x313131,
+                    'xbox': 0x107C10
+                };
+
+                const convertedGames = games.map(game => ({
+                    type: 'game',
+                    title: game.title,
+                    platform: game.platform,
+                    developer: game.developer || 'Unknown',
+                    publisher: game.publisher || 'Unknown',
+                    year: game.release_date ? new Date(game.release_date).getFullYear().toString() : '-',
+                    genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
+                    description: game.description || game.short_description || game.long_description || 'No description available.',
+                    color: platformColors[game.platform] || 0x808080,
+                    image: game.boxart_path || game.icon_path,
+                    launchCommand: game.launch_command,
+                    installDir: game.install_directory,
+                    appId: game.app_id || game.package_name
+                }));
+
+                // Merge
+                this.allAlbums = [...this.allAlbums, ...convertedGames];
+                this.filteredAlbums = [...this.allAlbums];
+                document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+
+                // Recreate UI
+                this.createCovers();
+                this.createThumbnails();
+                this.updateInfo();
+
+                this.showToast(`Loaded ${convertedGames.length} games!`, 'success');
+            } catch (error) {
+                console.error('Reload games error:', error);
+                this.showToast('Failed to load games', 'error');
+            }
+            return;
+        }
+
+        // Browser mode - existing code
         if (!this.serverAvailable) {
             this.showToast('Server not available', 'error');
             return;
@@ -1301,6 +1442,29 @@ class CoverFlow {
                     } else {
                         // Otherwise navigate to that cover
                         this.navigateTo(clickedCover.userData.index);
+                    }
+                }
+            }
+        });
+
+        // Double-click to launch game
+        this.container.addEventListener('dblclick', (e) => {
+            const mouse = new THREE.Vector2();
+            const rect = this.container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, this.camera);
+
+            const intersects = raycaster.intersectObjects(this.covers);
+            if (intersects.length > 0) {
+                const clickedCover = intersects[0].object;
+                if (clickedCover.userData.isCover && clickedCover.userData.index === this.currentIndex) {
+                    // Double-click on current cover
+                    const item = this.filteredAlbums[this.currentIndex];
+                    if (item && item.type === 'game') {
+                        this.launchGame(item);
                     }
                 }
             }

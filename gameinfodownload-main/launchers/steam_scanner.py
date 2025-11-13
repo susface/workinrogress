@@ -124,8 +124,15 @@ class SteamScanner:
                 if data.get(app_id, {}).get('success'):
                     game_data = data[app_id]['data']
 
-                    metadata['description'] = game_data.get('detailed_description', '')
-                    metadata['short_description'] = game_data.get('short_description', '')
+                    # Use short_description as primary, clean HTML tags
+                    short_desc = game_data.get('short_description', '')
+                    # Remove HTML tags
+                    short_desc = re.sub(r'<[^>]+>', '', short_desc)
+                    # Clean up extra whitespace
+                    short_desc = ' '.join(short_desc.split())
+
+                    metadata['description'] = short_desc
+                    metadata['short_description'] = short_desc
                     metadata['developers'] = game_data.get('developers', [])
                     metadata['publishers'] = game_data.get('publishers', [])
 
@@ -150,12 +157,14 @@ class SteamScanner:
             if response.status_code == 200:
                 # Sanitize filename
                 safe_name = re.sub(r'[<>:"/\\|?*]', '_', game_name)
-                icon_path = self.icons_dir / f"steam_{app_id}_{safe_name}.jpg"
+                filename = f"steam_{app_id}_{safe_name}.jpg"
+                icon_path = self.icons_dir / filename
 
                 with open(icon_path, 'wb') as f:
                     f.write(response.content)
 
-                return str(icon_path)
+                # Return relative path for URL construction
+                return f"game_data/icons/{filename}"
 
         except Exception as e:
             print(f"Error downloading icon for {game_name}: {e}")
@@ -172,12 +181,14 @@ class SteamScanner:
             if response.status_code == 200:
                 # Sanitize filename
                 safe_name = re.sub(r'[<>:"/\\|?*]', '_', game_name)
-                boxart_path = self.boxart_dir / f"steam_{app_id}_{safe_name}.jpg"
+                filename = f"steam_{app_id}_{safe_name}.jpg"
+                boxart_path = self.boxart_dir / filename
 
                 with open(boxart_path, 'wb') as f:
                     f.write(response.content)
 
-                return str(boxart_path)
+                # Return relative path for URL construction
+                return f"game_data/boxart/{filename}"
 
         except Exception as e:
             print(f"Error downloading box art for {game_name}: {e}")

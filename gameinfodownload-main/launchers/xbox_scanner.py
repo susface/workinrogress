@@ -222,14 +222,19 @@ class XboxScanner:
                 safe_name = re.sub(r'[<>:"/\\|?*]', '_', app_name)
 
                 if image_type == 'icon':
-                    save_path = self.icons_dir / f"xbox_{safe_name}_icon.jpg"
+                    filename = f"xbox_{safe_name}_icon.jpg"
+                    save_path = self.icons_dir / filename
+                    relative_path = f"game_data/icons/{filename}"
                 else:
-                    save_path = self.boxart_dir / f"xbox_{safe_name}_boxart.jpg"
+                    filename = f"xbox_{safe_name}_boxart.jpg"
+                    save_path = self.boxart_dir / filename
+                    relative_path = f"game_data/boxart/{filename}"
 
                 with open(save_path, 'wb') as f:
                     f.write(response.content)
 
-                return str(save_path)
+                # Return relative path for URL construction
+                return relative_path
 
         except Exception as e:
             print(f"Error downloading {image_type}: {e}")
@@ -243,12 +248,14 @@ class XboxScanner:
 
         try:
             safe_name = re.sub(r'[<>:"/\\|?*]', '_', app_name)
-            dest_path = self.icons_dir / f"xbox_{safe_name}_icon.png"
+            filename = f"xbox_{safe_name}_icon.png"
+            dest_path = self.icons_dir / filename
 
             import shutil
             shutil.copy2(logo_path, dest_path)
 
-            return str(dest_path)
+            # Return relative path for URL construction
+            return f"game_data/icons/{filename}"
 
         except Exception as e:
             print(f"Error copying icon: {e}")
