@@ -247,6 +247,15 @@ class SteamScanner:
                 metadata = self._get_game_metadata(app_id)
                 game_info.update(metadata)
 
+                # Convert lists to strings for database storage
+                if 'developers' in game_info and isinstance(game_info['developers'], list):
+                    game_info['developer'] = ', '.join(game_info['developers']) if game_info['developers'] else ''
+                    del game_info['developers']
+
+                if 'publishers' in game_info and isinstance(game_info['publishers'], list):
+                    game_info['publisher'] = ', '.join(game_info['publishers']) if game_info['publishers'] else ''
+                    del game_info['publishers']
+
                 # Download icon and box art
                 print(f"  Downloading assets for: {name}")
                 icon_path = self._download_icon(app_id, name)
