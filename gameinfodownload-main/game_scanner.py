@@ -103,6 +103,9 @@ class GameScanner:
 
     def launch_game(self, game_id: int):
         """Launch a game by its database ID"""
+        import subprocess
+        import shlex
+
         game = self.db.get_game_by_id(game_id)
         if not game:
             print(f"Game with ID {game_id} not found")
@@ -115,12 +118,17 @@ class GameScanner:
 
         print(f"Launching {game.get('title')}...")
         try:
-            if game['platform'] == 'steam':
-                os.system(launch_cmd)
-            elif game['platform'] == 'epic':
-                os.system(launch_cmd)
-            elif game['platform'] == 'xbox':
-                os.system(launch_cmd)
+            # Use subprocess instead of os.system to avoid command injection
+            # For URL protocols (steam://, epic://, etc.), use webbrowser module
+            if launch_cmd.startswith(('steam://', 'epic://', 'com.epicgames.launcher://', 'xbox://')):
+                import webbrowser
+                webbrowser.open(launch_cmd)
+            else:
+                # For executable paths, use subprocess with shell=False for safety
+                if os.name == 'nt':  # Windows
+                    subprocess.Popen(launch_cmd, shell=False)
+                else:  # Unix-like systems
+                    subprocess.Popen(shlex.split(launch_cmd), shell=False)
         except Exception as e:
             print(f"Error launching game: {e}")
 

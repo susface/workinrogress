@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Tray, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -380,7 +380,6 @@ ipcMain.handle('start-scan', async () => {
             scanStatus.scanning = false;
             scanStatus.error = `Failed to start Python. Make sure Python is installed and in PATH. Error: ${error.message}`;
             mainWindow?.webContents.send('scan-complete', scanStatus);
-            resolve({ success: false, error: scanStatus.error });
             scanningProcess = null;
         });
 
@@ -422,8 +421,10 @@ ipcMain.handle('start-scan', async () => {
                             mainWindow.flashFrame(false);
                         });
                     }
-
-                    resolve({ success: true, message: scanStatus.message });
+                }).catch(error => {
+                    console.error('Error loading games from JSON:', error);
+                    scanStatus.error = `Failed to load games: ${error.message}`;
+                    mainWindow?.webContents.send('scan-complete', scanStatus);
                 });
             } else {
                 scanStatus.error = `Scanner exited with code ${code}`;
@@ -444,12 +445,12 @@ ipcMain.handle('start-scan', async () => {
                     notification.show();
                 }
                 mainWindow?.webContents.send('scan-complete', scanStatus);
-                resolve({ success: false, error: scanStatus.error });
             }
 
             scanningProcess = null;
         });
 
+        // Return immediately with success - scan runs in background
         resolve({ success: true, message: 'Scan started' });
     });
 });
@@ -552,7 +553,6 @@ ipcMain.handle('get-image-path', async (event, relativePath) => {
 // Launch game
 ipcMain.handle('launch-game', async (event, launchCommand) => {
     try {
-        const { shell } = require('electron');
         await shell.openExternal(launchCommand);
         return { success: true };
     } catch (error) {
@@ -608,7 +608,6 @@ ipcMain.handle('clear-error-log', async () => {
 // Media folder selection
 ipcMain.handle('select-media-folder', async () => {
     try {
-        const { dialog } = require('electron');
         const result = await dialog.showOpenDialog(mainWindow, {
             properties: ['openDirectory'],
             title: 'Select Media Folder',
@@ -629,6 +628,12 @@ ipcMain.handle('select-media-folder', async () => {
 // Scan media folder for images/videos
 ipcMain.handle('scan-media-folder', async (event, folderPath) => {
     try {
+        // Validate folder path to prevent directory traversal
+        const normalizedPath = path.resolve(folderPath);
+        if (!fs.existsSync(normalizedPath) || !fs.statSync(normalizedPath).isDirectory()) {
+            return { success: false, error: 'Invalid folder path' };
+        }
+
         const media = [];
         const supportedImages = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
         const supportedVideos = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
@@ -638,6 +643,13 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
 
             for (const item of items) {
                 const fullPath = path.join(dir, item);
+
+                // Additional security check to ensure path is within the selected folder
+                if (!fullPath.startsWith(normalizedPath)) {
+                    console.warn('Skipping path outside selected folder:', fullPath);
+                    continue;
+                }
+
                 const stat = fs.statSync(fullPath);
 
                 if (stat.isDirectory()) {
@@ -670,13 +682,13 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
             }
         }
 
-        scanDirectory(folderPath);
+        scanDirectory(normalizedPath);
 
         return {
             success: true,
             media,
             count: media.length,
-            folderPath
+            folderPath: normalizedPath
         };
     } catch (error) {
         console.error('Error scanning media folder:', error);

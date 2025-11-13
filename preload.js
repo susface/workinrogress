@@ -10,8 +10,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Scanning
     startScan: () => ipcRenderer.invoke('start-scan'),
     getScanStatus: () => ipcRenderer.invoke('get-scan-status'),
-    onScanProgress: (callback) => ipcRenderer.on('scan-progress', (event, status) => callback(status)),
-    onScanComplete: (callback) => ipcRenderer.on('scan-complete', (event, status) => callback(status)),
+    onScanProgress: (callback) => {
+        const listener = (event, status) => callback(status);
+        ipcRenderer.on('scan-progress', listener);
+        // Return cleanup function
+        return () => ipcRenderer.removeListener('scan-progress', listener);
+    },
+    onScanComplete: (callback) => {
+        const listener = (event, status) => callback(status);
+        ipcRenderer.on('scan-complete', listener);
+        // Return cleanup function
+        return () => ipcRenderer.removeListener('scan-complete', listener);
+    },
 
     // Images
     getImagePath: (relativePath) => ipcRenderer.invoke('get-image-path', relativePath),

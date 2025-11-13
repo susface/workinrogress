@@ -11,7 +11,8 @@ from pathlib import Path
 from game_scanner import GameScanner
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for local development
+# Enable CORS only for localhost to prevent security issues
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:*", "http://127.0.0.1:*"]}})
 
 # Global state for scan progress
 scan_state = {

@@ -19,9 +19,15 @@ class GameDatabase:
             db_path: Path to SQLite database file
         """
         self.db_path = db_path
-        self.conn = sqlite3.connect(db_path)
-        self.conn.row_factory = sqlite3.Row
+        self.conn = None
+        self._connect()
         self._create_tables()
+
+    def _connect(self):
+        """Establish database connection"""
+        if self.conn is None:
+            self.conn = sqlite3.connect(self.db_path)
+            self.conn.row_factory = sqlite3.Row
 
     def _create_tables(self):
         """Create database tables if they don't exist"""
@@ -222,21 +228,28 @@ class GameDatabase:
         if game.get('genres'):
             try:
                 game['genres'] = json.loads(game['genres'])
-            except:
+            except (json.JSONDecodeError, TypeError, ValueError) as e:
+                print(f"Warning: Failed to parse genres JSON: {e}")
                 game['genres'] = []
 
         if game.get('metadata'):
             try:
                 metadata = json.loads(game['metadata'])
                 game.update(metadata)
-            except:
-                pass
+            except (json.JSONDecodeError, TypeError, ValueError) as e:
+                print(f"Warning: Failed to parse metadata JSON: {e}")
 
         return game
 
     def close(self):
         """Close the database connection"""
-        self.conn.close()
+        if self.conn is not None:
+            try:
+                self.conn.close()
+            except Exception as e:
+                print(f"Warning: Error closing database connection: {e}")
+            finally:
+                self.conn = None
 
     def __enter__(self):
         """Context manager entry"""
@@ -244,4 +257,9 @@ class GameDatabase:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit"""
+        self.close()
+        return False  # Don't suppress exceptions
+
+    def __del__(self):
+        """Destructor to ensure connection is closed"""
         self.close()
