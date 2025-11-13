@@ -252,31 +252,9 @@ class CoverFlow {
     }
 
     initAlbumData() {
-        const albums = [
-            { type: 'album', title: 'Midnight Dreams', artist: 'Luna Eclipse', year: '2023', genre: 'Electronic', color: 0xFF6B6B, description: 'A journey through ethereal soundscapes and pulsing beats.' },
-            { type: 'album', title: 'Ocean Waves', artist: 'Aqua Marina', year: '2022', genre: 'Ambient', color: 0x4ECDC4, description: 'Calming oceanic ambience for deep meditation and relaxation.' },
-            { type: 'image', title: 'Sunset Over Mountains', category: 'Nature', year: '2023', tags: 'landscape, sunset, mountains', color: 0xFF8C42, description: 'A breathtaking view of the sun setting behind mountain peaks.', image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80' },
-            { type: 'album', title: 'Urban Lights', artist: 'City Sounds', year: '2023', genre: 'Hip Hop', color: 0x45B7D1, description: 'Street poetry meets modern production in this urban masterpiece.' },
-            { type: 'image', title: 'Northern Lights', category: 'Nature', year: '2023', tags: 'aurora, night sky, nature', color: 0x00CED1, description: 'The aurora borealis dancing across the Arctic sky.', image: 'https://images.unsplash.com/photo-1579033461380-adb47c3eb938?w=800&q=80' },
-            { type: 'album', title: 'Sunset Boulevard', artist: 'Golden Hour', year: '2021', genre: 'Jazz', color: 0xFFA07A, description: 'Smooth jazz melodies inspired by California sunsets.' },
-            { type: 'album', title: 'Forest Whispers', artist: 'Nature\'s Voice', year: '2022', genre: 'Classical', color: 0x98D8C8, description: 'Classical compositions inspired by the serenity of ancient forests.' },
-            { type: 'image', title: 'Tokyo Street', category: 'Urban', year: '2023', tags: 'city, night, neon', color: 0xFF1493, description: 'Neon-lit streets of downtown Tokyo at night.', image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&q=80' },
-            { type: 'album', title: 'Electric Storm', artist: 'Thunder Bay', year: '2023', genre: 'Rock', color: 0xF7DC6F, description: 'High-energy rock anthems that shake the foundation.' },
-            { type: 'album', title: 'Neon Nights', artist: 'Synthwave Collective', year: '2022', genre: 'Synthwave', color: 0xBB8FCE, description: 'Retro-futuristic synthwave that transports you to neon-lit streets.' },
-            { type: 'image', title: 'Ocean Waves', category: 'Nature', year: '2022', tags: 'ocean, waves, beach', color: 0x4682B4, description: 'Powerful waves crashing on a pristine beach.', image: 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&q=80' },
-            { type: 'album', title: 'Mountain Peak', artist: 'Summit Sounds', year: '2021', genre: 'Folk', color: 0x85C1E2, description: 'Acoustic folk tales from the highest peaks.' },
-            { type: 'album', title: 'Desert Rose', artist: 'Sahara Ensemble', year: '2023', genre: 'World', color: 0xF8B195, description: 'Middle Eastern rhythms blended with contemporary world music.' },
-            { type: 'image', title: 'Starry Night Sky', category: 'Astronomy', year: '2023', tags: 'stars, milky way, night', color: 0x191970, description: 'The Milky Way galaxy stretching across the night sky.', image: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&q=80' },
-            { type: 'album', title: 'Cosmic Journey', artist: 'Space Travelers', year: '2022', genre: 'Psychedelic', color: 0xC06C84, description: 'Mind-bending psychedelic exploration through space and time.' },
-            { type: 'album', title: 'Velvet Dreams', artist: 'Midnight Lounge', year: '2021', genre: 'Lounge', color: 0x6C5B7B, description: 'Sophisticated lounge music for late-night conversations.' },
-            { type: 'album', title: 'Winter Solstice', artist: 'Arctic Symphony', year: '2023', genre: 'Orchestral', color: 0x355C7D, description: 'Epic orchestral movements inspired by winter\'s beauty.' },
-            { type: 'image', title: 'Cherry Blossoms', category: 'Nature', year: '2023', tags: 'flowers, spring, japan', color: 0xFFB7C5, description: 'Delicate cherry blossoms in full bloom.', image: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&q=80' },
-            { type: 'album', title: 'Tokyo Nights', artist: 'J-Wave', year: '2022', genre: 'J-Pop', color: 0xFF69B4, description: 'Energetic J-Pop hits straight from the streets of Tokyo.' },
-            { type: 'album', title: 'Latin Fire', artist: 'Salsa Kings', year: '2023', genre: 'Latin', color: 0xFF4500, description: 'Fiery Latin rhythms that make you want to dance.' }
-        ];
-
-        this.allAlbums = albums;
-        this.filteredAlbums = [...albums];
+        // Start with empty array - no hardcoded examples
+        this.allAlbums = [];
+        this.filteredAlbums = [];
         document.getElementById('total-albums').textContent = this.filteredAlbums.length;
 
         // Try to load games from JSON file
@@ -287,7 +265,8 @@ class CoverFlow {
         try {
             const response = await fetch(filepath);
             if (!response.ok) {
-                console.log('No games file found, using default albums only');
+                console.log('No games file found, showing empty library');
+                this.showToast('No games found. Scan for games in Settings to get started!', 'info');
                 return;
             }
 
@@ -314,6 +293,9 @@ class CoverFlow {
                     }
                 }
 
+                // Use boxart if available, fall back to icon
+                const imagePath = game.boxart_path || game.icon_path;
+
                 return {
                     type: 'game',
                     title: game.title,
@@ -324,7 +306,7 @@ class CoverFlow {
                     genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
                     description: game.description || game.short_description || game.long_description || 'No description available.',
                     color: platformColors[game.platform] || 0x808080,
-                    image: game.boxart_path || game.icon_path,
+                    image: imagePath,
                     launchCommand: game.launch_command,
                     installDir: game.install_directory,
                     appId: game.app_id || game.package_name
@@ -1955,8 +1937,74 @@ class CoverFlow {
             this.reloadGamesFromServer();
         });
 
+        // Media folder button
+        const mediaFolderBtn = document.getElementById('add-media-folder-btn');
+        if (mediaFolderBtn) {
+            mediaFolderBtn.addEventListener('click', () => {
+                this.selectAndScanMediaFolder();
+            });
+        }
+
         // Check server status on load
         this.checkServerStatus();
+    }
+
+    async selectAndScanMediaFolder() {
+        if (!this.isElectron) {
+            this.showToast('Folder selection is only available in desktop mode', 'warning');
+            return;
+        }
+
+        try {
+            // Open folder picker
+            const selectResult = await window.electronAPI.selectMediaFolder();
+
+            if (selectResult.canceled) {
+                return;
+            }
+
+            if (!selectResult.success) {
+                this.showToast('Failed to select folder', 'error');
+                return;
+            }
+
+            this.showToast('Scanning folder for media...', 'info');
+
+            // Scan the selected folder
+            const scanResult = await window.electronAPI.scanMediaFolder(selectResult.folderPath);
+
+            if (!scanResult.success) {
+                this.showToast(`Failed to scan folder: ${scanResult.error}`, 'error');
+                return;
+            }
+
+            if (scanResult.count === 0) {
+                this.showToast('No media files found in selected folder', 'warning');
+                return;
+            }
+
+            // Add media to library
+            this.allAlbums = [...this.allAlbums, ...scanResult.media];
+            this.filteredAlbums = [...this.allAlbums];
+            document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+
+            // Recreate UI
+            this.createCovers();
+            this.createThumbnails();
+            this.updateInfo();
+
+            // Update status
+            const folderInfo = document.getElementById('media-folder-info');
+            if (folderInfo) {
+                folderInfo.textContent = `Added ${scanResult.count} files from ${scanResult.folderPath}`;
+                folderInfo.style.color = '#4CAF50';
+            }
+
+            this.showToast(`Added ${scanResult.count} media files!`, 'success');
+        } catch (error) {
+            console.error('Error selecting media folder:', error);
+            this.showToast('Failed to add media folder', 'error');
+        }
     }
 
     openModal(modalId) {
