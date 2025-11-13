@@ -68,6 +68,8 @@ class CoverFlow {
             // Controller settings
             controllerSensitivity: 5,
             controllerVibration: true,
+            // Scroll settings
+            scrollSpeed: 1.0,
             // Performance
             showFpsCounter: false,
             // Error logging
@@ -467,13 +469,13 @@ class CoverFlow {
                     metalness: 0.1,
                     roughness: 0.1,
                     transmission: 0.9,
-                    thickness: 0.5,
                     envMapIntensity: 1.5,
                     clearcoat: 1.0,
                     clearcoatRoughness: 0.1,
                     side: THREE.DoubleSide,
                     transparent: true,
-                    opacity: 0.95
+                    opacity: 0.95,
+                    ior: 1.5 // Index of refraction for glass-like appearance
                 });
             } else if (album.image) {
                 // For local file paths, ensure proper encoding
@@ -1694,11 +1696,17 @@ class CoverFlow {
             }
         });
 
-        // Mouse wheel
+        // Mouse wheel with variable speed
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
+
+            // Calculate scroll amount based on deltaY and speed setting
+            const scrollAmount = Math.abs(e.deltaY) * this.settings.scrollSpeed * 0.01;
             const direction = e.deltaY > 0 ? 1 : -1;
-            this.navigate(direction);
+            const steps = Math.max(1, Math.floor(scrollAmount));
+
+            // Navigate multiple steps for faster scrolling
+            this.navigate(direction * steps);
         }, { passive: false });
 
         // Mouse click on covers
@@ -1897,6 +1905,17 @@ class CoverFlow {
 
         vibrationToggle.addEventListener('change', (e) => {
             this.settings.controllerVibration = e.target.checked;
+            this.saveSettings();
+        });
+
+        // Scroll speed setting
+        const scrollSpeedSlider = document.getElementById('scroll-speed');
+        scrollSpeedSlider.value = this.settings.scrollSpeed;
+        document.getElementById('scroll-speed-value').textContent = `${this.settings.scrollSpeed.toFixed(1)}x`;
+
+        scrollSpeedSlider.addEventListener('input', (e) => {
+            this.settings.scrollSpeed = parseFloat(e.target.value);
+            document.getElementById('scroll-speed-value').textContent = `${e.target.value}x`;
             this.saveSettings();
         });
 
