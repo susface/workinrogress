@@ -142,7 +142,8 @@ class XboxScanner:
                                 info['logo_path'] = str(logo_path)
 
                         break
-                except:
+                except Exception as e:
+                    # Continue trying other namespace variants
                     continue
 
         except Exception as e:
