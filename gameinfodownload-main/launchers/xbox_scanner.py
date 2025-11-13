@@ -188,7 +188,16 @@ class XboxScanner:
 
                         # Extract metadata
                         props = product.get('LocalizedProperties', [{}])[0]
-                        metadata['description'] = props.get('ShortDescription', '') or props.get('ProductDescription', '')
+                        desc = props.get('ShortDescription', '') or props.get('ProductDescription', '')
+                        # Remove HTML tags
+                        desc = re.sub(r'<[^>]+>', '', desc)
+                        # Clean up extra whitespace
+                        desc = ' '.join(desc.split())
+                        # Limit to 300 characters for cleaner display
+                        if len(desc) > 300:
+                            desc = desc[:297] + '...'
+
+                        metadata['description'] = desc
                         metadata['publisher'] = props.get('PublisherName', '')
                         metadata['developer'] = props.get('DeveloperName', '')
 

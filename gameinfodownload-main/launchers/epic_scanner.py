@@ -180,7 +180,17 @@ class EpicScanner:
                 offer = data.get('data', {}).get('Catalog', {}).get('catalogOffer', {})
 
                 if offer:
-                    metadata['description'] = offer.get('description', '')
+                    # Prefer shorter description, clean HTML tags
+                    desc = offer.get('description', '') or offer.get('longDescription', '')
+                    # Remove HTML tags
+                    desc = re.sub(r'<[^>]+>', '', desc)
+                    # Clean up extra whitespace
+                    desc = ' '.join(desc.split())
+                    # Limit to 300 characters for cleaner display
+                    if len(desc) > 300:
+                        desc = desc[:297] + '...'
+
+                    metadata['description'] = desc
                     metadata['long_description'] = offer.get('longDescription', '')
                     metadata['developer'] = offer.get('developer', '')
                     metadata['publisher'] = offer.get('publisherDisplayName', '')
