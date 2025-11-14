@@ -1516,7 +1516,7 @@ class CoverFlow {
             this.filteredAlbums = [...this.allAlbums];
         } else {
             this.filteredAlbums = this.allAlbums.filter(item => {
-                // Search in title (common to both)
+                // Search in title (common to all)
                 if (item.title.toLowerCase().includes(lowerQuery)) return true;
 
                 // For albums, search in artist and genre
@@ -1529,6 +1529,20 @@ class CoverFlow {
                 if (item.type === 'image') {
                     if (item.category && item.category.toLowerCase().includes(lowerQuery)) return true;
                     if (item.tags && item.tags.toLowerCase().includes(lowerQuery)) return true;
+                }
+
+                // For games, search in platform, developer, publisher, description, and genres
+                if (item.type === 'game') {
+                    if (item.platform && item.platform.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.developer && item.developer.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.publisher && item.publisher.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.description && item.description.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.short_description && item.short_description.toLowerCase().includes(lowerQuery)) return true;
+                    if (item.genres) {
+                        // genres might be an array or a string
+                        const genresStr = Array.isArray(item.genres) ? item.genres.join(' ') : item.genres;
+                        if (genresStr.toLowerCase().includes(lowerQuery)) return true;
+                    }
                 }
 
                 return false;

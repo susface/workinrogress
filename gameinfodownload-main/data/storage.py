@@ -101,6 +101,25 @@ class GameDatabase:
             CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id)
         ''')
 
+        # Migrate existing database (add new columns if they don't exist)
+        # Check if columns exist by trying to add them
+        migration_columns = [
+            ('is_favorite', 'INTEGER DEFAULT 0'),
+            ('is_hidden', 'INTEGER DEFAULT 0'),
+            ('launch_count', 'INTEGER DEFAULT 0'),
+            ('last_played', 'TIMESTAMP'),
+            ('total_play_time', 'INTEGER DEFAULT 0'),
+            ('user_rating', 'INTEGER'),
+            ('user_notes', 'TEXT')
+        ]
+
+        for column_name, column_type in migration_columns:
+            try:
+                cursor.execute(f'ALTER TABLE games ADD COLUMN {column_name} {column_type}')
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
+
         self.conn.commit()
 
     def save_game(self, game_data: Dict) -> int:
