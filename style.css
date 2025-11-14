@@ -12,6 +12,16 @@ body {
     height: 100vh;
 }
 
+/* Global image smoothing for better anti-aliasing */
+img {
+    image-rendering: auto;
+    image-rendering: -webkit-optimize-contrast;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+}
+
 /* Loading Screen */
 #loading-screen {
     position: fixed;
