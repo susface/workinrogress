@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CoverFlow Icon Generator</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+        canvas {
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            background: white;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin: 30px 0;
+            justify-content: center;
+        }
+        .preview-item {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .preview-item strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        .success {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .button-group {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .instructions {
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .instructions ol {
+            line-height: 1.8;
+        }
+        .instructions code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 8px;
+            border-radius: 3px;
+            color: #ff6b6b;
+        }
+        .instructions a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .instructions a:hover {
+            text-decoration: underline;
+        }
+        .all-button {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            font-size: 18px;
+            padding: 20px 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 CoverFlow Game Launcher</h1>
+        <div class="subtitle">Icon Generator</div>
+
+        <div class="preview" id="preview"></div>
+
+        <div class="button-group">
+            <button class="all-button" onclick="downloadAll()">📥 Download All Icons (Recommended)</button>
+        </div>
+
+        <div class="button-group">
+            <button onclick="createAndDownload('icon', 256)">Download icon.png (256x256)</button>
+            <button onclick="createAndDownload('placeholder', 512)">Download placeholder.png (512x512)</button>
+            <button onclick="createAndDownload('icon_512', 512)">Download icon_512.png (512x512)</button>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="instructions">
+            <h3>📋 Instructions:</h3>
+            <ol>
+                <li>Click <strong>"Download All Icons"</strong> button above (easiest!)</li>
+                <li>Save all PNG files to your CoverFlow project root directory</li>
+                <li><strong>For Windows</strong>: Convert <code>icon_512.png</code> to <code>icon.ico</code>:
+                    <ul>
+                        <li>Use <a href="https://convertico.com" target="_blank">ConvertICO.com</a> (online, free)</li>
+                        <li>Upload <code>icon_512.png</code></li>
+                        <li>Download as <code>icon.ico</code></li>
+                    </ul>
+                </li>
+                <li><strong>For macOS</strong>: Convert <code>icon_512.png</code> to <code>icon.icns</code>:
+                    <ul>
+                        <li>Run: <code>sips -s format icns icon_512.png --out icon.icns</code></li>
+                    </ul>
+                </li>
+                <li>Run <code>npm start</code> to launch your app! 🚀</li>
+            </ol>
+        </div>
+
+        <div class="instructions">
+            <h3>✅ Required Files:</h3>
+            <ul>
+                <li><code>icon.png</code> - System tray icon and Linux builds (256x256) ✅</li>
+                <li><code>placeholder.png</code> - Fallback for games without cover art (512x512) ✅</li>
+                <li><code>icon.ico</code> - Windows executable icon (optional, for builds) ⚠️</li>
+                <li><code>icon.icns</code> - macOS app icon (optional, for builds) ⚠️</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function createIcon(size, isPlaceholder = false) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            if (isPlaceholder) {
+                // Dark gray gradient for placeholder
+                const gradient = ctx.createLinearGradient(0, 0, 0, size);
+                gradient.addColorStop(0, '#2a2a3a');
+                gradient.addColorStop(1, '#1a1a28');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+
+                // Subtle border
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(0, 0, size, size);
+
+                // Game controller emoji
+                ctx.font = `${size * 0.35}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#555';
+                ctx.fillText('🎮', size / 2, size / 2.3);
+
+                // "No Cover" text
+                ctx.font = `bold ${size * 0.06}px Arial`;
+                ctx.fillStyle = '#888';
+                ctx.fillText('NO COVER', size / 2, size * 0.7);
+
+                ctx.font = `${size * 0.045}px Arial`;
+                ctx.fillStyle = '#666';
+                ctx.fillText('AVAILABLE', size / 2, size * 0.78);
+            } else {
+                // Purple gradient circle for app icon
+                const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+                gradient.addColorStop(0, '#667eea');
+                gradient.addColorStop(0.7, '#764ba2');
+                gradient.addColorStop(1, '#5a3d7a');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Subtle glow effect
+                ctx.shadowColor = 'rgba(102, 126, 234, 0.5)';
+                ctx.shadowBlur = size * 0.05;
+
+                // Game controller emoji
+                ctx.font = `${size * 0.45}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'white';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = size * 0.02;
+                ctx.fillText('🎮', size / 2, size / 2);
+            }
+
+            return canvas;
+        }
+
+        function createAndDownload(name, size) {
+            const isPlaceholder = name === 'placeholder';
+            const canvas = createIcon(size, isPlaceholder);
+
+            // Download
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `${name}.png`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                showMessage(`✓ Downloaded ${name}.png (${size}x${size})`);
+            });
+        }
+
+        async function downloadAll() {
+            const icons = [
+                { name: 'icon', size: 256 },
+                { name: 'placeholder', size: 512 },
+                { name: 'icon_512', size: 512 }
+            ];
+
+            for (let i = 0; i < icons.length; i++) {
+                const { name, size } = icons[i];
+                await new Promise(resolve => {
+                    createAndDownload(name, size);
+                    setTimeout(resolve, 500); // Delay between downloads
+                });
+            }
+
+            showMessage('✅ All icons downloaded successfully! Save them to your project root directory.', 5000);
+        }
+
+        function showMessage(text, duration = 3000) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = `<div class="success">${text}</div>`;
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, duration);
+        }
+
+        // Auto-create previews on load
+        window.onload = function() {
+            const preview = document.getElementById('preview');
+            preview.innerHTML = '';
+
+            const icons = [
+                { name: 'icon.png', size: 256, isPlaceholder: false },
+                { name: 'placeholder.png', size: 512, isPlaceholder: true },
+                { name: 'icon_512.png', size: 512, isPlaceholder: false }
+            ];
+
+            icons.forEach(({ name, size, isPlaceholder }) => {
+                const previewCanvas = createIcon(128, isPlaceholder);
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'preview-item';
+                previewDiv.innerHTML = `<strong>${name}</strong><div style="color: #aaa; font-size: 0.9em;">${size}x${size}</div>`;
+                previewDiv.appendChild(previewCanvas);
+                preview.appendChild(previewDiv);
+            });
+        };
+    </script>
+</body>
+</html>
