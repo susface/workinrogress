@@ -1470,17 +1470,50 @@ class CoverFlow {
             thumb.height = 60;
 
             const ctx = thumb.getContext('2d');
-            const thumbColor = typeof album.color === 'number' && !isNaN(album.color)
-                ? '#' + album.color.toString(16).padStart(6, '0')
-                : '#808080';
-            ctx.fillStyle = thumbColor;
-            ctx.fillRect(0, 0, 60, 60);
 
-            const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-            gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-            gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 60, 60);
+            // For games, try to load icon first
+            if (album.type === 'game' && album.icon_path) {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                // Draw colored background first as fallback
+                const thumbColor = typeof album.color === 'number' && !isNaN(album.color)
+                    ? '#' + album.color.toString(16).padStart(6, '0')
+                    : '#808080';
+                ctx.fillStyle = thumbColor;
+                ctx.fillRect(0, 0, 60, 60);
+
+                img.onload = () => {
+                    // Clear and draw the icon
+                    ctx.clearRect(0, 0, 60, 60);
+                    ctx.drawImage(img, 0, 0, 60, 60);
+                };
+
+                img.onerror = () => {
+                    // Keep the colored background if image fails to load
+                    const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+                    gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+                    gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, 60, 60);
+                };
+
+                // Load from server URL
+                img.src = `${this.serverURL}/${album.icon_path}`;
+            } else {
+                // For albums/images, use colored box
+                const thumbColor = typeof album.color === 'number' && !isNaN(album.color)
+                    ? '#' + album.color.toString(16).padStart(6, '0')
+                    : '#808080';
+                ctx.fillStyle = thumbColor;
+                ctx.fillRect(0, 0, 60, 60);
+
+                const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+                gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+                gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 60, 60);
+            }
 
             thumb.addEventListener('click', () => this.navigateTo(index));
             container.appendChild(thumb);
