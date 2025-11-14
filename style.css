@@ -75,6 +75,7 @@ body {
     position: relative;
     flex: 1;
     max-width: 400px;
+    margin-left: 200px; /* Prevent overlap with view mode switcher */
 }
 
 #search-input {
