@@ -6,6 +6,7 @@
 class UIComponents {
     constructor() {
         this.currentView = 'coverflow'; // coverflow, grid, list
+        this.serverURL = 'http://localhost:5000'; // Flask server URL for loading images
         this.filterState = {
             platform: null,
             genre: null,
@@ -120,10 +121,13 @@ class UIComponents {
             document.body.appendChild(container);
         }
 
-        container.innerHTML = games.map(game => `
+        container.innerHTML = games.map(game => {
+            const imagePath = game.boxart_path || game.icon_path;
+            const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+            return `
             <div class="grid-item" data-game-id="${game.id}">
                 <div class="grid-item-image">
-                    <img src="${game.boxart_path || game.icon_path || 'placeholder.png'}"
+                    <img src="${imageSrc}"
                          alt="${game.title}"
                          onerror="this.src='placeholder.png'"/>
                     ${game.is_favorite ? '<div class="favorite-badge">⭐</div>' : ''}
@@ -140,7 +144,8 @@ class UIComponents {
                     </button>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     renderListView(games) {
@@ -166,9 +171,12 @@ class UIComponents {
                     </tr>
                 </thead>
                 <tbody>
-                    ${games.map(game => `
+                    ${games.map(game => {
+                        const imagePath = game.icon_path || game.boxart_path;
+                        const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                        return `
                         <tr data-game-id="${game.id}">
-                            <td><img src="${game.icon_path || 'placeholder.png'}" width="40" height="40" onerror="this.src='placeholder.png'"/></td>
+                            <td><img src="${imageSrc}" width="40" height="40" onerror="this.src='placeholder.png'"/></td>
                             <td>
                                 <strong>${game.title}</strong>
                                 ${game.is_favorite ? ' ⭐' : ''}
@@ -181,7 +189,8 @@ class UIComponents {
                                 <button class="btn-play" onclick="launchGame(${game.id}, '${game.launch_command}')">Play</button>
                             </td>
                         </tr>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </tbody>
             </table>
         `;
@@ -361,24 +370,32 @@ class UIComponents {
 
             // Most played list
             const mostPlayedList = document.getElementById('most-played-list');
-            mostPlayedList.innerHTML = mostPlayed.games.map((game, index) => `
+            mostPlayedList.innerHTML = mostPlayed.games.map((game, index) => {
+                const imagePath = game.icon_path || game.boxart_path;
+                const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                return `
                 <div class="stat-item">
                     <span class="rank">#${index + 1}</span>
-                    <img src="${game.icon_path || 'placeholder.png'}" width="30" height="30" onerror="this.src='placeholder.png'"/>
+                    <img src="${imageSrc}" width="30" height="30" onerror="this.src='placeholder.png'"/>
                     <span class="game-title">${game.title}</span>
                     <span class="game-stat">${this.formatPlayTime(game.total_play_time)}</span>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             // Recently played list
             const recentlyPlayedList = document.getElementById('recently-played-list');
-            recentlyPlayedList.innerHTML = recentlyPlayed.games.map(game => `
+            recentlyPlayedList.innerHTML = recentlyPlayed.games.map(game => {
+                const imagePath = game.icon_path || game.boxart_path;
+                const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                return `
                 <div class="stat-item">
-                    <img src="${game.icon_path || 'placeholder.png'}" width="30" height="30" onerror="this.src='placeholder.png'"/>
+                    <img src="${imageSrc}" width="30" height="30" onerror="this.src='placeholder.png'"/>
                     <span class="game-title">${game.title}</span>
                     <span class="game-stat">${new Date(game.last_played).toLocaleDateString()}</span>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             // Platform chart
             const platformChart = document.getElementById('platform-chart');

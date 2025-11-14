@@ -20,6 +20,34 @@ except ImportError:
 class EpicScanner:
     """Scanner for Epic Games Launcher games"""
 
+    # Metadata enrichment for popular games
+    GAME_METADATA_ENRICHMENT = {
+        'Fortnite': {
+            'developer': 'Epic Games',
+            'publisher': 'Epic Games',
+            'release_date': '2017-07-25',
+            'genres': ['Battle Royale', 'Third-Person Shooter', 'Survival'],
+            'description': 'Fortnite is a free-to-play battle royale game where 100 players fight to be the last one standing. Features building mechanics, frequent content updates, and crossover events with popular franchises.',
+            'short_description': 'Free-to-play battle royale with building mechanics and 100-player matches'
+        },
+        'Rocket League': {
+            'developer': 'Psyonix',
+            'publisher': 'Epic Games',
+            'release_date': '2015-07-07',
+            'genres': ['Sports', 'Racing', 'Multiplayer'],
+            'description': 'Rocket League is a high-powered hybrid of arcade-style soccer and vehicular mayhem with easy-to-understand controls and fluid, physics-driven competition.',
+            'short_description': 'Vehicular soccer with arcade-style gameplay'
+        },
+        'Fall Guys': {
+            'developer': 'Mediatonic',
+            'publisher': 'Epic Games',
+            'release_date': '2020-08-04',
+            'genres': ['Party', 'Battle Royale', 'Platformer'],
+            'description': 'Fall Guys is a massively multiplayer party game with up to 60 players online in a free-for-all struggle through round after round of escalating chaos.',
+            'short_description': 'Massively multiplayer party game with obstacle courses'
+        }
+    }
+
     # Common Epic Games Launcher paths by platform
     EPIC_PATHS = {
         'Windows': [
@@ -58,6 +86,25 @@ class EpicScanner:
                     return path
 
         return None
+
+    def _enrich_game_metadata(self, game_info: Dict) -> None:
+        """
+        Enrich game metadata with additional information for well-known games
+
+        Args:
+            game_info: Dictionary containing game information (modified in-place)
+        """
+        title = game_info.get('title', '')
+
+        # Check if this is a known game that needs metadata enrichment
+        for known_game, enrichment in self.GAME_METADATA_ENRICHMENT.items():
+            if known_game.lower() in title.lower():
+                print(f"  ✓ Enriching metadata for {known_game}")
+                # Only add fields if they don't already exist or are empty
+                for key, value in enrichment.items():
+                    if not game_info.get(key):
+                        game_info[key] = value
+                break
 
     def _parse_manifest(self, manifest_path: Path) -> Optional[Dict]:
         """Parse an Epic Games manifest file"""
@@ -310,6 +357,9 @@ class EpicScanner:
                             game_info['boxart_path'] = game_info['icon_path']
                             print(f"  ✓ Extracted icon from game executable")
 
+                # Enrich metadata for well-known games
+                self._enrich_game_metadata(game_info)
+
                 games.append(game_info)
 
         # Method 2: Fallback to LauncherInstalled.dat
@@ -345,6 +395,9 @@ class EpicScanner:
                         game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
                         game_info['boxart_path'] = game_info['icon_path']
                         print(f"  ✓ Extracted icon from game executable")
+
+                # Enrich metadata for well-known games
+                self._enrich_game_metadata(game_info)
 
                 games.append(game_info)
 
