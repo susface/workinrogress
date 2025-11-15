@@ -136,6 +136,21 @@ class CoverFlow {
         return 'http://localhost:5000';
     }
 
+    // Get the correct image source based on environment (Electron vs Browser)
+    getImageSrc(imagePath, fallback = null) {
+        if (!imagePath) return fallback;
+
+        // In Electron mode, use local file paths
+        if (this.isElectron) {
+            // Electron can access local files directly via relative paths
+            // The game_data folder is relative to the app's working directory
+            return imagePath;
+        }
+
+        // In browser mode, use Flask server URL
+        return `${this.serverURL}/${imagePath}`;
+    }
+
     loadSettings() {
         const saved = localStorage.getItem('coverflow-settings');
         if (saved) {
@@ -664,6 +679,41 @@ class CoverFlow {
                 ctx.font = 'bold 36px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('VIDEO', 256, 420);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                material = new THREE.MeshPhongMaterial({
+                    map: texture,
+                    side: THREE.DoubleSide,
+                    shininess: 80
+                });
+            } else if (album.audio || album.type === 'music') {
+                // Music/Audio placeholder with music note icon
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+
+                // Gradient background
+                const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+                gradient.addColorStop(0, '#FF6347');
+                gradient.addColorStop(1, '#DC143C');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 512, 512);
+
+                // Music note icon
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                // Note stem
+                ctx.fillRect(300, 150, 20, 180);
+                // Note head
+                ctx.ellipse(290, 330, 35, 25, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // "MUSIC" text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = 'bold 36px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('MUSIC', 256, 420);
 
                 const texture = new THREE.CanvasTexture(canvas);
                 material = new THREE.MeshPhongMaterial({
@@ -1396,7 +1446,7 @@ class CoverFlow {
                         genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
                         description: game.description || game.short_description || game.long_description || 'No description available.',
                         color: platformColors[game.platform] || 0x808080,
-                        image: game.boxart_path ? `${this.serverURL}/${game.boxart_path}` : (game.icon_path ? `${this.serverURL}/${game.icon_path}` : null),
+                        image: this.getImageSrc(game.boxart_path || game.icon_path),
                         icon_path: game.icon_path,  // Include icon path for thumbnails
                         boxart_path: game.boxart_path,  // Include boxart path
                         launch_command: game.launch_command,
@@ -1683,10 +1733,63 @@ class CoverFlow {
                     ctx.fillRect(0, 0, 60, 60);
                 };
 
-                // Load from server URL
-                img.src = `${this.serverURL}/${album.icon_path}`;
+                // Load from appropriate source based on environment
+                img.src = this.getImageSrc(album.icon_path, 'placeholder.png');
+            } else if (album.type === 'image' && album.image) {
+                // For images, try to load the actual image as thumbnail
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                // Draw colored background first as fallback
+                ctx.fillStyle = '#4682B4';
+                ctx.fillRect(0, 0, 60, 60);
+
+                img.onload = () => {
+                    ctx.clearRect(0, 0, 60, 60);
+                    ctx.drawImage(img, 0, 0, 60, 60);
+                };
+
+                img.onerror = () => {
+                    const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+                    gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+                    gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, 60, 60);
+                };
+
+                img.src = this.getImageSrc(album.image, 'placeholder.png');
+            } else if (album.type === 'video') {
+                // Video thumbnail with play icon
+                const gradient = ctx.createLinearGradient(0, 0, 0, 60);
+                gradient.addColorStop(0, '#8B4789');
+                gradient.addColorStop(1, '#5A2D58');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 60, 60);
+
+                // Small play icon
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.moveTo(20, 18);
+                ctx.lineTo(20, 42);
+                ctx.lineTo(40, 30);
+                ctx.closePath();
+                ctx.fill();
+            } else if (album.type === 'music' || album.audio) {
+                // Music thumbnail with note icon
+                const gradient = ctx.createLinearGradient(0, 0, 0, 60);
+                gradient.addColorStop(0, '#FF6347');
+                gradient.addColorStop(1, '#DC143C');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 60, 60);
+
+                // Small music note
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.fillRect(35, 20, 3, 20);
+                ctx.ellipse(33, 40, 4, 3, -0.3, 0, Math.PI * 2);
+                ctx.fill();
             } else {
-                // For albums/images, use colored box
+                // For other types, use colored box
                 const thumbColor = typeof album.color === 'number' && !isNaN(album.color)
                     ? '#' + album.color.toString(16).padStart(6, '0')
                     : '#808080';

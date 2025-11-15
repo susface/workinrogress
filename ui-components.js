@@ -39,6 +39,21 @@ class UIComponents {
         return 'http://localhost:5000';
     }
 
+    // Get the correct image source based on environment (Electron vs Browser)
+    getImageSrc(imagePath, fallback = 'placeholder.png') {
+        if (!imagePath) return fallback;
+
+        // In Electron mode, use local file paths
+        if (window.electronAPI) {
+            // Electron can access local files directly via relative paths
+            // The game_data folder is relative to the app's working directory
+            return imagePath;
+        }
+
+        // In browser mode, use Flask server URL
+        return `${this.serverURL}/${imagePath}`;
+    }
+
     // Helper to escape HTML to prevent XSS
     escapeHtml(text) {
         if (!text) return '';
@@ -188,7 +203,7 @@ class UIComponents {
 
         const gridHtml = games.map(game => {
             const imagePath = game.boxart_path || game.icon_path;
-            const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+            const imageSrc = this.getImageSrc(imagePath);
             const safeTitle = this.escapeHtml(game.title);
             const safePlatform = this.escapeHtml(game.platform);
             return `
@@ -250,7 +265,7 @@ class UIComponents {
                 <tbody>
                     ${games.map(game => {
                         const imagePath = game.icon_path || game.boxart_path;
-                        const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                        const imageSrc = this.getImageSrc(imagePath);
                         const safeTitle = this.escapeHtml(game.title);
                         const safePlatform = this.escapeHtml(game.platform);
                         return `
@@ -484,7 +499,7 @@ class UIComponents {
             const mostPlayedList = document.getElementById('most-played-list');
             mostPlayedList.innerHTML = mostPlayed.games.map((game, index) => {
                 const imagePath = game.icon_path || game.boxart_path;
-                const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                const imageSrc = this.getImageSrc(imagePath);
                 const safeTitle = this.escapeHtml(game.title);
                 return `
                 <div class="stat-item">
@@ -500,7 +515,7 @@ class UIComponents {
             const recentlyPlayedList = document.getElementById('recently-played-list');
             recentlyPlayedList.innerHTML = recentlyPlayed.games.map(game => {
                 const imagePath = game.icon_path || game.boxart_path;
-                const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                const imageSrc = this.getImageSrc(imagePath);
                 const safeTitle = this.escapeHtml(game.title);
                 return `
                 <div class="stat-item">
