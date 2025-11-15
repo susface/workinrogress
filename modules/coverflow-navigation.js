@@ -62,79 +62,14 @@ class CoverFlowNavigation {
 
     /**
      * Update cover positions with smooth animation
+     * NOTE: This is a placeholder - the main CoverFlow class has the full implementation
+     * This module version is NOT used because it's a prototype method and Object.assign
+     * doesn't copy prototype methods. The main class implementation is used instead.
      * @param {boolean} immediate - Skip animation if true
      */
     updateCoverPositions(immediate = false) {
-        const spacing = this.settings.coverSpacing;
-        const sideAngle = this.settings.sideAngle;
-        const sideOffset = 1.5;
-        const depthOffset = 1.5;
-        const speed = this.settings.animationSpeed;
-
-        this.covers.forEach((cover, index) => {
-            const diff = index - this.targetIndex;
-            const parent = cover.parent;
-
-            let targetX, targetZ, targetRotY, targetScale, targetY;
-
-            if (diff === 0) {
-                // Center cover
-                targetX = 0;
-                targetY = 0;
-                targetZ = 0;
-                targetRotY = 0;
-                targetScale = 1.3;
-            } else if (diff < 0) {
-                // Left side covers
-                targetX = diff * spacing - sideOffset;
-                targetY = -0.2 - Math.abs(diff) * 0.05;
-                targetZ = -depthOffset - Math.abs(diff) * 0.4;
-                targetRotY = sideAngle;
-                targetScale = Math.max(0.7, 1 - Math.abs(diff) * 0.1);
-            } else {
-                // Right side covers
-                targetX = diff * spacing + sideOffset;
-                targetY = -0.2 - Math.abs(diff) * 0.05;
-                targetZ = -depthOffset - Math.abs(diff) * 0.4;
-                targetRotY = -sideAngle;
-                targetScale = Math.max(0.7, 1 - Math.abs(diff) * 0.1);
-            }
-
-            // Smooth animation or immediate positioning
-            if (immediate) {
-                parent.position.x = targetX;
-                parent.position.y = targetY;
-                parent.position.z = targetZ;
-                parent.rotation.y = targetRotY;
-                parent.scale.set(targetScale, targetScale, 1);
-            } else {
-                // Lerp for smooth transitions
-                parent.position.x += (targetX - parent.position.x) * speed;
-                parent.position.y += (targetY - parent.position.y) * speed;
-                parent.position.z += (targetZ - parent.position.z) * speed;
-                parent.rotation.y += (targetRotY - parent.rotation.y) * speed;
-
-                const currentScale = parent.scale.x;
-                const newScale = currentScale + (targetScale - currentScale) * speed;
-                parent.scale.set(newScale, newScale, 1);
-            }
-
-            // Handle opacity
-            const opacity = 1 - Math.min(Math.abs(diff) * 0.12, 0.6);
-            if (cover.material) {
-                cover.material.opacity = opacity;
-                cover.material.transparent = true;
-            }
-
-            // Handle reflection visibility and opacity
-            const reflection = parent.children && parent.children[1];
-            if (reflection && reflection.userData && reflection.userData.isReflection) {
-                reflection.visible = this.settings.showReflections;
-                if (reflection.material) {
-                    reflection.material.opacity = opacity * 0.3;
-                }
-            }
-        });
+        // Placeholder - main class implementation is used
+        console.warn('Module updateCoverPositions called - this should not happen');
     }
 }
 
