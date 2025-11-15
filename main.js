@@ -78,6 +78,8 @@ function initDatabase() {
             release_date TEXT,
             icon_path TEXT,
             boxart_path TEXT,
+            exe_icon_path TEXT,
+            header_path TEXT,
             size_on_disk INTEGER,
             last_updated INTEGER,
             genres TEXT,
@@ -316,6 +318,16 @@ ipcMain.handle('get-games', async () => {
                 // Remove leading 'game_data/' if present to avoid duplication
                 let boxartPath = parsed.boxart_path.replace(/^game_data[\/\\]/, '');
                 parsed.boxart_path = path.join(gameDataPath, boxartPath).replace(/\\/g, '/');
+            }
+            if (parsed.exe_icon_path && !parsed.exe_icon_path.startsWith('http')) {
+                // Remove leading 'game_data/' if present to avoid duplication
+                let exeIconPath = parsed.exe_icon_path.replace(/^game_data[\/\\]/, '');
+                parsed.exe_icon_path = path.join(gameDataPath, exeIconPath).replace(/\\/g, '/');
+            }
+            if (parsed.header_path && !parsed.header_path.startsWith('http')) {
+                // Remove leading 'game_data/' if present to avoid duplication
+                let headerPath = parsed.header_path.replace(/^game_data[\/\\]/, '');
+                parsed.header_path = path.join(gameDataPath, headerPath).replace(/\\/g, '/');
             }
 
             return parsed;
@@ -1030,6 +1042,16 @@ ipcMain.handle('filter-games', async (event, filters) => {
                 // Remove leading 'game_data/' if present to avoid duplication
                 let boxartPath = parsed.boxart_path.replace(/^game_data[\/\\]/, '');
                 parsed.boxart_path = path.join(gameDataPath, boxartPath).replace(/\\/g, '/');
+            }
+            if (parsed.exe_icon_path && !parsed.exe_icon_path.startsWith('http')) {
+                // Remove leading 'game_data/' if present to avoid duplication
+                let exeIconPath = parsed.exe_icon_path.replace(/^game_data[\/\\]/, '');
+                parsed.exe_icon_path = path.join(gameDataPath, exeIconPath).replace(/\\/g, '/');
+            }
+            if (parsed.header_path && !parsed.header_path.startsWith('http')) {
+                // Remove leading 'game_data/' if present to avoid duplication
+                let headerPath = parsed.header_path.replace(/^game_data[\/\\]/, '');
+                parsed.header_path = path.join(gameDataPath, headerPath).replace(/\\/g, '/');
             }
 
             return parsed;

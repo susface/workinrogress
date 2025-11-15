@@ -181,16 +181,16 @@ class SteamScanner:
         return None
 
     def _download_boxart(self, app_id: str, game_name: str) -> Optional[str]:
-        """Download game box art (library card image for vertical display)"""
+        """Download game box art (library card image for vertical display in grid mode)"""
         try:
-            # Try library card image first (600x900 - vertical format, better for grid view)
+            # Library card image (600x900 - vertical format, for grid view)
             boxart_url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_600x900.jpg"
 
             response = requests.get(boxart_url, timeout=10)
             if response.status_code == 200:
                 # Sanitize filename
                 safe_name = re.sub(r'[<>:"/\\|?*]', '_', game_name)
-                filename = f"steam_{app_id}_{safe_name}.jpg"
+                filename = f"steam_{app_id}_{safe_name}_card.jpg"
                 boxart_path = self.boxart_dir / filename
 
                 with open(boxart_path, 'wb') as f:
@@ -198,22 +198,33 @@ class SteamScanner:
 
                 # Return relative path for URL construction
                 return f"game_data/boxart/{filename}"
-            else:
-                # Fallback to header image if library card not available
-                boxart_url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"
-                response = requests.get(boxart_url, timeout=10)
-                if response.status_code == 200:
-                    safe_name = re.sub(r'[<>:"/\\|?*]', '_', game_name)
-                    filename = f"steam_{app_id}_{safe_name}.jpg"
-                    boxart_path = self.boxart_dir / filename
-
-                    with open(boxart_path, 'wb') as f:
-                        f.write(response.content)
-
-                    return f"game_data/boxart/{filename}"
 
         except Exception as e:
             print(f"Error downloading box art for {game_name}: {e}")
+
+        return None
+
+    def _download_header(self, app_id: str, game_name: str) -> Optional[str]:
+        """Download game header image (horizontal format for coverflow mode)"""
+        try:
+            # Header image (460x215 - horizontal format, for coverflow)
+            header_url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"
+
+            response = requests.get(header_url, timeout=10)
+            if response.status_code == 200:
+                # Sanitize filename
+                safe_name = re.sub(r'[<>:"/\\|?*]', '_', game_name)
+                filename = f"steam_{app_id}_{safe_name}_header.jpg"
+                header_path = self.boxart_dir / filename
+
+                with open(header_path, 'wb') as f:
+                    f.write(response.content)
+
+                # Return relative path for URL construction
+                return f"game_data/boxart/{filename}"
+
+        except Exception as e:
+            print(f"Error downloading header for {game_name}: {e}")
 
         return None
 
@@ -275,29 +286,33 @@ class SteamScanner:
                     game_info['publisher'] = ', '.join(game_info['publishers']) if game_info['publishers'] else ''
                     del game_info['publishers']
 
-                # Download icon and box art
+                # Download all art assets
                 print(f"  Downloading assets for: {name}")
-                icon_path = self._download_icon(app_id, name)
-                boxart_path = self._download_boxart(app_id, name)
+                icon_path = self._download_icon(app_id, name)  # Steam icon (small, for backwards compat)
+                boxart_path = self._download_boxart(app_id, name)  # Vertical card art (for grid mode)
+                header_path = self._download_header(app_id, name)  # Horizontal header (for coverflow)
 
-                # Fallback to Windows icon extraction if downloads failed
-                if not icon_path and not boxart_path and ICON_EXTRACTOR_AVAILABLE:
+                # Always extract executable icon for thumbnails (if available)
+                exe_icon_path = None
+                if ICON_EXTRACTOR_AVAILABLE:
                     install_dir = game_info.get('install_directory', '')
                     if install_dir and os.path.exists(install_dir):
                         print(f"  Extracting icon from executable for: {name}")
                         # Sanitize filename
                         safe_name = re.sub(r'[<>:"/\\|?*]', '_', name)
                         exe_icon_filename = f"steam_{app_id}_{safe_name}_exe.png"
-                        exe_icon_path = self.icons_dir / exe_icon_filename
+                        exe_icon_file_path = self.icons_dir / exe_icon_filename
 
-                        extracted_path = extract_game_icon(install_dir, name, str(exe_icon_path))
+                        extracted_path = extract_game_icon(install_dir, name, str(exe_icon_file_path))
                         if extracted_path:
-                            icon_path = f"game_data/icons/{exe_icon_filename}"
-                            boxart_path = icon_path  # Use same icon for boxart
-                            print(f"  ✓ Extracted icon from game executable")
+                            exe_icon_path = f"game_data/icons/{exe_icon_filename}"
+                            print(f"  [OK] Extracted icon from game executable")
 
+                # Store all image paths
                 game_info['icon_path'] = icon_path
                 game_info['boxart_path'] = boxart_path
+                game_info['header_path'] = header_path
+                game_info['exe_icon_path'] = exe_icon_path
 
                 games.append(game_info)
 

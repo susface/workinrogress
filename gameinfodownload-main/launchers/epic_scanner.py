@@ -315,19 +315,25 @@ class EpicScanner:
                         'namespace': '',
                         'catalog_item_id': '',
                         'icon_path': None,
-                        'boxart_path': None
+                        'boxart_path': None,
+                        'header_path': None,
+                        'exe_icon_path': None
                     }
 
                     # Try to extract icon from executable
                     if ICON_EXTRACTOR_AVAILABLE:
                         print(f"  Extracting icon from Fortnite executable...")
                         exe_icon_filename = f"epic_Fortnite_exe.png"
-                        exe_icon_path = self.icons_dir / exe_icon_filename
+                        exe_icon_file_path = self.icons_dir / exe_icon_filename
 
-                        extracted_path = extract_game_icon(install_path, 'Fortnite', str(exe_icon_path))
+                        extracted_path = extract_game_icon(install_path, 'Fortnite', str(exe_icon_file_path))
                         if extracted_path:
-                            game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
-                            game_info['boxart_path'] = game_info['icon_path']
+                            exe_icon_path_value = f"game_data/icons/{exe_icon_filename}"
+                            game_info['exe_icon_path'] = exe_icon_path_value
+                            # Use exe icon as fallback for all image fields
+                            game_info['icon_path'] = exe_icon_path_value
+                            game_info['boxart_path'] = exe_icon_path_value
+                            game_info['header_path'] = exe_icon_path_value
                             print(f"  [OK] Extracted icon from Fortnite executable")
 
                     # Enrich with known metadata
@@ -389,45 +395,57 @@ class EpicScanner:
                     print(f"  Downloading assets for: {display_name}")
                     icon_path = None
                     boxart_path = None
+                    header_path = None
 
                     if metadata.get('icon_url'):
                         icon_path = self._download_epic_image(metadata['icon_url'], display_name, 'icon')
 
                     if metadata.get('boxart_url'):
                         boxart_path = self._download_epic_image(metadata['boxart_url'], display_name, 'boxart')
+                        # For Epic, use the same image for both boxart and header (Epic doesn't provide multiple formats)
+                        header_path = boxart_path
 
-                    # Fallback to Windows icon extraction if downloads failed
-                    if not icon_path and not boxart_path and ICON_EXTRACTOR_AVAILABLE:
+                    # Always extract executable icon for thumbnails (if available)
+                    exe_icon_path_value = None
+                    if ICON_EXTRACTOR_AVAILABLE:
                         if install_location and os.path.exists(install_location):
                             print(f"  Extracting icon from executable for: {display_name}")
                             safe_name = re.sub(r'[<>:"/\\|?*]', '_', display_name)
                             exe_icon_filename = f"epic_{safe_name}_exe.png"
-                            exe_icon_path = self.icons_dir / exe_icon_filename
+                            exe_icon_file_path = self.icons_dir / exe_icon_filename
 
-                            extracted_path = extract_game_icon(install_location, display_name, str(exe_icon_path))
+                            extracted_path = extract_game_icon(install_location, display_name, str(exe_icon_file_path))
                             if extracted_path:
-                                icon_path = f"game_data/icons/{exe_icon_filename}"
-                                boxart_path = icon_path
+                                exe_icon_path_value = f"game_data/icons/{exe_icon_filename}"
                                 print(f"  [OK] Extracted icon from game executable")
 
                     game_info['icon_path'] = icon_path
                     game_info['boxart_path'] = boxart_path
+                    game_info['header_path'] = header_path
+                    game_info['exe_icon_path'] = exe_icon_path_value
                 else:
                     game_info['icon_path'] = None
                     game_info['boxart_path'] = None
+                    game_info['header_path'] = None
 
                     # Try Windows icon extraction even if metadata not available
+                    exe_icon_path_value = None
                     if ICON_EXTRACTOR_AVAILABLE and install_location and os.path.exists(install_location):
                         print(f"  Extracting icon from executable for: {display_name}")
                         safe_name = re.sub(r'[<>:"/\\|?*]', '_', display_name)
                         exe_icon_filename = f"epic_{safe_name}_exe.png"
-                        exe_icon_path = self.icons_dir / exe_icon_filename
+                        exe_icon_file_path = self.icons_dir / exe_icon_filename
 
-                        extracted_path = extract_game_icon(install_location, display_name, str(exe_icon_path))
+                        extracted_path = extract_game_icon(install_location, display_name, str(exe_icon_file_path))
                         if extracted_path:
-                            game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
-                            game_info['boxart_path'] = game_info['icon_path']
+                            exe_icon_path_value = f"game_data/icons/{exe_icon_filename}"
+                            # Use exe icon as fallback for icon_path and boxart_path if no metadata
+                            game_info['icon_path'] = exe_icon_path_value
+                            game_info['boxart_path'] = exe_icon_path_value
+                            game_info['header_path'] = exe_icon_path_value
                             print(f"  [OK] Extracted icon from game executable")
+
+                    game_info['exe_icon_path'] = exe_icon_path_value
 
                 # Enrich metadata for well-known games
                 self._enrich_game_metadata(game_info)
