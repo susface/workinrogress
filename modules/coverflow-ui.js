@@ -17,10 +17,10 @@ class CoverFlowUI {
         if (titleEl) titleEl.textContent = album.title || 'Unknown';
 
         // Update artist/platform
-        const artistEl = document.getElementById('artist-name');
+        const artistEl = document.getElementById('album-artist');
         if (artistEl) {
             if (album.type === 'game') {
-                artistEl.textContent = album.platform ? album.platform.toUpperCase() : 'PC';
+                artistEl.textContent = album.developer || 'Unknown Developer';
             } else {
                 artistEl.textContent = album.artist || 'Unknown Artist';
             }
