@@ -14,6 +14,42 @@ app = Flask(__name__)
 # Enable CORS only for localhost to prevent security issues
 CORS(app, resources={r"/api/*": {"origins": ["http://localhost:*", "http://127.0.0.1:*"]}})
 
+# Input validation helpers
+def validate_positive_int(value, field_name, max_value=None):
+    """Validate that a value is a positive integer"""
+    try:
+        int_value = int(value)
+        if int_value < 0:
+            return False, f"{field_name} must be a positive integer"
+        if max_value and int_value > max_value:
+            return False, f"{field_name} must be less than or equal to {max_value}"
+        return True, int_value
+    except (ValueError, TypeError):
+        return False, f"{field_name} must be a valid integer"
+
+def validate_rating(rating):
+    """Validate rating is between 1 and 5"""
+    if rating is None:
+        return False, "Rating is required"
+    is_valid, result = validate_positive_int(rating, "rating", max_value=5)
+    if not is_valid:
+        return False, result
+    if result < 1:
+        return False, "Rating must be between 1 and 5"
+    return True, result
+
+def validate_string(value, field_name, max_length=None, required=False):
+    """Validate string input"""
+    if value is None:
+        if required:
+            return False, f"{field_name} is required"
+        return True, ""
+    if not isinstance(value, str):
+        return False, f"{field_name} must be a string"
+    if max_length and len(value) > max_length:
+        return False, f"{field_name} must be less than {max_length} characters"
+    return True, value
+
 # Global state for scan progress
 scan_state = {
     'scanning': False,
@@ -28,6 +64,17 @@ scanner = None
 data_dir = Path(__file__).parent / 'game_data'
 
 
+def initialize_scanner():
+    """Initialize scanner on startup to avoid race conditions"""
+    global scanner
+    if scanner is None:
+        try:
+            scanner = GameScanner(data_dir=str(data_dir))
+        except Exception as e:
+            print(f"Warning: Failed to initialize scanner: {e}")
+            scanner = None
+
+
 def run_scan():
     """Run the game scanner in a background thread"""
     global scan_state, scanner
@@ -37,8 +84,9 @@ def run_scan():
         scan_state['error'] = None
         scan_state['message'] = 'Initializing scanner...'
 
-        # Initialize scanner
-        scanner = GameScanner(data_dir=str(data_dir))
+        # Initialize scanner if not already initialized
+        if scanner is None:
+            scanner = GameScanner(data_dir=str(data_dir))
         scan_state['message'] = 'Scanning for games...'
 
         # Scan each platform
@@ -254,17 +302,20 @@ def set_rating(game_id):
     """Set game rating"""
     try:
         data = request.get_json()
-        rating = data.get('rating')
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
 
-        if not rating or rating < 1 or rating > 5:
-            return jsonify({'error': 'Rating must be between 1 and 5'}), 400
+        rating = data.get('rating')
+        is_valid, result = validate_rating(rating)
+        if not is_valid:
+            return jsonify({'error': result}), 400
 
         if scanner and scanner.db:
-            scanner.db.set_rating(game_id, rating)
+            scanner.db.set_rating(game_id, result)
             return jsonify({'success': True})
         return jsonify({'error': 'Scanner not initialized'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Failed to set rating: {str(e)}'}), 500
 
 
 @app.route('/api/games/<int:game_id>/notes', methods=['POST'])
@@ -272,14 +323,20 @@ def set_notes(game_id):
     """Set game notes"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+
         notes = data.get('notes', '')
+        is_valid, validated_notes = validate_string(notes, "notes", max_length=5000)
+        if not is_valid:
+            return jsonify({'error': validated_notes}), 400
 
         if scanner and scanner.db:
-            scanner.db.set_notes(game_id, notes)
+            scanner.db.set_notes(game_id, validated_notes)
             return jsonify({'success': True})
         return jsonify({'error': 'Scanner not initialized'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Failed to set notes: {str(e)}'}), 500
 
 
 # Special lists endpoints
@@ -288,39 +345,51 @@ def set_notes(game_id):
 def get_recently_played():
     """Get recently played games"""
     try:
-        limit = request.args.get('limit', 10, type=int)
+        limit = request.args.get('limit', 10)
+        is_valid, validated_limit = validate_positive_int(limit, "limit", max_value=100)
+        if not is_valid:
+            return jsonify({'error': validated_limit}), 400
+
         if scanner and scanner.db:
-            games = scanner.db.get_recently_played(limit)
+            games = scanner.db.get_recently_played(validated_limit)
             return jsonify({'success': True, 'games': games})
         return jsonify({'error': 'Scanner not initialized'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Failed to get recently played: {str(e)}'}), 500
 
 
 @app.route('/api/games/most-played', methods=['GET'])
 def get_most_played():
     """Get most played games"""
     try:
-        limit = request.args.get('limit', 10, type=int)
+        limit = request.args.get('limit', 10)
+        is_valid, validated_limit = validate_positive_int(limit, "limit", max_value=100)
+        if not is_valid:
+            return jsonify({'error': validated_limit}), 400
+
         if scanner and scanner.db:
-            games = scanner.db.get_most_played(limit)
+            games = scanner.db.get_most_played(validated_limit)
             return jsonify({'success': True, 'games': games})
         return jsonify({'error': 'Scanner not initialized'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Failed to get most played: {str(e)}'}), 500
 
 
 @app.route('/api/games/recently-added', methods=['GET'])
 def get_recently_added():
     """Get recently added games"""
     try:
-        limit = request.args.get('limit', 10, type=int)
+        limit = request.args.get('limit', 10)
+        is_valid, validated_limit = validate_positive_int(limit, "limit", max_value=100)
+        if not is_valid:
+            return jsonify({'error': validated_limit}), 400
+
         if scanner and scanner.db:
-            games = scanner.db.get_recently_added(limit)
+            games = scanner.db.get_recently_added(validated_limit)
             return jsonify({'success': True, 'games': games})
         return jsonify({'error': 'Scanner not initialized'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Failed to get recently added: {str(e)}'}), 500
 
 
 @app.route('/api/games/duplicates', methods=['GET'])
@@ -362,6 +431,10 @@ def filter_games():
 if __name__ == '__main__':
     # Create data directory if it doesn't exist
     data_dir.mkdir(exist_ok=True)
+
+    # Initialize scanner on startup to avoid race conditions
+    print("Initializing game scanner...")
+    initialize_scanner()
 
     print("=" * 60)
     print("CoverFlow Game Scanner Server")

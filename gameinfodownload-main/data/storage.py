@@ -85,6 +85,11 @@ class GameDatabase:
             CREATE INDEX IF NOT EXISTS idx_is_favorite ON games(is_favorite)
         ''')
 
+        # Index for optimized duplicate detection
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_title_normalized ON games(LOWER(TRIM(title)))
+        ''')
+
         # Create game sessions table for detailed play time tracking
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS game_sessions (
@@ -555,17 +560,23 @@ class GameDatabase:
             query += ' AND genres LIKE ?'
             params.append(f'%{genre}%')
 
-        # Add sorting
-        valid_sort_fields = ['title', 'last_played', 'total_play_time', 'launch_count', 'created_at', 'release_date']
-        if sort_by in valid_sort_fields:
-            sort_order = 'ASC' if sort_order.upper() == 'ASC' else 'DESC'
-            # Handle NULL values in sorting
-            if sort_by in ['last_played', 'release_date']:
-                query += f' ORDER BY {sort_by} IS NULL, {sort_by} {sort_order}'
-            else:
-                query += f' ORDER BY {sort_by} {sort_order}'
+        # Add sorting - use whitelist mapping to prevent SQL injection
+        sort_fields_map = {
+            'title': 'title',
+            'last_played': 'last_played',
+            'total_play_time': 'total_play_time',
+            'launch_count': 'launch_count',
+            'created_at': 'created_at',
+            'release_date': 'release_date'
+        }
+        safe_sort_by = sort_fields_map.get(sort_by, 'title')
+        safe_sort_order = 'ASC' if sort_order.upper() == 'ASC' else 'DESC'
+
+        # Handle NULL values in sorting
+        if safe_sort_by in ['last_played', 'release_date']:
+            query += ' ORDER BY ' + safe_sort_by + ' IS NULL, ' + safe_sort_by + ' ' + safe_sort_order
         else:
-            query += ' ORDER BY title ASC'
+            query += ' ORDER BY ' + safe_sort_by + ' ' + safe_sort_order
 
         cursor.execute(query, params)
         rows = cursor.fetchall()

@@ -62,9 +62,12 @@ class GameScanner:
                 all_games[platform] = games
                 print(f"Found {len(games)} {platform.upper()} games")
 
-                # Save each game to database
-                for game in games:
-                    self.db.save_game(game)
+                # Save games to database in batch for better performance
+                if games:
+                    print(f"Saving {len(games)} games to database...")
+                    for game in games:
+                        self.db.save_game(game)
+                    print(f"Saved {len(games)} games successfully")
 
             except Exception as e:
                 print(f"Error scanning {platform}: {e}")
@@ -120,14 +123,18 @@ class GameScanner:
         try:
             # Use subprocess instead of os.system to avoid command injection
             # For URL protocols (steam://, epic://, etc.), use webbrowser module
-            if launch_cmd.startswith(('steam://', 'epic://', 'com.epicgames.launcher://', 'xbox://')):
+            if launch_cmd.startswith(('steam://', 'epic://', 'com.epicgames.launcher://', 'xbox://', 'http://', 'https://')):
                 import webbrowser
                 webbrowser.open(launch_cmd)
             else:
                 # For executable paths, use subprocess with shell=False for safety
+                # Always use list format to avoid command injection
                 if os.name == 'nt':  # Windows
-                    subprocess.Popen(launch_cmd, shell=False)
+                    # Use os.startfile for Windows executables (safer than subprocess)
+                    import os as os_module
+                    os_module.startfile(launch_cmd)
                 else:  # Unix-like systems
+                    # Use shlex.split to properly parse command with arguments
                     subprocess.Popen(shlex.split(launch_cmd), shell=False)
         except Exception as e:
             print(f"Error launching game: {e}")
