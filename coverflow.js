@@ -2235,6 +2235,14 @@ class CoverFlow {
                 case '?':
                     this.openModal('shortcuts-modal');
                     break;
+                case 'Enter':
+                    // Launch current game with Enter key
+                    e.preventDefault();
+                    const currentItem = this.filteredAlbums[this.currentIndex];
+                    if (currentItem && currentItem.type === 'game' && currentItem.launch_command) {
+                        this.launchGame(currentItem);
+                    }
+                    break;
                 case 'Escape':
                     this.closeAllModals();
                     if (document.fullscreenElement) {
