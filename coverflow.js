@@ -673,9 +673,17 @@ class CoverFlow {
                 });
 
                 // Load texture with improved error handling
+                // Store the index to access the cover later
+                const currentIndex = index;
                 this.loadTextureWithFallback(imageSrc, album, material).then((texture) => {
                     material.map = texture;
                     material.needsUpdate = true;
+
+                    // Update reflection material as well
+                    if (this.covers[currentIndex] && this.covers[currentIndex].userData.reflectionMaterial) {
+                        this.covers[currentIndex].userData.reflectionMaterial.map = texture;
+                        this.covers[currentIndex].userData.reflectionMaterial.needsUpdate = true;
+                    }
                 });
             } else if (album.video) {
                 // Video placeholder with play icon
@@ -760,7 +768,6 @@ class CoverFlow {
             const cover = new THREE.Mesh(geometry, material);
             cover.castShadow = true;
             cover.receiveShadow = true;
-            cover.userData = { index, album, isCover: true };
 
             // Border
             const borderGeometry = new THREE.EdgesGeometry(geometry);
@@ -786,6 +793,9 @@ class CoverFlow {
 
             coverGroup.add(reflection);
             this.reflections.push(reflection);
+
+            // Store references for texture updates
+            cover.userData = { index, album, isCover: true, reflectionMaterial };
 
             this.scene.add(coverGroup);
             this.covers.push(coverGroup.children[0]);
@@ -1403,8 +1413,12 @@ class CoverFlow {
                         genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
                         description: game.description || game.short_description || game.long_description || 'No description available.',
                         color: platformColors[game.platform] || 0x808080,
-                        image: this.getImageSrc(game.boxart_path || game.icon_path),
-                        icon_path: game.icon_path || game.boxart_path,
+                        // Use header (horizontal) art for coverflow, fallback to boxart
+                        image: this.getImageSrc(game.header_path || game.boxart_path || game.icon_path),
+                        // For thumbnails, use exe icon extracted from game executable
+                        icon_path: game.exe_icon_path || game.icon_path || game.boxart_path,
+                        boxart_path: game.boxart_path,
+                        header_path: game.header_path,
                         launchCommand: game.launch_command,
                         installDir: game.install_directory,
                         appId: game.app_id || game.package_name
@@ -1933,9 +1947,12 @@ class CoverFlow {
                 genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
                 description: game.description || game.short_description || game.long_description || 'No description available.',
                 color: platformColors[game.platform] || 0x808080,
-                image: this.getImageSrc(game.boxart_path || game.icon_path),
-                icon_path: game.icon_path,
+                // Use header (horizontal) art for coverflow, fallback to boxart
+                image: this.getImageSrc(game.header_path || game.boxart_path || game.icon_path),
+                // For thumbnails, use exe icon extracted from game executable
+                icon_path: game.exe_icon_path || game.icon_path || game.boxart_path,
                 boxart_path: game.boxart_path,
+                header_path: game.header_path,
                 launch_command: game.launch_command,
                 launchCommand: game.launch_command,
                 installDir: game.install_directory,
