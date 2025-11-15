@@ -1403,7 +1403,7 @@ class CoverFlow {
                         genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
                         description: game.description || game.short_description || game.long_description || 'No description available.',
                         color: platformColors[game.platform] || 0x808080,
-                        image: game.boxart_path || game.icon_path,
+                        image: this.getImageSrc(game.boxart_path || game.icon_path),
                         launchCommand: game.launch_command,
                         installDir: game.install_directory,
                         appId: game.app_id || game.package_name
