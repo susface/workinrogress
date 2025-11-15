@@ -71,14 +71,23 @@ def extract_icon_from_exe(exe_path: str, output_path: str, size: int = 256) -> O
         # Save as PNG
         img.save(output_path, 'PNG')
 
-        # Cleanup
-        win32gui.DestroyIcon(hicon)
-        if large:
-            for icon in large:
-                win32gui.DestroyIcon(icon)
-        if small:
-            for icon in small:
-                win32gui.DestroyIcon(icon)
+        # Cleanup - Destroy all icon handles (ExtractIconEx returns copies)
+        # Don't try to destroy the same handle twice
+        try:
+            if large:
+                for icon in large:
+                    try:
+                        win32gui.DestroyIcon(icon)
+                    except:
+                        pass  # Handle already destroyed
+            if small:
+                for icon in small:
+                    try:
+                        win32gui.DestroyIcon(icon)
+                    except:
+                        pass  # Handle already destroyed
+        except:
+            pass  # Cleanup failed, but we already saved the image
 
         return output_path
 
