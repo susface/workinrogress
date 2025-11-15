@@ -218,7 +218,8 @@ class EpicScanner:
             }
 
             headers = {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "Accept-Language": "en-US,en;q=0.9"
             }
 
             response = requests.post(

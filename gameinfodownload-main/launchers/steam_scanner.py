@@ -121,8 +121,8 @@ class SteamScanner:
         }
 
         try:
-            # Steam Store API
-            url = f"https://store.steampowered.com/api/appdetails?appids={app_id}"
+            # Steam Store API - Force English language
+            url = f"https://store.steampowered.com/api/appdetails?appids={app_id}&cc=us&l=english"
             response = requests.get(url, timeout=10)
 
             if response.status_code == 200:
