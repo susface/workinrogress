@@ -436,8 +436,26 @@
     <script src="modules/coverflow-navigation.js"></script>
     <script src="modules/coverflow-ui.js"></script>
 
+    <!-- New features modules -->
+    <script src="modules/quick-launch.js"></script>
+    <script src="modules/features-manager.js"></script>
+
     <!-- Main coverflow (uses all modules via Object.assign in constructor) -->
     <script src="coverflow.js"></script>
     <script src="ui-components.js"></script>
+
+    <!-- Initialize features -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Wait for coverflow to initialize
+            setTimeout(() => {
+                if (window.coverflow && window.FeaturesManager) {
+                    window.featuresManager = new FeaturesManager();
+                    window.featuresManager.init(window.coverflow);
+                    console.log('[FEATURES] Initialized: Quick Launch, Themes, Stats, Collections');
+                }
+            }, 1000);
+        });
+    </script>
 </body>
 </html>

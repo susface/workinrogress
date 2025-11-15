@@ -1,0 +1,506 @@
+/**
+ * Features Manager
+ * Initializes and manages all new features: Collections, Themes, Stats, Quick Launch
+ */
+
+class FeaturesManager {
+    constructor() {
+        this.quickLaunch = null;
+        this.currentTheme = null;
+        this.collections = [];
+    }
+
+    /**
+     * Initialize all features
+     */
+    async init(coverflowInstance) {
+        this.coverflow = coverflowInstance;
+
+        // Initialize Quick Launch
+        if (window.QuickLaunch) {
+            this.quickLaunch = new QuickLaunch();
+            this.quickLaunch.init(this.coverflow.filteredAlbums || []);
+        }
+
+        // Load and apply theme
+        await this.loadTheme();
+
+        // Load collections
+        await this.loadCollections();
+
+        // Setup UI components
+        this.setupCollectionsUI();
+        this.setupThemeSwitcher();
+        this.setupStatsButton();
+        this.setupRecentlyLaunched();
+    }
+
+    /**
+     * Update games list in Quick Launch
+     */
+    updateQuickLaunchGames(games) {
+        if (this.quickLaunch) {
+            this.quickLaunch.updateGames(games);
+        }
+    }
+
+    /**
+     * Load and apply active theme
+     */
+    async loadTheme() {
+        if (!window.electronAPI) return;
+
+        try {
+            const result = await window.electronAPI.getActiveTheme();
+            if (result.success && result.theme) {
+                this.applyTheme(result.theme);
+            }
+        } catch (error) {
+            console.error('[THEME] Error loading theme:', error);
+        }
+    }
+
+    /**
+     * Apply theme colors
+     */
+    applyTheme(theme) {
+        try {
+            const colors = JSON.parse(theme.colors);
+            const root = document.documentElement;
+
+            root.style.setProperty('--primary-color', colors.primary || '#4fc3f7');
+            root.style.setProperty('--secondary-color', colors.secondary || '#81c784');
+            root.style.setProperty('--background-color', colors.background || '#000000');
+            root.style.setProperty('--text-color', colors.text || '#ffffff');
+
+            // Apply background if specified
+            if (theme.background) {
+                document.body.style.backgroundImage = `url(${theme.background})`;
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundPosition = 'center';
+            } else if (colors.background) {
+                document.body.style.backgroundImage = 'none';
+                document.body.style.backgroundColor = colors.background;
+            }
+
+            this.currentTheme = theme;
+            console.log(`[THEME] Applied: ${theme.name}`);
+        } catch (error) {
+            console.error('[THEME] Error applying theme:', error);
+        }
+    }
+
+    /**
+     * Load collections
+     */
+    async loadCollections() {
+        if (!window.electronAPI) return;
+
+        try {
+            const result = await window.electronAPI.getCollections();
+            if (result.success) {
+                this.collections = result.collections || [];
+            }
+        } catch (error) {
+            console.error('[COLLECTIONS] Error loading:', error);
+        }
+    }
+
+    /**
+     * Setup collections sidebar UI
+     */
+    setupCollectionsUI() {
+        // Add collections button to settings if not exists
+        const settingsPanel = document.querySelector('.settings-panel');
+        if (!settingsPanel || document.getElementById('collections-btn')) return;
+
+        const collectionsBtn = document.createElement('button');
+        collectionsBtn.id = 'collections-btn';
+        collectionsBtn.className = 'setting-btn';
+        collectionsBtn.innerHTML = '📁 Collections';
+        collectionsBtn.onclick = () => this.showCollectionsModal();
+
+        settingsPanel.insertBefore(collectionsBtn, settingsPanel.firstChild);
+    }
+
+    /**
+     * Setup theme switcher UI
+     */
+    setupThemeSwitcher() {
+        const settingsPanel = document.querySelector('.settings-panel');
+        if (!settingsPanel || document.getElementById('theme-switcher-btn')) return;
+
+        const themeBtn = document.createElement('button');
+        themeBtn.id = 'theme-switcher-btn';
+        themeBtn.className = 'setting-btn';
+        themeBtn.innerHTML = '🎨 Themes';
+        themeBtn.onclick = () => this.showThemesModal();
+
+        settingsPanel.insertBefore(themeBtn, settingsPanel.firstChild);
+    }
+
+    /**
+     * Setup stats button
+     */
+    setupStatsButton() {
+        const settingsPanel = document.querySelector('.settings-panel');
+        if (!settingsPanel || document.getElementById('stats-btn')) return;
+
+        const statsBtn = document.createElement('button');
+        statsBtn.id = 'stats-btn';
+        statsBtn.className = 'setting-btn';
+        statsBtn.innerHTML = '📊 Statistics';
+        statsBtn.onclick = () => this.showStatsModal();
+
+        settingsPanel.insertBefore(statsBtn, settingsPanel.firstChild);
+    }
+
+    /**
+     * Setup recently launched sidebar
+     */
+    setupRecentlyLaunched() {
+        // Check if sidebar already exists
+        if (document.getElementById('recently-launched-sidebar')) return;
+
+        const sidebar = document.createElement('div');
+        sidebar.id = 'recently-launched-sidebar';
+        sidebar.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            width: 250px;
+            background: rgba(26, 26, 26, 0.95);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        `;
+
+        sidebar.innerHTML = `
+            <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #4fc3f7;">Recently Launched</h3>
+            <div id="recent-games-list" style="max-height: 300px; overflow-y: auto;"></div>
+        `;
+
+        document.body.appendChild(sidebar);
+        this.updateRecentlyLaunched();
+
+        // Update every 30 seconds
+        setInterval(() => this.updateRecentlyLaunched(), 30000);
+    }
+
+    /**
+     * Update recently launched list
+     */
+    async updateRecentlyLaunched() {
+        if (!window.electronAPI) return;
+
+        try {
+            const result = await window.electronAPI.getRecentlyPlayed(5);
+            if (!result.success || !result.games) return;
+
+            const container = document.getElementById('recent-games-list');
+            if (!container) return;
+
+            if (result.games.length === 0) {
+                container.innerHTML = '<p style="color: #666; font-size: 12px; text-align: center;">No recent games</p>';
+                return;
+            }
+
+            container.innerHTML = result.games.map(game => `
+                <div class="recent-game-item" style="
+                    padding: 8px;
+                    margin: 4px 0;
+                    background: #2a2a2a;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                " onclick="window.featuresManager.launchGame(${game.id}, '${game.launch_command?.replace(/'/g, "\\'")}', '${game.title?.replace(/'/g, "\\'")}')">
+                    <div style="font-size: 12px; color: #fff; font-weight: bold; margin-bottom: 2px;">${game.title}</div>
+                    <div style="font-size: 10px; color: #888;">${game.platform || 'PC'} • ${this.formatPlayTime(game.total_play_time || 0)}</div>
+                </div>
+            `).join('');
+
+            // Add hover effects
+            container.querySelectorAll('.recent-game-item').forEach(item => {
+                item.addEventListener('mouseenter', () => item.style.background = '#3a3a3a');
+                item.addEventListener('mouseleave', () => item.style.background = '#2a2a2a');
+            });
+        } catch (error) {
+            console.error('[RECENT] Error updating:', error);
+        }
+    }
+
+    /**
+     * Format playtime
+     */
+    formatPlayTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+    }
+
+    /**
+     * Launch game from recently played
+     */
+    async launchGame(gameId, launchCommand, title) {
+        if (!window.electronAPI || !launchCommand) return;
+
+        try {
+            await window.electronAPI.launchGame(launchCommand, gameId);
+            if (this.coverflow && typeof this.coverflow.showToast === 'function') {
+                this.coverflow.showToast(`Launched ${title}`, 'success');
+            }
+        } catch (error) {
+            console.error('[RECENT] Launch error:', error);
+            if (this.coverflow && typeof this.coverflow.showToast === 'function') {
+                this.coverflow.showToast(`Failed to launch: ${error.message}`, 'error');
+            }
+        }
+    }
+
+    /**
+     * Show collections modal
+     */
+    async showCollectionsModal() {
+        // Implementation in next phase - basic modal for now
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        modal.innerHTML = `
+            <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%;">
+                <h2 style="margin: 0 0 20px 0; color: #4fc3f7;">Game Collections</h2>
+                <p style="color: #ccc;">Collections feature allows you to organize games into custom categories.</p>
+                <p style="color: #888; font-size: 14px; margin: 20px 0;">Full UI coming soon! Database and APIs are ready.</p>
+                <button onclick="this.closest('div').parentElement.remove()" style="
+                    padding: 10px 20px;
+                    background: #4fc3f7;
+                    border: none;
+                    border-radius: 6px;
+                    color: #000;
+                    cursor: pointer;
+                    font-weight: bold;
+                ">Close</button>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    }
+
+    /**
+     * Show themes modal
+     */
+    async showThemesModal() {
+        if (!window.electronAPI) return;
+
+        try {
+            const result = await window.electronAPI.getThemes();
+            if (!result.success) return;
+
+            const themes = result.themes || [];
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h2 style="margin: 0 0 20px 0; color: #4fc3f7;">Themes</h2>
+                    <div id="themes-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                        ${themes.map(theme => {
+                            const colors = JSON.parse(theme.colors);
+                            return `
+                                <div class="theme-card" onclick="window.featuresManager.activateTheme(${theme.id})" style="
+                                    padding: 16px;
+                                    background: linear-gradient(135deg, ${colors.primary}, ${colors.secondary});
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    border: 3px solid ${theme.is_active ? '#fff' : 'transparent'};
+                                    transition: transform 0.2s;
+                                ">
+                                    <h3 style="margin: 0 0 8px 0; color: #fff; font-size: 14px;">${theme.name}</h3>
+                                    <div style="display: flex; gap: 4px; margin-top: 8px;">
+                                        <div style="width: 20px; height: 20px; background: ${colors.primary}; border-radius: 50%;"></div>
+                                        <div style="width: 20px; height: 20px; background: ${colors.secondary}; border-radius: 50%;"></div>
+                                        <div style="width: 20px; height: 20px; background: ${colors.background}; border-radius: 50%; border: 1px solid #666;"></div>
+                                    </div>
+                                    ${theme.is_active ? '<div style="margin-top: 8px; color: #fff; font-size: 11px;">✓ Active</div>' : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        padding: 10px 20px;
+                        background: #4fc3f7;
+                        border: none;
+                        border-radius: 6px;
+                        color: #000;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">Close</button>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+
+            // Add hover effects
+            modal.querySelectorAll('.theme-card').forEach(card => {
+                card.addEventListener('mouseenter', () => card.style.transform = 'scale(1.05)');
+                card.addEventListener('mouseleave', () => card.style.transform = 'scale(1)');
+            });
+        } catch (error) {
+            console.error('[THEMES] Error showing modal:', error);
+        }
+    }
+
+    /**
+     * Activate theme
+     */
+    async activateTheme(themeId) {
+        if (!window.electronAPI) return;
+
+        try {
+            await window.electronAPI.activateTheme(themeId);
+            await this.loadTheme();
+
+            if (this.coverflow && typeof this.coverflow.showToast === 'function') {
+                this.coverflow.showToast('Theme activated', 'success');
+            }
+
+            // Close modal and reopen to show updated state
+            const modal = document.querySelector('div[style*="z-index: 9999"]');
+            if (modal) {
+                modal.remove();
+                setTimeout(() => this.showThemesModal(), 300);
+            }
+        } catch (error) {
+            console.error('[THEMES] Error activating:', error);
+        }
+    }
+
+    /**
+     * Show stats modal
+     */
+    async showStatsModal() {
+        if (!window.electronAPI) return;
+
+        try {
+            const result = await window.electronAPI.getPlaytimeStats('week');
+            if (!result.success || !result.stats) return;
+
+            const stats = result.stats;
+            const totalHours = Math.floor(stats.totalPlaytime / 3600);
+            const totalMinutes = Math.floor((stats.totalPlaytime % 3600) / 60);
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h2 style="margin: 0 0 20px 0; color: #4fc3f7;">Playtime Statistics</h2>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 30px;">
+                        <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 32px; color: #4fc3f7; font-weight: bold;">${totalHours}h ${totalMinutes}m</div>
+                            <div style="color: #888; font-size: 12px; margin-top: 4px;">Total Playtime</div>
+                        </div>
+                        <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 32px; color: #81c784; font-weight: bold;">${stats.totalGames}</div>
+                            <div style="color: #888; font-size: 12px; margin-top: 4px;">Games Played</div>
+                        </div>
+                        <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 32px; color: #ff6b6b; font-weight: bold;">${stats.recentSessions.length}</div>
+                            <div style="color: #888; font-size: 12px; margin-top: 4px;">Sessions (7 days)</div>
+                        </div>
+                    </div>
+
+                    <h3 style="color: #4fc3f7; margin: 20px 0 10px 0;">Most Played Games</h3>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        ${stats.mostPlayed.slice(0, 10).map((game, index) => {
+                            const hours = Math.floor(game.total_play_time / 3600);
+                            const minutes = Math.floor((game.total_play_time % 3600) / 60);
+                            return `
+                                <div style="
+                                    padding: 12px;
+                                    margin: 4px 0;
+                                    background: #2a2a2a;
+                                    border-radius: 6px;
+                                    display: flex;
+                                    justify-content: space-between;
+                                    align-items: center;
+                                ">
+                                    <div>
+                                        <span style="color: #666; font-size: 12px; margin-right: 8px;">#${index + 1}</span>
+                                        <span style="color: #fff; font-size: 14px;">${game.title}</span>
+                                        <span style="color: #888; font-size: 12px; margin-left: 8px;">${game.platform || 'PC'}</span>
+                                    </div>
+                                    <div style="color: #4fc3f7; font-weight: bold;">${hours}h ${minutes}m</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        padding: 10px 20px;
+                        background: #4fc3f7;
+                        border: none;
+                        border-radius: 6px;
+                        color: #000;
+                        cursor: pointer;
+                        font-weight: bold;
+                        margin-top: 20px;
+                    ">Close</button>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        } catch (error) {
+            console.error('[STATS] Error showing modal:', error);
+        }
+    }
+}
+
+// Export for global use
+if (typeof window !== 'undefined') {
+    window.FeaturesManager = FeaturesManager;
+}
