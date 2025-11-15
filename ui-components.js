@@ -113,15 +113,14 @@ class UIComponents {
     }
 
     renderGridView(games) {
-        let container = document.querySelector('#grid-view');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'grid-view';
-            container.className = 'grid-view-container';
-            document.body.appendChild(container);
+        let wrapper = document.querySelector('#grid-view');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.id = 'grid-view';
+            document.body.appendChild(wrapper);
         }
 
-        container.innerHTML = games.map(game => {
+        const gridHtml = games.map(game => {
             const imagePath = game.boxart_path || game.icon_path;
             const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
             return `
@@ -146,18 +145,19 @@ class UIComponents {
             </div>
             `;
         }).join('');
+
+        wrapper.innerHTML = `<div class="grid-view-container">${gridHtml}</div>`;
     }
 
     renderListView(games) {
-        let container = document.querySelector('#list-view');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'list-view';
-            container.className = 'list-view-container';
-            document.body.appendChild(container);
+        let wrapper = document.querySelector('#list-view');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.id = 'list-view';
+            document.body.appendChild(wrapper);
         }
 
-        container.innerHTML = `
+        const tableHtml = `
             <table class="list-table">
                 <thead>
                     <tr>
@@ -187,6 +187,9 @@ class UIComponents {
                             <td>${this.renderStars(game.user_rating || 0)}</td>
                             <td>
                                 <button class="btn-play" onclick="launchGame(${game.id}, '${game.launch_command}')">Play</button>
+                                <button class="btn-favorite" onclick="toggleFavorite(${game.id})">
+                                    ${game.is_favorite ? '★' : '☆'}
+                                </button>
                             </td>
                         </tr>
                         `;
@@ -194,6 +197,8 @@ class UIComponents {
                 </tbody>
             </table>
         `;
+
+        wrapper.innerHTML = `<div class="list-view-container">${tableHtml}</div>`;
     }
 
     // ============================================

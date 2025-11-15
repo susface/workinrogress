@@ -1449,11 +1449,40 @@ class CoverFlow {
             document.getElementById('album-artist').textContent = item.developer || 'Unknown';
             document.getElementById('album-year').textContent = item.year || '-';
             document.getElementById('album-genre').textContent = item.genre || '-';
+
+            // Show play button for games
+            const playBtn = document.getElementById('play-btn');
+            if (playBtn) {
+                playBtn.style.display = 'block';
+                playBtn.onclick = () => {
+                    if (window.electronAPI && item.id && item.launch_command) {
+                        window.electronAPI.launchGame(item.launch_command, item.id);
+                    }
+                };
+            }
         } else {
             // For albums, show artist and genre
             document.getElementById('album-artist').textContent = item.artist || 'Unknown';
             document.getElementById('album-year').textContent = item.year || '-';
             document.getElementById('album-genre').textContent = item.genre || '-';
+
+            // Hide play button for albums/images
+            const playBtn = document.getElementById('play-btn');
+            if (playBtn) playBtn.style.display = 'none';
+        }
+
+        // Update favorite button for games
+        const favoriteBtn = document.getElementById('favorite-btn');
+        if (favoriteBtn && isGame) {
+            favoriteBtn.textContent = item.is_favorite ? '★' : '☆';
+            favoriteBtn.classList.toggle('active', item.is_favorite);
+            favoriteBtn.onclick = async () => {
+                if (window.electronAPI && item.id) {
+                    await window.electronAPI.toggleFavorite(item.id);
+                    // Refresh games to get updated state
+                    await this.loadGames();
+                }
+            };
         }
 
         document.getElementById('current-position').textContent = this.currentIndex + 1;
