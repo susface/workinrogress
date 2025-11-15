@@ -162,9 +162,22 @@ class CoverFlow {
             }
 
             // Check if it's an absolute path (Windows: C:/ or Unix: /)
-            if (imagePath.includes(':/') || imagePath.startsWith('/')) {
-                // Convert to file:// URL
-                const fileUrl = 'file:///' + imagePath.replace(/\\/g, '/');
+            if (imagePath.includes(':/') || (imagePath.startsWith('/') && !imagePath.startsWith('//'))) {
+                // Convert to file:// URL with proper encoding
+                const normalizedPath = imagePath.replace(/\\/g, '/');
+
+                // Split path and encode each segment (but not the drive letter and slashes)
+                const pathParts = normalizedPath.split('/');
+                const encodedParts = pathParts.map((part, index) => {
+                    // Don't encode empty parts or drive letter (e.g., "C:")
+                    if (part === '' || (index === 0 && part.includes(':'))) {
+                        return part;
+                    }
+                    return encodeURIComponent(part);
+                });
+
+                const encodedPath = encodedParts.join('/');
+                const fileUrl = 'file:///' + encodedPath;
                 return fileUrl;
             }
 
@@ -519,17 +532,9 @@ class CoverFlow {
                     console.warn('Failed to load texture:', imageSrc, error);
 
                     // Try fallback to icon if boxart failed
-                    if (album.type === 'game' && album.icon_path && album.boxart_path && imageSrc.includes(album.boxart_path.split('/').pop())) {
-                        let iconSrc = album.icon_path;
-                        if (iconSrc && iconSrc.includes(':/') && !iconSrc.startsWith('http')) {
-                            if (!iconSrc.startsWith('file://')) {
-                                iconSrc = 'file:///' + iconSrc;
-                            }
-                            iconSrc = iconSrc.replace(/\\/g, '/').split('/').map((part, index) => {
-                                if (index < 3) return part;
-                                return encodeURIComponent(part);
-                            }).join('/');
-                        }
+                    if (album.type === 'game' && album.icon_path) {
+                        // Use getImageSrc for consistent path handling
+                        const iconSrc = this.getImageSrc(album.icon_path);
 
                         console.log('Trying fallback icon:', iconSrc);
                         loader.load(
@@ -650,20 +655,8 @@ class CoverFlow {
                     ior: 1.5 // Index of refraction for glass-like appearance
                 });
             } else if (album.image) {
-                // For local file paths, ensure proper encoding
-                let imageSrc = album.image;
-                if (imageSrc && imageSrc.includes(':/') && !imageSrc.startsWith('http')) {
-                    // Local file path - ensure file:// protocol and proper encoding
-                    if (!imageSrc.startsWith('file://')) {
-                        imageSrc = 'file:///' + imageSrc;
-                    }
-                    // Encode special characters but preserve path separators
-                    imageSrc = imageSrc.replace(/\\/g, '/').split('/').map((part, index) => {
-                        // Don't encode the protocol part
-                        if (index < 3) return part;
-                        return encodeURIComponent(part);
-                    }).join('/');
-                }
+                // album.image is already properly formatted by getImageSrc()
+                const imageSrc = album.image;
 
                 // Create material with placeholder texture first
                 material = new THREE.MeshPhongMaterial({
