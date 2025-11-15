@@ -587,9 +587,9 @@ async function loadGamesFromJSON() {
 
             // Log exe icon extraction status
             if (exeIconPath) {
-                console.log(`[EXE_ICON] ✓ Found exe icon for "${game.title}": ${exeIconPath}`);
+                console.log(`[EXE_ICON] [OK] Found exe icon for "${game.title}": ${exeIconPath}`);
             } else {
-                console.log(`[EXE_ICON] ✗ No exe icon for "${game.title}"`);
+                console.log(`[EXE_ICON] [NOT FOUND] No exe icon for "${game.title}"`);
             }
 
             insert.run({

@@ -149,7 +149,7 @@ def find_game_executable(install_dir: str, game_name: str) -> Optional[str]:
     for pattern in patterns:
         exe_path = install_path / pattern
         if exe_path.exists():
-            print(f"[ICON_EXTRACT] ✓ Found exe via pattern match: {exe_path.name}")
+            print(f"[ICON_EXTRACT] [OK] Found exe via pattern match: {exe_path.name}")
             return str(exe_path)
 
     # Common subdirectories where games store executables (in priority order)
@@ -189,7 +189,7 @@ def find_game_executable(install_dir: str, game_name: str) -> Optional[str]:
             if exe_files:
                 # Prefer the largest exe (usually the main game)
                 exe_files.sort(key=lambda x: x.stat().st_size, reverse=True)
-                print(f"[ICON_EXTRACT] ✓ Found exe in {subdir}: {exe_files[0].name}")
+                print(f"[ICON_EXTRACT] [OK] Found exe in {subdir}: {exe_files[0].name}")
                 return str(exe_files[0])
 
     # Look for any .exe in root directory (if we haven't checked yet)
@@ -203,7 +203,7 @@ def find_game_executable(install_dir: str, game_name: str) -> Optional[str]:
     if exe_files:
         # Prefer the largest exe
         exe_files.sort(key=lambda x: x.stat().st_size, reverse=True)
-        print(f"[ICON_EXTRACT] ✓ Found exe in root: {exe_files[0].name}")
+        print(f"[ICON_EXTRACT] [OK] Found exe in root: {exe_files[0].name}")
         return str(exe_files[0])
 
     # Last resort: recursive search (max depth 3 to avoid going too deep)
@@ -233,10 +233,10 @@ def find_game_executable(install_dir: str, game_name: str) -> Optional[str]:
     if all_exes:
         # Prefer the largest executable (usually the main game)
         all_exes.sort(key=lambda x: x.stat().st_size, reverse=True)
-        print(f"[ICON_EXTRACT] ✓ Found exe via recursive search: {all_exes[0]}")
+        print(f"[ICON_EXTRACT] [OK] Found exe via recursive search: {all_exes[0]}")
         return str(all_exes[0])
 
-    print(f"[ICON_EXTRACT] ✗ No executable found for: {game_name}")
+    print(f"[ICON_EXTRACT] [NOT FOUND] No executable found for: {game_name}")
     return None
 
 
