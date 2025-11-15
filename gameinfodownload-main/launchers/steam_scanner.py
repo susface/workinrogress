@@ -181,10 +181,10 @@ class SteamScanner:
         return None
 
     def _download_boxart(self, app_id: str, game_name: str) -> Optional[str]:
-        """Download game box art (header image)"""
+        """Download game box art (library card image for vertical display)"""
         try:
-            # Steam header image URL format
-            boxart_url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"
+            # Try library card image first (600x900 - vertical format, better for grid view)
+            boxart_url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_600x900.jpg"
 
             response = requests.get(boxart_url, timeout=10)
             if response.status_code == 200:
@@ -198,6 +198,19 @@ class SteamScanner:
 
                 # Return relative path for URL construction
                 return f"game_data/boxart/{filename}"
+            else:
+                # Fallback to header image if library card not available
+                boxart_url = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"
+                response = requests.get(boxart_url, timeout=10)
+                if response.status_code == 200:
+                    safe_name = re.sub(r'[<>:"/\\|?*]', '_', game_name)
+                    filename = f"steam_{app_id}_{safe_name}.jpg"
+                    boxart_path = self.boxart_dir / filename
+
+                    with open(boxart_path, 'wb') as f:
+                        f.write(response.content)
+
+                    return f"game_data/boxart/{filename}"
 
         except Exception as e:
             print(f"Error downloading box art for {game_name}: {e}")

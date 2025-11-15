@@ -99,7 +99,7 @@ class EpicScanner:
         # Check if this is a known game that needs metadata enrichment
         for known_game, enrichment in self.GAME_METADATA_ENRICHMENT.items():
             if known_game.lower() in title.lower():
-                print(f"  ✓ Enriching metadata for {known_game}")
+                print(f"  [OK] Enriching metadata for {known_game}")
                 # Only add fields if they don't already exist or are empty
                 for key, value in enrichment.items():
                     if not game_info.get(key):
@@ -303,7 +303,7 @@ class EpicScanner:
 
             for exe_path in exe_paths:
                 if os.path.exists(exe_path):
-                    print(f"  ✓ Found Fortnite at: {install_path}")
+                    print(f"  [OK] Found Fortnite at: {install_path}")
 
                     game_info = {
                         'platform': 'epic',
@@ -328,7 +328,7 @@ class EpicScanner:
                         if extracted_path:
                             game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
                             game_info['boxart_path'] = game_info['icon_path']
-                            print(f"  ✓ Extracted icon from Fortnite executable")
+                            print(f"  [OK] Extracted icon from Fortnite executable")
 
                     # Enrich with known metadata
                     self._enrich_game_metadata(game_info)
@@ -408,7 +408,7 @@ class EpicScanner:
                             if extracted_path:
                                 icon_path = f"game_data/icons/{exe_icon_filename}"
                                 boxart_path = icon_path
-                                print(f"  ✓ Extracted icon from game executable")
+                                print(f"  [OK] Extracted icon from game executable")
 
                     game_info['icon_path'] = icon_path
                     game_info['boxart_path'] = boxart_path
@@ -427,7 +427,7 @@ class EpicScanner:
                         if extracted_path:
                             game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
                             game_info['boxart_path'] = game_info['icon_path']
-                            print(f"  ✓ Extracted icon from game executable")
+                            print(f"  [OK] Extracted icon from game executable")
 
                 # Enrich metadata for well-known games
                 self._enrich_game_metadata(game_info)
@@ -470,7 +470,7 @@ class EpicScanner:
                     if extracted_path:
                         game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
                         game_info['boxart_path'] = game_info['icon_path']
-                        print(f"  ✓ Extracted icon from game executable")
+                        print(f"  [OK] Extracted icon from game executable")
 
                 # Enrich metadata for well-known games
                 self._enrich_game_metadata(game_info)
@@ -484,6 +484,6 @@ class EpicScanner:
             fortnite_game = self._find_fortnite_manually()
             if fortnite_game:
                 games.append(fortnite_game)
-                print(f"  ✓ Successfully added Fortnite to game list")
+                print(f"  [OK] Successfully added Fortnite to game list")
 
         return games
