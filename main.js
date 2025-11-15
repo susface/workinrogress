@@ -117,6 +117,97 @@ function initDatabase() {
     `);
     db.exec('CREATE INDEX IF NOT EXISTS idx_game_sessions_game_id ON game_sessions(game_id)');
 
+    // Create game collections table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS game_collections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            color TEXT DEFAULT '#4fc3f7',
+            icon TEXT DEFAULT '📁',
+            sort_order INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Create collection_games junction table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS collection_games (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            collection_id INTEGER NOT NULL,
+            game_id INTEGER NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            sort_order INTEGER DEFAULT 0,
+            FOREIGN KEY (collection_id) REFERENCES game_collections(id) ON DELETE CASCADE,
+            FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+            UNIQUE(collection_id, game_id)
+        )
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_collection_games_collection ON collection_games(collection_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_collection_games_game ON collection_games(game_id)');
+
+    // Create custom covers table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS custom_covers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_id INTEGER NOT NULL UNIQUE,
+            cover_type TEXT DEFAULT 'grid',
+            cover_url TEXT,
+            source TEXT DEFAULT 'user_upload',
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+        )
+    `);
+
+    // Create playtime goals table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS playtime_goals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_id INTEGER,
+            goal_type TEXT NOT NULL,
+            target_value INTEGER NOT NULL,
+            current_value INTEGER DEFAULT 0,
+            start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            end_date TIMESTAMP,
+            completed INTEGER DEFAULT 0,
+            FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+        )
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_playtime_goals_game ON playtime_goals(game_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_playtime_goals_type ON playtime_goals(goal_type)');
+
+    // Create themes table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS themes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            colors TEXT NOT NULL,
+            background TEXT,
+            is_active INTEGER DEFAULT 0,
+            is_builtin INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Insert default themes if not exists
+    const defaultThemes = [
+        { name: 'Dark (Default)', colors: JSON.stringify({ primary: '#4fc3f7', secondary: '#81c784', background: '#000000', text: '#ffffff' }), isBuiltin: 1 },
+        { name: 'Blue Steel', colors: JSON.stringify({ primary: '#2196F3', secondary: '#64B5F6', background: '#0D1B2A', text: '#E0E1DD' }), isBuiltin: 1 },
+        { name: 'Purple Haze', colors: JSON.stringify({ primary: '#9C27B0', secondary: '#BA68C8', background: '#1A0033', text: '#F0E6FF' }), isBuiltin: 1 },
+        { name: 'Green Machine', colors: JSON.stringify({ primary: '#4CAF50', secondary: '#81C784', background: '#0A1F0A', text: '#E8F5E9' }), isBuiltin: 1 },
+        { name: 'Sunset Orange', colors: JSON.stringify({ primary: '#FF6B35', secondary: '#FFA500', background: '#1A0A00', text: '#FFF8F0' }), isBuiltin: 1 },
+        { name: 'Cyberpunk', colors: JSON.stringify({ primary: '#FF00FF', secondary: '#00FFFF', background: '#0A0014', text: '#FFFFFF' }), isBuiltin: 1 }
+    ];
+
+    defaultThemes.forEach((theme, index) => {
+        try {
+            db.prepare(`
+                INSERT OR IGNORE INTO themes (name, colors, is_builtin, is_active)
+                VALUES (?, ?, ?, ?)
+            `).run(theme.name, theme.colors, theme.isBuiltin, index === 0 ? 1 : 0);
+        } catch (e) { /* Theme already exists */ }
+    });
+
     // Migrate existing database (add new columns if they don't exist)
     try {
         db.exec('ALTER TABLE games ADD COLUMN is_favorite INTEGER DEFAULT 0');
@@ -1321,6 +1412,367 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
     } catch (error) {
         console.error('Error scanning media folder:', error);
         return { success: false, error: error.message };
+    }
+});
+
+// ============================================
+// COLLECTIONS API
+// ============================================
+
+// Get all collections
+ipcMain.handle('get-collections', async () => {
+    try {
+        const db = initDatabase();
+        const collections = db.prepare(`
+            SELECT c.*, COUNT(cg.game_id) as game_count
+            FROM game_collections c
+            LEFT JOIN collection_games cg ON c.id = cg.collection_id
+            GROUP BY c.id
+            ORDER BY c.sort_order, c.name
+        `).all();
+        db.close();
+        return { success: true, collections };
+    } catch (error) {
+        console.error('Error getting collections:', error);
+        return { success: false, error: error.message, collections: [] };
+    }
+});
+
+// Create collection
+ipcMain.handle('create-collection', async (event, name, description, color, icon) => {
+    try {
+        const db = initDatabase();
+        const result = db.prepare(`
+            INSERT INTO game_collections (name, description, color, icon)
+            VALUES (?, ?, ?, ?)
+        `).run(name, description, color || '#4fc3f7', icon || '📁');
+        db.close();
+        return { success: true, collectionId: result.lastInsertRowid };
+    } catch (error) {
+        console.error('Error creating collection:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Add game to collection
+ipcMain.handle('add-to-collection', async (event, collectionId, gameId) => {
+    try {
+        const db = initDatabase();
+        db.prepare(`
+            INSERT OR IGNORE INTO collection_games (collection_id, game_id)
+            VALUES (?, ?)
+        `).run(collectionId, gameId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error adding to collection:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Remove game from collection
+ipcMain.handle('remove-from-collection', async (event, collectionId, gameId) => {
+    try {
+        const db = initDatabase();
+        db.prepare(`
+            DELETE FROM collection_games
+            WHERE collection_id = ? AND game_id = ?
+        `).run(collectionId, gameId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error removing from collection:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get games in collection
+ipcMain.handle('get-collection-games', async (event, collectionId) => {
+    try {
+        const db = initDatabase();
+        const games = db.prepare(`
+            SELECT g.* FROM games g
+            INNER JOIN collection_games cg ON g.id = cg.game_id
+            WHERE cg.collection_id = ?
+            ORDER BY cg.sort_order, g.title
+        `).all(collectionId);
+        db.close();
+        return { success: true, games };
+    } catch (error) {
+        console.error('Error getting collection games:', error);
+        return { success: false, error: error.message, games: [] };
+    }
+});
+
+// Delete collection
+ipcMain.handle('delete-collection', async (event, collectionId) => {
+    try {
+        const db = initDatabase();
+        db.prepare('DELETE FROM game_collections WHERE id = ?').run(collectionId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting collection:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// ============================================
+// CUSTOM COVERS API
+// ============================================
+
+// Set custom cover for game
+ipcMain.handle('set-custom-cover', async (event, gameId, coverUrl, coverType, source) => {
+    try {
+        const db = initDatabase();
+        db.prepare(`
+            INSERT OR REPLACE INTO custom_covers (game_id, cover_url, cover_type, source)
+            VALUES (?, ?, ?, ?)
+        `).run(gameId, coverUrl, coverType || 'grid', source || 'user_upload');
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error setting custom cover:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get custom cover for game
+ipcMain.handle('get-custom-cover', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const cover = db.prepare('SELECT * FROM custom_covers WHERE game_id = ?').get(gameId);
+        db.close();
+        return { success: true, cover };
+    } catch (error) {
+        console.error('Error getting custom cover:', error);
+        return { success: false, error: error.message, cover: null };
+    }
+});
+
+// Remove custom cover
+ipcMain.handle('remove-custom-cover', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        db.prepare('DELETE FROM custom_covers WHERE game_id = ?').run(gameId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error removing custom cover:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// ============================================
+// PLAYTIME GOALS API
+// ============================================
+
+// Create goal
+ipcMain.handle('create-goal', async (event, goalType, targetValue, gameId, endDate) => {
+    try {
+        const db = initDatabase();
+        const result = db.prepare(`
+            INSERT INTO playtime_goals (goal_type, target_value, game_id, end_date)
+            VALUES (?, ?, ?, ?)
+        `).run(goalType, targetValue, gameId || null, endDate || null);
+        db.close();
+        return { success: true, goalId: result.lastInsertRowid };
+    } catch (error) {
+        console.error('Error creating goal:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get all goals
+ipcMain.handle('get-goals', async () => {
+    try {
+        const db = initDatabase();
+        const goals = db.prepare(`
+            SELECT pg.*, g.title as game_title
+            FROM playtime_goals pg
+            LEFT JOIN games g ON pg.game_id = g.id
+            ORDER BY pg.completed, pg.end_date
+        `).all();
+        db.close();
+        return { success: true, goals };
+    } catch (error) {
+        console.error('Error getting goals:', error);
+        return { success: false, error: error.message, goals: [] };
+    }
+});
+
+// Update goal progress
+ipcMain.handle('update-goal-progress', async (event, goalId, currentValue, completed) => {
+    try {
+        const db = initDatabase();
+        db.prepare(`
+            UPDATE playtime_goals
+            SET current_value = ?, completed = ?
+            WHERE id = ?
+        `).run(currentValue, completed ? 1 : 0, goalId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating goal:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Delete goal
+ipcMain.handle('delete-goal', async (event, goalId) => {
+    try {
+        const db = initDatabase();
+        db.prepare('DELETE FROM playtime_goals WHERE id = ?').run(goalId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting goal:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// ============================================
+// THEMES API
+// ============================================
+
+// Get all themes
+ipcMain.handle('get-themes', async () => {
+    try {
+        const db = initDatabase();
+        const themes = db.prepare('SELECT * FROM themes ORDER BY is_builtin DESC, name').all();
+        db.close();
+        return { success: true, themes };
+    } catch (error) {
+        console.error('Error getting themes:', error);
+        return { success: false, error: error.message, themes: [] };
+    }
+});
+
+// Get active theme
+ipcMain.handle('get-active-theme', async () => {
+    try {
+        const db = initDatabase();
+        const theme = db.prepare('SELECT * FROM themes WHERE is_active = 1').get();
+        db.close();
+        return { success: true, theme };
+    } catch (error) {
+        console.error('Error getting active theme:', error);
+        return { success: false, error: error.message, theme: null };
+    }
+});
+
+// Activate theme
+ipcMain.handle('activate-theme', async (event, themeId) => {
+    try {
+        const db = initDatabase();
+        db.prepare('UPDATE themes SET is_active = 0').run();
+        db.prepare('UPDATE themes SET is_active = 1 WHERE id = ?').run(themeId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error activating theme:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Create custom theme
+ipcMain.handle('create-theme', async (event, name, colors, background) => {
+    try {
+        const db = initDatabase();
+        const result = db.prepare(`
+            INSERT INTO themes (name, colors, background, is_builtin)
+            VALUES (?, ?, ?, 0)
+        `).run(name, colors, background || null);
+        db.close();
+        return { success: true, themeId: result.lastInsertRowid };
+    } catch (error) {
+        console.error('Error creating theme:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Delete custom theme
+ipcMain.handle('delete-theme', async (event, themeId) => {
+    try {
+        const db = initDatabase();
+        // Don't delete builtin themes
+        db.prepare('DELETE FROM themes WHERE id = ? AND is_builtin = 0').run(themeId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting theme:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// ============================================
+// STATISTICS API
+// ============================================
+
+// Get playtime statistics
+ipcMain.handle('get-playtime-stats', async (event, period = 'week') => {
+    try {
+        const db = initDatabase();
+
+        // Calculate date range
+        let daysAgo = 7;
+        if (period === 'month') daysAgo = 30;
+        if (period === 'year') daysAgo = 365;
+
+        const stats = {
+            totalPlaytime: 0,
+            totalGames: 0,
+            mostPlayed: [],
+            recentSessions: [],
+            dailyPlaytime: []
+        };
+
+        // Total playtime
+        const total = db.prepare('SELECT SUM(total_play_time) as total FROM games').get();
+        stats.totalPlaytime = total.total || 0;
+
+        // Total games played
+        const played = db.prepare('SELECT COUNT(*) as count FROM games WHERE total_play_time > 0').get();
+        stats.totalGames = played.count || 0;
+
+        // Most played games
+        stats.mostPlayed = db.prepare(`
+            SELECT id, title, total_play_time, launch_count, platform
+            FROM games
+            WHERE total_play_time > 0
+            ORDER BY total_play_time DESC
+            LIMIT 10
+        `).all();
+
+        // Recent sessions
+        stats.recentSessions = db.prepare(`
+            SELECT gs.*, g.title, g.platform
+            FROM game_sessions gs
+            INNER JOIN games g ON gs.game_id = g.id
+            WHERE gs.end_time IS NOT NULL
+            AND datetime(gs.start_time) >= datetime('now', '-${daysAgo} days')
+            ORDER BY gs.start_time DESC
+            LIMIT 50
+        `).all();
+
+        // Daily playtime for period
+        stats.dailyPlaytime = db.prepare(`
+            SELECT
+                DATE(start_time) as date,
+                SUM(duration) as total_seconds,
+                COUNT(*) as session_count
+            FROM game_sessions
+            WHERE end_time IS NOT NULL
+            AND datetime(start_time) >= datetime('now', '-${daysAgo} days')
+            GROUP BY DATE(start_time)
+            ORDER BY date DESC
+        `).all();
+
+        db.close();
+        return { success: true, stats };
+    } catch (error) {
+        console.error('Error getting playtime stats:', error);
+        return { success: false, error: error.message, stats: null };
     }
 });
 

@@ -388,6 +388,85 @@ class UIComponents {
                 await toggleFavorite(gameId);
             }
         }, { signal });
+
+        // Setup keyboard navigation for grid/list views
+        this.setupGridListKeyboardNav(wrapper, games, signal);
+    }
+
+    setupGridListKeyboardNav(wrapper, games, signal) {
+        let selectedIndex = 0;
+
+        const keyHandler = (e) => {
+            // Only handle if grid or list view is active
+            if (this.currentView !== 'grid' && this.currentView !== 'list') return;
+
+            const items = wrapper.querySelectorAll('.grid-item, .list-row');
+            if (items.length === 0) return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (this.currentView === 'grid') {
+                        // Move up one row (assume 4-5 items per row)
+                        const itemsPerRow = Math.floor(wrapper.offsetWidth / 250) || 4;
+                        selectedIndex = Math.max(0, selectedIndex - itemsPerRow);
+                    } else {
+                        selectedIndex = Math.max(0, selectedIndex - 1);
+                    }
+                    this.highlightGridListItem(items, selectedIndex);
+                    break;
+
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (this.currentView === 'grid') {
+                        const itemsPerRow = Math.floor(wrapper.offsetWidth / 250) || 4;
+                        selectedIndex = Math.min(items.length - 1, selectedIndex + itemsPerRow);
+                    } else {
+                        selectedIndex = Math.min(items.length - 1, selectedIndex + 1);
+                    }
+                    this.highlightGridListItem(items, selectedIndex);
+                    break;
+
+                case 'ArrowLeft':
+                    if (this.currentView === 'grid') {
+                        e.preventDefault();
+                        selectedIndex = Math.max(0, selectedIndex - 1);
+                        this.highlightGridListItem(items, selectedIndex);
+                    }
+                    break;
+
+                case 'ArrowRight':
+                    if (this.currentView === 'grid') {
+                        e.preventDefault();
+                        selectedIndex = Math.min(items.length - 1, selectedIndex + 1);
+                        this.highlightGridListItem(items, selectedIndex);
+                    }
+                    break;
+
+                case 'Enter':
+                    e.preventDefault();
+                    const gameId = parseInt(items[selectedIndex]?.dataset?.gameId);
+                    const game = games.find(g => g.id === gameId);
+                    if (game && game.launch_command) {
+                        launchGame(gameId, game.launch_command);
+                    }
+                    break;
+            }
+        };
+
+        document.addEventListener('keydown', keyHandler, { signal });
+    }
+
+    highlightGridListItem(items, index) {
+        items.forEach((item, i) => {
+            if (i === index) {
+                item.style.outline = '3px solid #4fc3f7';
+                item.style.outlineOffset = '2px';
+                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                item.style.outline = 'none';
+            }
+        });
     }
 
     // ============================================

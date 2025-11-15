@@ -49,9 +49,14 @@
                     <span id="album-year"></span>
                     <span id="album-genre"></span>
                 </p>
+                <p id="album-description" style="display: none; font-size: 0.85em; opacity: 0.8; margin-top: 8px; max-width: 300px;"></p>
+                <div id="playtime-info" style="margin-top: 8px; font-size: 0.85em; opacity: 0.9;">
+                    <p id="playtime-display" style="display: none; margin: 2px 0; color: #4fc3f7;"></p>
+                    <p id="last-played-display" style="display: none; margin: 2px 0; color: #81c784;"></p>
+                </div>
                 <div id="album-actions">
                     <button id="favorite-btn" class="action-btn" title="Toggle Favorite">☆</button>
-                    <button id="play-btn" class="action-btn" title="Play/Launch" style="display: none;">▶</button>
+                    <button id="play-btn" class="action-btn" title="Play/Launch (or press Enter)" style="display: none;">▶</button>
                 </div>
             </div>
             <div id="album-stats">
@@ -431,8 +436,26 @@
     <script src="modules/coverflow-navigation.js"></script>
     <script src="modules/coverflow-ui.js"></script>
 
+    <!-- New features modules -->
+    <script src="modules/quick-launch.js"></script>
+    <script src="modules/features-manager.js"></script>
+
     <!-- Main coverflow (uses all modules via Object.assign in constructor) -->
     <script src="coverflow.js"></script>
     <script src="ui-components.js"></script>
+
+    <!-- Initialize features -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Wait for coverflow to initialize
+            setTimeout(() => {
+                if (window.coverflow && window.FeaturesManager) {
+                    window.featuresManager = new FeaturesManager();
+                    window.featuresManager.init(window.coverflow);
+                    console.log('[FEATURES] Initialized: Quick Launch, Themes, Stats, Collections');
+                }
+            }, 1000);
+        });
+    </script>
 </body>
 </html>

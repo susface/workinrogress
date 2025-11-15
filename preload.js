@@ -67,7 +67,36 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isElectron: true,
 
     // App paths
-    getAppPath: () => ipcRenderer.invoke('get-app-path')
+    getAppPath: () => ipcRenderer.invoke('get-app-path'),
+
+    // Collections
+    getCollections: () => ipcRenderer.invoke('get-collections'),
+    createCollection: (name, description, color, icon) => ipcRenderer.invoke('create-collection', name, description, color, icon),
+    addToCollection: (collectionId, gameId) => ipcRenderer.invoke('add-to-collection', collectionId, gameId),
+    removeFromCollection: (collectionId, gameId) => ipcRenderer.invoke('remove-from-collection', collectionId, gameId),
+    getCollectionGames: (collectionId) => ipcRenderer.invoke('get-collection-games', collectionId),
+    deleteCollection: (collectionId) => ipcRenderer.invoke('delete-collection', collectionId),
+
+    // Custom covers
+    setCustomCover: (gameId, coverUrl, coverType, source) => ipcRenderer.invoke('set-custom-cover', gameId, coverUrl, coverType, source),
+    getCustomCover: (gameId) => ipcRenderer.invoke('get-custom-cover', gameId),
+    removeCustomCover: (gameId) => ipcRenderer.invoke('remove-custom-cover', gameId),
+
+    // Playtime goals
+    createGoal: (goalType, targetValue, gameId, endDate) => ipcRenderer.invoke('create-goal', goalType, targetValue, gameId, endDate),
+    getGoals: () => ipcRenderer.invoke('get-goals'),
+    updateGoalProgress: (goalId, currentValue, completed) => ipcRenderer.invoke('update-goal-progress', goalId, currentValue, completed),
+    deleteGoal: (goalId) => ipcRenderer.invoke('delete-goal', goalId),
+
+    // Themes
+    getThemes: () => ipcRenderer.invoke('get-themes'),
+    getActiveTheme: () => ipcRenderer.invoke('get-active-theme'),
+    activateTheme: (themeId) => ipcRenderer.invoke('activate-theme', themeId),
+    createTheme: (name, colors, background) => ipcRenderer.invoke('create-theme', name, colors, background),
+    deleteTheme: (themeId) => ipcRenderer.invoke('delete-theme', themeId),
+
+    // Statistics
+    getPlaytimeStats: (period) => ipcRenderer.invoke('get-playtime-stats', period)
 });
 
 console.log('Preload script loaded - Electron API exposed');

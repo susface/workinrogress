@@ -38,6 +38,49 @@ class CoverFlowUI {
         const descEl = document.getElementById('album-description');
         if (descEl) descEl.textContent = album.description || album.short_description || 'No description available.';
 
+        // Display playtime for games
+        const playtimeEl = document.getElementById('playtime-display');
+        if (playtimeEl && album.type === 'game') {
+            if (album.total_play_time && album.total_play_time > 0) {
+                const hours = Math.floor(album.total_play_time / 3600);
+                const minutes = Math.floor((album.total_play_time % 3600) / 60);
+                playtimeEl.textContent = hours > 0
+                    ? `${hours}h ${minutes}m played`
+                    : `${minutes}m played`;
+                playtimeEl.style.display = 'block';
+            } else {
+                playtimeEl.textContent = 'Not played yet';
+                playtimeEl.style.display = 'block';
+            }
+        } else if (playtimeEl) {
+            playtimeEl.style.display = 'none';
+        }
+
+        // Display last played for games
+        const lastPlayedEl = document.getElementById('last-played-display');
+        if (lastPlayedEl && album.type === 'game' && album.last_played) {
+            const lastPlayedDate = new Date(album.last_played);
+            const now = new Date();
+            const diffTime = Math.abs(now - lastPlayedDate);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            let displayText;
+            if (diffDays === 0) {
+                displayText = 'Played today';
+            } else if (diffDays === 1) {
+                displayText = 'Played yesterday';
+            } else if (diffDays < 7) {
+                displayText = `Played ${diffDays} days ago`;
+            } else {
+                displayText = `Last played: ${lastPlayedDate.toLocaleDateString()}`;
+            }
+
+            lastPlayedEl.textContent = displayText;
+            lastPlayedEl.style.display = 'block';
+        } else if (lastPlayedEl) {
+            lastPlayedEl.style.display = 'none';
+        }
+
         // Update developer/publisher for games
         const developerEl = document.getElementById('game-developer');
         const publisherEl = document.getElementById('game-publisher');
@@ -56,10 +99,67 @@ class CoverFlowUI {
             if (publisherEl) publisherEl.parentElement.style.display = 'none';
         }
 
-        // Show/hide launch button for games
-        const launchBtn = document.getElementById('launch-game-btn');
-        if (launchBtn) {
-            launchBtn.style.display = album.type === 'game' ? 'inline-block' : 'none';
+        // Show/hide and setup play button for games
+        const playBtn = document.getElementById('play-btn');
+        if (playBtn && album.type === 'game') {
+            playBtn.style.display = 'block';
+            // Set up click handler for launching game
+            playBtn.onclick = async () => {
+                if (window.electronAPI && album.id && album.launch_command) {
+                    console.log(`[PLAY] Launching game: ${album.title}`);
+
+                    // Show loading state
+                    const originalText = playBtn.innerHTML;
+                    playBtn.innerHTML = '⏳';
+                    playBtn.disabled = true;
+
+                    try {
+                        const result = await window.electronAPI.launchGame(album.launch_command, album.id);
+
+                        if (result.success) {
+                            this.showToast(`Launched ${album.title}`, 'success');
+                            // Change to checkmark briefly
+                            playBtn.innerHTML = '✓';
+                            setTimeout(() => {
+                                playBtn.innerHTML = originalText;
+                                playBtn.disabled = false;
+                            }, 1500);
+                        } else {
+                            this.showToast(`Failed to launch: ${result.error || 'Unknown error'}`, 'error');
+                            playBtn.innerHTML = originalText;
+                            playBtn.disabled = false;
+                        }
+                    } catch (error) {
+                        console.error('[PLAY] Launch error:', error);
+                        this.showToast(`Error launching game: ${error.message}`, 'error');
+                        playBtn.innerHTML = originalText;
+                        playBtn.disabled = false;
+                    }
+                }
+            };
+        } else if (playBtn) {
+            playBtn.style.display = 'none';
+            playBtn.onclick = null; // Clear handler
+        }
+
+        // Update favorite button for games
+        const favoriteBtn = document.getElementById('favorite-btn');
+        if (favoriteBtn && album.type === 'game') {
+            favoriteBtn.textContent = album.is_favorite ? '★' : '☆';
+            favoriteBtn.classList.toggle('active', album.is_favorite);
+            favoriteBtn.onclick = async () => {
+                if (window.electronAPI && album.id) {
+                    await window.electronAPI.toggleFavorite(album.id);
+                    // Refresh games to get updated state
+                    await this.loadGames();
+                }
+            };
+        }
+
+        // Update position counter
+        const positionEl = document.getElementById('current-position');
+        if (positionEl) {
+            positionEl.textContent = this.currentIndex + 1;
         }
     }
 
@@ -271,7 +371,31 @@ class CoverFlowUI {
                 playBtn.addEventListener('click', async (e) => {
                     e.stopPropagation(); // Prevent thumbnail navigation
                     if (window.electronAPI && album.id && album.launch_command) {
-                        await window.electronAPI.launchGame(album.launch_command, album.id);
+                        const originalHTML = playBtn.innerHTML;
+                        playBtn.innerHTML = '⏳';
+                        playBtn.disabled = true;
+
+                        try {
+                            const result = await window.electronAPI.launchGame(album.launch_command, album.id);
+
+                            if (result.success) {
+                                playBtn.innerHTML = '✓';
+                                this.showToast(`Launched ${album.title}`, 'success');
+                                setTimeout(() => {
+                                    playBtn.innerHTML = originalHTML;
+                                    playBtn.disabled = false;
+                                }, 1500);
+                            } else {
+                                this.showToast(`Failed to launch: ${result.error || 'Unknown error'}`, 'error');
+                                playBtn.innerHTML = originalHTML;
+                                playBtn.disabled = false;
+                            }
+                        } catch (error) {
+                            console.error('[THUMBNAIL_PLAY] Launch error:', error);
+                            this.showToast(`Error: ${error.message}`, 'error');
+                            playBtn.innerHTML = originalHTML;
+                            playBtn.disabled = false;
+                        }
                     }
                 });
 
