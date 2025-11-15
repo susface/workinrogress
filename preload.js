@@ -63,7 +63,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Platform info
     platform: process.platform,
-    isElectron: true
+    isElectron: true,
+
+    // App paths
+    getAppPath: () => ipcRenderer.invoke('get-app-path')
 });
 
 console.log('Preload script loaded - Electron API exposed');

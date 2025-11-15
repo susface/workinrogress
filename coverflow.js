@@ -42,6 +42,12 @@ class CoverFlow {
         this.serverAvailable = false;
         this.scanInterval = null;
 
+        // App paths for Electron mode
+        this.appPaths = null;
+        if (this.isElectron) {
+            this.initializeAppPaths();
+        }
+
         // Setup Electron IPC listeners if in Electron mode
         if (this.isElectron) {
             window.electronAPI.onScanProgress((status) => {
@@ -136,14 +142,34 @@ class CoverFlow {
         return 'http://localhost:5000';
     }
 
+    // Initialize app paths for Electron mode
+    async initializeAppPaths() {
+        if (window.electronAPI && window.electronAPI.getAppPath) {
+            this.appPaths = await window.electronAPI.getAppPath();
+            console.log('App paths initialized:', this.appPaths);
+        }
+    }
+
     // Get the correct image source based on environment (Electron vs Browser)
     getImageSrc(imagePath, fallback = null) {
         if (!imagePath) return fallback;
 
-        // In Electron mode, use local file paths
+        // In Electron mode, convert to absolute file:// URLs
         if (this.isElectron) {
-            // Electron can access local files directly via relative paths
-            // The game_data folder is relative to the app's working directory
+            // Check if already an absolute path with protocol
+            if (imagePath.startsWith('http') || imagePath.startsWith('file://')) {
+                return imagePath;
+            }
+
+            // Check if it's an absolute path (Windows: C:/ or Unix: /)
+            if (imagePath.includes(':/') || imagePath.startsWith('/')) {
+                // Convert to file:// URL
+                const fileUrl = 'file:///' + imagePath.replace(/\\/g, '/');
+                return fileUrl;
+            }
+
+            // It's a relative path - this shouldn't happen but handle it gracefully
+            // Just return as-is and let Electron handle it relative to the HTML file
             return imagePath;
         }
 
@@ -1870,6 +1896,59 @@ class CoverFlow {
             });
         }
 
+        this.clearScene();
+        this.currentIndex = 0;
+        this.targetIndex = 0;
+        this.createCovers();
+        this.createThumbnails();
+        this.updateInfo();
+        document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+    }
+
+    // Apply advanced filters from filter panel (platform, genre, favorites, etc.)
+    applyAdvancedFilters(filteredGames) {
+        // Convert filtered games to album format
+        const platformColors = {
+            'steam': 0x1B2838,
+            'epic': 0x313131,
+            'xbox': 0x107C10
+        };
+
+        const gameAlbums = filteredGames.map(game => {
+            const year = game.release_date ? game.release_date.split('-')[0] : 'Unknown';
+            return {
+                type: 'game',
+                id: game.id,
+                title: game.title,
+                platform: game.platform,
+                developer: game.developer || 'Unknown',
+                publisher: game.publisher || 'Unknown',
+                year: year,
+                genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
+                description: game.description || game.short_description || game.long_description || 'No description available.',
+                color: platformColors[game.platform] || 0x808080,
+                image: this.getImageSrc(game.boxart_path || game.icon_path),
+                icon_path: game.icon_path,
+                boxart_path: game.boxart_path,
+                launch_command: game.launch_command,
+                launchCommand: game.launch_command,
+                installDir: game.install_directory,
+                appId: game.app_id || game.package_name,
+                is_favorite: Boolean(game.is_favorite),
+                is_hidden: Boolean(game.is_hidden),
+                total_play_time: game.total_play_time || 0,
+                launch_count: game.launch_count || 0,
+                last_played: game.last_played,
+                user_rating: game.user_rating || 0
+            };
+        });
+
+        // Replace games in allAlbums with filtered games, keep non-game items
+        const nonGameAlbums = this.allAlbums.filter(item => item.type !== 'game');
+        this.allAlbums = [...nonGameAlbums, ...gameAlbums];
+        this.filteredAlbums = [...this.allAlbums];
+
+        // Refresh the UI
         this.clearScene();
         this.currentIndex = 0;
         this.targetIndex = 0;

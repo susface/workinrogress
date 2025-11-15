@@ -622,6 +622,15 @@ ipcMain.handle('get-image-path', async (event, relativePath) => {
     return null;
 });
 
+// Get app data path (for image loading in renderer)
+ipcMain.handle('get-app-path', async () => {
+    return {
+        appPath: appPath,
+        gameDataPath: gameDataPath,
+        userDataPath: app.getPath('userData')
+    };
+});
+
 // Track active game sessions
 let activeGameSessions = new Map(); // gameId -> sessionId
 

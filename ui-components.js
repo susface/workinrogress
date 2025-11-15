@@ -21,7 +21,23 @@ class UIComponents {
         this.gridViewAbortController = null;
         this.listViewAbortController = null;
         this.duplicateListAbortController = null;
+
+        // App paths for Electron mode
+        this.appPaths = null;
+        this.isElectron = typeof window.electronAPI !== 'undefined';
+        if (this.isElectron) {
+            this.initializeAppPaths();
+        }
+
         this.init();
+    }
+
+    // Initialize app paths for Electron mode
+    async initializeAppPaths() {
+        if (window.electronAPI && window.electronAPI.getAppPath) {
+            this.appPaths = await window.electronAPI.getAppPath();
+            console.log('UI Components - App paths initialized:', this.appPaths);
+        }
     }
 
     // Detect server URL from environment or config
@@ -43,10 +59,21 @@ class UIComponents {
     getImageSrc(imagePath, fallback = 'placeholder.png') {
         if (!imagePath) return fallback;
 
-        // In Electron mode, use local file paths
-        if (window.electronAPI) {
-            // Electron can access local files directly via relative paths
-            // The game_data folder is relative to the app's working directory
+        // In Electron mode, convert to absolute file:// URLs
+        if (this.isElectron) {
+            // Check if already an absolute path with protocol
+            if (imagePath.startsWith('http') || imagePath.startsWith('file://')) {
+                return imagePath;
+            }
+
+            // Check if it's an absolute path (Windows: C:/ or Unix: /)
+            if (imagePath.includes(':/') || imagePath.startsWith('/')) {
+                // Convert to file:// URL
+                const fileUrl = 'file:///' + imagePath.replace(/\\/g, '/');
+                return fileUrl;
+            }
+
+            // It's a relative path - shouldn't happen but handle gracefully
             return imagePath;
         }
 
@@ -178,10 +205,9 @@ class UIComponents {
                 this.renderListView(games);
                 break;
             case 'coverflow':
-                // CoverFlow is handled by existing coverflow.js
-                // But we need to update the coverflow instance with filtered games
-                if (window.coverFlow && this.filterState.search_query) {
-                    window.coverFlow.searchGames(this.filterState.search_query);
+                // Apply advanced filters to CoverFlow
+                if (window.coverFlow) {
+                    window.coverFlow.applyAdvancedFilters(games);
                 }
                 break;
         }
