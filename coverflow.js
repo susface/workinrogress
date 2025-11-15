@@ -371,8 +371,8 @@ class CoverFlow {
                     }
                 }
 
-                // Use boxart if available, fall back to icon
-                const imagePath = game.boxart_path || game.icon_path;
+                // Prioritize header art for coverflow, then boxart, then icon
+                const imagePath = game.header_path || game.boxart_path || game.icon_path;
 
                 return {
                     type: 'game',
@@ -387,6 +387,8 @@ class CoverFlow {
                     image: imagePath,
                     icon_path: game.icon_path, // Store icon for fallback
                     boxart_path: game.boxart_path, // Store boxart separately
+                    exe_icon_path: game.exe_icon_path, // Store exe icon for fallback
+                    header_path: game.header_path, // Store header art
                     launchCommand: game.launch_command,
                     installDir: game.install_directory,
                     appId: game.app_id || game.package_name
@@ -514,53 +516,53 @@ class CoverFlow {
 
     loadTextureWithFallback(imageSrc, album, material) {
         /**
-         * Load texture with automatic fallback and error handling
+         * Load texture with automatic fallback chain and error handling
+         * Fallback order: primary image -> boxart -> icon -> exe_icon -> error placeholder
          * Returns a promise that resolves with the texture or error placeholder
          */
         return new Promise((resolve) => {
             const loader = new THREE.TextureLoader();
 
-            loader.load(
-                imageSrc,
-                (texture) => {
-                    // Success
-                    resolve(texture);
-                },
-                undefined, // onProgress
-                (error) => {
-                    // Primary load failed
-                    console.warn('Failed to load texture:', imageSrc, error);
-
-                    // Try fallback to icon if boxart failed
-                    if (album.type === 'game' && album.icon_path) {
-                        // Use getImageSrc for consistent path handling
-                        const iconSrc = this.getImageSrc(album.icon_path);
-
-                        console.log('Trying fallback icon:', iconSrc);
-                        loader.load(
-                            iconSrc,
-                            (fallbackTexture) => {
-                                // Fallback success
-                                if (material) {
-                                    material.map = fallbackTexture;
-                                    material.needsUpdate = true;
-                                }
-                                resolve(fallbackTexture);
-                            },
-                            undefined,
-                            (iconError) => {
-                                // Both failed - use error placeholder
-                                console.warn('Fallback icon also failed:', iconSrc, iconError);
-                                const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
-                                if (material) {
-                                    material.map = errorTexture;
-                                    material.needsUpdate = true;
-                                }
-                                resolve(errorTexture);
+            const tryLoad = (src, nextFallback) => {
+                loader.load(
+                    src,
+                    (texture) => {
+                        // Success
+                        if (material) {
+                            material.map = texture;
+                            material.needsUpdate = true;
+                        }
+                        resolve(texture);
+                    },
+                    undefined, // onProgress
+                    (error) => {
+                        // Load failed, try next fallback
+                        console.warn('Failed to load texture:', src, error);
+                        if (nextFallback) {
+                            nextFallback();
+                        } else {
+                            // No more fallbacks - use error placeholder
+                            const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
+                            if (material) {
+                                material.map = errorTexture;
+                                material.needsUpdate = true;
                             }
-                        );
+                            resolve(errorTexture);
+                        }
+                    }
+                );
+            };
+
+            // Build fallback chain for games
+            if (album.type === 'game') {
+                // Try exe_icon as final fallback before error placeholder
+                const tryExeIcon = () => {
+                    if (album.exe_icon_path) {
+                        const exeIconSrc = this.getImageSrc(album.exe_icon_path);
+                        console.log('Trying exe icon fallback:', exeIconSrc);
+                        tryLoad(exeIconSrc, null);
                     } else {
-                        // No fallback available - use error placeholder
+                        // No exe icon - use error placeholder
                         const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
                         if (material) {
                             material.map = errorTexture;
@@ -568,8 +570,36 @@ class CoverFlow {
                         }
                         resolve(errorTexture);
                     }
-                }
-            );
+                };
+
+                // Try icon as second-to-last fallback
+                const tryIcon = () => {
+                    if (album.icon_path) {
+                        const iconSrc = this.getImageSrc(album.icon_path);
+                        console.log('Trying icon fallback:', iconSrc);
+                        tryLoad(iconSrc, tryExeIcon);
+                    } else {
+                        tryExeIcon();
+                    }
+                };
+
+                // Try boxart as middle fallback
+                const tryBoxart = () => {
+                    if (album.boxart_path && album.boxart_path !== imageSrc) {
+                        const boxartSrc = this.getImageSrc(album.boxart_path);
+                        console.log('Trying boxart fallback:', boxartSrc);
+                        tryLoad(boxartSrc, tryIcon);
+                    } else {
+                        tryIcon();
+                    }
+                };
+
+                // Start with primary image
+                tryLoad(imageSrc, tryBoxart);
+            } else {
+                // For non-game items, just try primary and error placeholder
+                tryLoad(imageSrc, null);
+            }
         });
     }
 
@@ -668,14 +698,26 @@ class CoverFlow {
                 // Load texture with improved error handling
                 // Store the index to access the cover later
                 const currentIndex = index;
-                this.loadTextureWithFallback(imageSrc, album, material).then((texture) => {
+                this.loadTextureWithFallback(imageSrc, album, null).then((texture) => {
+                    // Update main material
                     material.map = texture;
                     material.needsUpdate = true;
 
-                    // Update reflection material as well
-                    if (this.covers[currentIndex] && this.covers[currentIndex].userData.reflectionMaterial) {
-                        this.covers[currentIndex].userData.reflectionMaterial.map = texture;
-                        this.covers[currentIndex].userData.reflectionMaterial.needsUpdate = true;
+                    // Update reflection material and mesh
+                    if (this.covers[currentIndex]) {
+                        const userData = this.covers[currentIndex].userData;
+
+                        // Update reflection material
+                        if (userData.reflectionMaterial) {
+                            userData.reflectionMaterial.map = texture.clone();
+                            userData.reflectionMaterial.needsUpdate = true;
+                        }
+
+                        // Also update via direct reflection reference if available
+                        if (userData.reflection && userData.reflection.material) {
+                            userData.reflection.material.map = texture.clone();
+                            userData.reflection.material.needsUpdate = true;
+                        }
                     }
                 });
             } else if (album.video) {
@@ -773,7 +815,7 @@ class CoverFlow {
 
             coverGroup.add(cover);
 
-            // Reflection
+            // Reflection - create AFTER cover is added to ensure proper material reference
             const reflectionMaterial = material.clone();
             reflectionMaterial.opacity = 0.3;
             reflectionMaterial.transparent = true;
@@ -784,11 +826,20 @@ class CoverFlow {
             reflection.scale.y = -0.6;
             reflection.userData = { isReflection: true };
 
+            // Ensure reflection visibility matches settings
+            reflection.visible = this.settings.showReflections;
+
             coverGroup.add(reflection);
             this.reflections.push(reflection);
 
-            // Store references for texture updates
-            cover.userData = { index, album, isCover: true, reflectionMaterial };
+            // Store references for texture updates - store both cover and reflection materials
+            cover.userData = {
+                index,
+                album,
+                isCover: true,
+                reflectionMaterial,
+                reflection  // Store direct reference to reflection mesh
+            };
 
             this.scene.add(coverGroup);
             this.covers.push(coverGroup.children[0]);
@@ -1408,13 +1459,15 @@ class CoverFlow {
                         color: platformColors[game.platform] || 0x808080,
                         // Use header (horizontal) art for coverflow, fallback to boxart
                         image: this.getImageSrc(game.header_path || game.boxart_path || game.icon_path),
-                        // For thumbnails, use exe icon extracted from game executable
-                        icon_path: game.exe_icon_path || game.icon_path || game.boxart_path,
+                        // Store all image paths for fallback chain
+                        icon_path: game.icon_path,
                         boxart_path: game.boxart_path,
+                        exe_icon_path: game.exe_icon_path,
                         header_path: game.header_path,
                         launchCommand: game.launch_command,
                         installDir: game.install_directory,
-                        appId: game.app_id || game.package_name
+                        appId: game.app_id || game.package_name,
+                        id: game.id // Store database ID for favorites, etc.
                     };
                 });
 
@@ -1745,8 +1798,8 @@ class CoverFlow {
 
             const ctx = thumb.getContext('2d');
 
-            // For games, try to load icon first
-            if (album.type === 'game' && album.icon_path) {
+            // For games, prioritize exe icon for thumbnails
+            if (album.type === 'game' && (album.exe_icon_path || album.icon_path)) {
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
 
@@ -1757,6 +1810,9 @@ class CoverFlow {
                 ctx.fillStyle = thumbColor;
                 ctx.fillRect(0, 0, 60, 60);
 
+                let primaryPath = album.exe_icon_path || album.icon_path;
+                let fallbackPath = album.exe_icon_path ? album.icon_path : null;
+
                 img.onload = () => {
                     // Clear and draw the icon
                     ctx.clearRect(0, 0, 60, 60);
@@ -1764,16 +1820,35 @@ class CoverFlow {
                 };
 
                 img.onerror = () => {
-                    // Keep the colored background if image fails to load
-                    const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-                    gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-                    gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(0, 0, 60, 60);
+                    // Try fallback path if available
+                    if (fallbackPath) {
+                        const fallbackImg = new Image();
+                        fallbackImg.crossOrigin = 'anonymous';
+                        fallbackImg.onload = () => {
+                            ctx.clearRect(0, 0, 60, 60);
+                            ctx.drawImage(fallbackImg, 0, 0, 60, 60);
+                        };
+                        fallbackImg.onerror = () => {
+                            // Keep the colored background if all images fail
+                            const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+                            gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+                            gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+                            ctx.fillStyle = gradient;
+                            ctx.fillRect(0, 0, 60, 60);
+                        };
+                        fallbackImg.src = this.getImageSrc(fallbackPath, 'placeholder.png');
+                    } else {
+                        // Keep the colored background if image fails to load
+                        const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+                        gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+                        gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, 60, 60);
+                    }
                 };
 
                 // Load from appropriate source based on environment
-                img.src = this.getImageSrc(album.icon_path, 'placeholder.png');
+                img.src = this.getImageSrc(primaryPath, 'placeholder.png');
             } else if (album.type === 'image' && album.image) {
                 // For images, try to load the actual image as thumbnail
                 const img = new Image();
@@ -2533,6 +2608,11 @@ class CoverFlow {
 
         document.getElementById('reload-games-btn').addEventListener('click', () => {
             this.reloadGamesFromServer();
+        });
+
+        // Reload interface button
+        document.getElementById('reload-interface-btn').addEventListener('click', () => {
+            location.reload();
         });
 
         // Media folder button
