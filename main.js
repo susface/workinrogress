@@ -569,17 +569,29 @@ async function loadGamesFromJSON() {
             platform, title, app_id, package_name, install_directory,
             launch_command, description, short_description, long_description,
             developer, publisher, release_date, icon_path, boxart_path,
+            exe_icon_path, header_path,
             size_on_disk, last_updated, genres, metadata, updated_at
         ) VALUES (
             @platform, @title, @app_id, @package_name, @install_directory,
             @launch_command, @description, @short_description, @long_description,
             @developer, @publisher, @release_date, @icon_path, @boxart_path,
+            @exe_icon_path, @header_path,
             @size_on_disk, @last_updated, @genres, @metadata, datetime('now')
         )
     `);
 
     const insertMany = db.transaction((games) => {
         for (const game of games) {
+            const exeIconPath = game.exe_icon_path || '';
+            const headerPath = game.header_path || '';
+
+            // Log exe icon extraction status
+            if (exeIconPath) {
+                console.log(`[EXE_ICON] ✓ Found exe icon for "${game.title}": ${exeIconPath}`);
+            } else {
+                console.log(`[EXE_ICON] ✗ No exe icon for "${game.title}"`);
+            }
+
             insert.run({
                 platform: game.platform || '',
                 title: game.title || '',
@@ -595,6 +607,8 @@ async function loadGamesFromJSON() {
                 release_date: game.release_date || '',
                 icon_path: game.icon_path || '',
                 boxart_path: game.boxart_path || '',
+                exe_icon_path: exeIconPath,
+                header_path: headerPath,
                 size_on_disk: game.size_on_disk || 0,
                 last_updated: game.last_updated || 0,
                 genres: JSON.stringify(game.genres || []),
