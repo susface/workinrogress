@@ -21,7 +21,23 @@ class UIComponents {
         this.gridViewAbortController = null;
         this.listViewAbortController = null;
         this.duplicateListAbortController = null;
+
+        // App paths for Electron mode
+        this.appPaths = null;
+        this.isElectron = typeof window.electronAPI !== 'undefined';
+        if (this.isElectron) {
+            this.initializeAppPaths();
+        }
+
         this.init();
+    }
+
+    // Initialize app paths for Electron mode
+    async initializeAppPaths() {
+        if (window.electronAPI && window.electronAPI.getAppPath) {
+            this.appPaths = await window.electronAPI.getAppPath();
+            console.log('UI Components - App paths initialized:', this.appPaths);
+        }
     }
 
     // Detect server URL from environment or config
@@ -37,6 +53,32 @@ class UIComponents {
         }
         // Default to localhost
         return 'http://localhost:5000';
+    }
+
+    // Get the correct image source based on environment (Electron vs Browser)
+    getImageSrc(imagePath, fallback = 'placeholder.png') {
+        if (!imagePath) return fallback;
+
+        // In Electron mode, convert to absolute file:// URLs
+        if (this.isElectron) {
+            // Check if already an absolute path with protocol
+            if (imagePath.startsWith('http') || imagePath.startsWith('file://')) {
+                return imagePath;
+            }
+
+            // Check if it's an absolute path (Windows: C:/ or Unix: /)
+            if (imagePath.includes(':/') || imagePath.startsWith('/')) {
+                // Convert to file:// URL
+                const fileUrl = 'file:///' + imagePath.replace(/\\/g, '/');
+                return fileUrl;
+            }
+
+            // It's a relative path - shouldn't happen but handle gracefully
+            return imagePath;
+        }
+
+        // In browser mode, use Flask server URL
+        return `${this.serverURL}/${imagePath}`;
     }
 
     // Helper to escape HTML to prevent XSS
@@ -163,10 +205,9 @@ class UIComponents {
                 this.renderListView(games);
                 break;
             case 'coverflow':
-                // CoverFlow is handled by existing coverflow.js
-                // But we need to update the coverflow instance with filtered games
-                if (window.coverFlow && this.filterState.search_query) {
-                    window.coverFlow.searchGames(this.filterState.search_query);
+                // Apply advanced filters to CoverFlow
+                if (window.coverFlow) {
+                    window.coverFlow.applyAdvancedFilters(games);
                 }
                 break;
         }
@@ -188,7 +229,7 @@ class UIComponents {
 
         const gridHtml = games.map(game => {
             const imagePath = game.boxart_path || game.icon_path;
-            const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+            const imageSrc = this.getImageSrc(imagePath);
             const safeTitle = this.escapeHtml(game.title);
             const safePlatform = this.escapeHtml(game.platform);
             return `
@@ -250,7 +291,7 @@ class UIComponents {
                 <tbody>
                     ${games.map(game => {
                         const imagePath = game.icon_path || game.boxart_path;
-                        const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                        const imageSrc = this.getImageSrc(imagePath);
                         const safeTitle = this.escapeHtml(game.title);
                         const safePlatform = this.escapeHtml(game.platform);
                         return `
@@ -484,7 +525,7 @@ class UIComponents {
             const mostPlayedList = document.getElementById('most-played-list');
             mostPlayedList.innerHTML = mostPlayed.games.map((game, index) => {
                 const imagePath = game.icon_path || game.boxart_path;
-                const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                const imageSrc = this.getImageSrc(imagePath);
                 const safeTitle = this.escapeHtml(game.title);
                 return `
                 <div class="stat-item">
@@ -500,7 +541,7 @@ class UIComponents {
             const recentlyPlayedList = document.getElementById('recently-played-list');
             recentlyPlayedList.innerHTML = recentlyPlayed.games.map(game => {
                 const imagePath = game.icon_path || game.boxart_path;
-                const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                const imageSrc = this.getImageSrc(imagePath);
                 const safeTitle = this.escapeHtml(game.title);
                 return `
                 <div class="stat-item">

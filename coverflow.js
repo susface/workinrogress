@@ -42,6 +42,12 @@ class CoverFlow {
         this.serverAvailable = false;
         this.scanInterval = null;
 
+        // App paths for Electron mode
+        this.appPaths = null;
+        if (this.isElectron) {
+            this.initializeAppPaths();
+        }
+
         // Setup Electron IPC listeners if in Electron mode
         if (this.isElectron) {
             window.electronAPI.onScanProgress((status) => {
@@ -134,6 +140,41 @@ class CoverFlow {
         }
         // Default to localhost
         return 'http://localhost:5000';
+    }
+
+    // Initialize app paths for Electron mode
+    async initializeAppPaths() {
+        if (window.electronAPI && window.electronAPI.getAppPath) {
+            this.appPaths = await window.electronAPI.getAppPath();
+            console.log('App paths initialized:', this.appPaths);
+        }
+    }
+
+    // Get the correct image source based on environment (Electron vs Browser)
+    getImageSrc(imagePath, fallback = null) {
+        if (!imagePath) return fallback;
+
+        // In Electron mode, convert to absolute file:// URLs
+        if (this.isElectron) {
+            // Check if already an absolute path with protocol
+            if (imagePath.startsWith('http') || imagePath.startsWith('file://')) {
+                return imagePath;
+            }
+
+            // Check if it's an absolute path (Windows: C:/ or Unix: /)
+            if (imagePath.includes(':/') || imagePath.startsWith('/')) {
+                // Convert to file:// URL
+                const fileUrl = 'file:///' + imagePath.replace(/\\/g, '/');
+                return fileUrl;
+            }
+
+            // It's a relative path - this shouldn't happen but handle it gracefully
+            // Just return as-is and let Electron handle it relative to the HTML file
+            return imagePath;
+        }
+
+        // In browser mode, use Flask server URL
+        return `${this.serverURL}/${imagePath}`;
     }
 
     loadSettings() {
@@ -664,6 +705,41 @@ class CoverFlow {
                 ctx.font = 'bold 36px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('VIDEO', 256, 420);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                material = new THREE.MeshPhongMaterial({
+                    map: texture,
+                    side: THREE.DoubleSide,
+                    shininess: 80
+                });
+            } else if (album.audio || album.type === 'music') {
+                // Music/Audio placeholder with music note icon
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+
+                // Gradient background
+                const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+                gradient.addColorStop(0, '#FF6347');
+                gradient.addColorStop(1, '#DC143C');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 512, 512);
+
+                // Music note icon
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                // Note stem
+                ctx.fillRect(300, 150, 20, 180);
+                // Note head
+                ctx.ellipse(290, 330, 35, 25, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // "MUSIC" text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = 'bold 36px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('MUSIC', 256, 420);
 
                 const texture = new THREE.CanvasTexture(canvas);
                 material = new THREE.MeshPhongMaterial({
@@ -1396,7 +1472,7 @@ class CoverFlow {
                         genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
                         description: game.description || game.short_description || game.long_description || 'No description available.',
                         color: platformColors[game.platform] || 0x808080,
-                        image: game.boxart_path ? `${this.serverURL}/${game.boxart_path}` : (game.icon_path ? `${this.serverURL}/${game.icon_path}` : null),
+                        image: this.getImageSrc(game.boxart_path || game.icon_path),
                         icon_path: game.icon_path,  // Include icon path for thumbnails
                         boxart_path: game.boxart_path,  // Include boxart path
                         launch_command: game.launch_command,
@@ -1683,10 +1759,63 @@ class CoverFlow {
                     ctx.fillRect(0, 0, 60, 60);
                 };
 
-                // Load from server URL
-                img.src = `${this.serverURL}/${album.icon_path}`;
+                // Load from appropriate source based on environment
+                img.src = this.getImageSrc(album.icon_path, 'placeholder.png');
+            } else if (album.type === 'image' && album.image) {
+                // For images, try to load the actual image as thumbnail
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                // Draw colored background first as fallback
+                ctx.fillStyle = '#4682B4';
+                ctx.fillRect(0, 0, 60, 60);
+
+                img.onload = () => {
+                    ctx.clearRect(0, 0, 60, 60);
+                    ctx.drawImage(img, 0, 0, 60, 60);
+                };
+
+                img.onerror = () => {
+                    const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+                    gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+                    gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, 60, 60);
+                };
+
+                img.src = this.getImageSrc(album.image, 'placeholder.png');
+            } else if (album.type === 'video') {
+                // Video thumbnail with play icon
+                const gradient = ctx.createLinearGradient(0, 0, 0, 60);
+                gradient.addColorStop(0, '#8B4789');
+                gradient.addColorStop(1, '#5A2D58');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 60, 60);
+
+                // Small play icon
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.moveTo(20, 18);
+                ctx.lineTo(20, 42);
+                ctx.lineTo(40, 30);
+                ctx.closePath();
+                ctx.fill();
+            } else if (album.type === 'music' || album.audio) {
+                // Music thumbnail with note icon
+                const gradient = ctx.createLinearGradient(0, 0, 0, 60);
+                gradient.addColorStop(0, '#FF6347');
+                gradient.addColorStop(1, '#DC143C');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 60, 60);
+
+                // Small music note
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.fillRect(35, 20, 3, 20);
+                ctx.ellipse(33, 40, 4, 3, -0.3, 0, Math.PI * 2);
+                ctx.fill();
             } else {
-                // For albums/images, use colored box
+                // For other types, use colored box
                 const thumbColor = typeof album.color === 'number' && !isNaN(album.color)
                     ? '#' + album.color.toString(16).padStart(6, '0')
                     : '#808080';
@@ -1767,6 +1896,59 @@ class CoverFlow {
             });
         }
 
+        this.clearScene();
+        this.currentIndex = 0;
+        this.targetIndex = 0;
+        this.createCovers();
+        this.createThumbnails();
+        this.updateInfo();
+        document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+    }
+
+    // Apply advanced filters from filter panel (platform, genre, favorites, etc.)
+    applyAdvancedFilters(filteredGames) {
+        // Convert filtered games to album format
+        const platformColors = {
+            'steam': 0x1B2838,
+            'epic': 0x313131,
+            'xbox': 0x107C10
+        };
+
+        const gameAlbums = filteredGames.map(game => {
+            const year = game.release_date ? game.release_date.split('-')[0] : 'Unknown';
+            return {
+                type: 'game',
+                id: game.id,
+                title: game.title,
+                platform: game.platform,
+                developer: game.developer || 'Unknown',
+                publisher: game.publisher || 'Unknown',
+                year: year,
+                genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
+                description: game.description || game.short_description || game.long_description || 'No description available.',
+                color: platformColors[game.platform] || 0x808080,
+                image: this.getImageSrc(game.boxart_path || game.icon_path),
+                icon_path: game.icon_path,
+                boxart_path: game.boxart_path,
+                launch_command: game.launch_command,
+                launchCommand: game.launch_command,
+                installDir: game.install_directory,
+                appId: game.app_id || game.package_name,
+                is_favorite: Boolean(game.is_favorite),
+                is_hidden: Boolean(game.is_hidden),
+                total_play_time: game.total_play_time || 0,
+                launch_count: game.launch_count || 0,
+                last_played: game.last_played,
+                user_rating: game.user_rating || 0
+            };
+        });
+
+        // Replace games in allAlbums with filtered games, keep non-game items
+        const nonGameAlbums = this.allAlbums.filter(item => item.type !== 'game');
+        this.allAlbums = [...nonGameAlbums, ...gameAlbums];
+        this.filteredAlbums = [...this.allAlbums];
+
+        // Refresh the UI
         this.clearScene();
         this.currentIndex = 0;
         this.targetIndex = 0;

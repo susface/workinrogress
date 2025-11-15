@@ -622,6 +622,15 @@ ipcMain.handle('get-image-path', async (event, relativePath) => {
     return null;
 });
 
+// Get app data path (for image loading in renderer)
+ipcMain.handle('get-app-path', async () => {
+    return {
+        appPath: appPath,
+        gameDataPath: gameDataPath,
+        userDataPath: app.getPath('userData')
+    };
+});
+
 // Track active game sessions
 let activeGameSessions = new Map(); // gameId -> sessionId
 
@@ -1091,7 +1100,7 @@ ipcMain.handle('select-media-folder', async () => {
     }
 });
 
-// Scan media folder for images/videos
+// Scan media folder for images/videos/music
 ipcMain.handle('scan-media-folder', async (event, folderPath) => {
     try {
         // Validate folder path to prevent directory traversal
@@ -1103,6 +1112,7 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
         const media = [];
         const supportedImages = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
         const supportedVideos = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
+        const supportedAudio = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac'];
 
         function scanDirectory(dir) {
             const items = fs.readdirSync(dir);
@@ -1142,6 +1152,16 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
                             year: new Date(stat.mtime).getFullYear().toString(),
                             tags: path.dirname(fullPath).split(path.sep).pop(),
                             color: 0x8B4789
+                        });
+                    } else if (supportedAudio.includes(ext)) {
+                        media.push({
+                            type: 'music',
+                            title: path.basename(item, ext),
+                            audio: fullPath.replace(/\\/g, '/'),
+                            category: 'User Media',
+                            year: new Date(stat.mtime).getFullYear().toString(),
+                            tags: path.dirname(fullPath).split(path.sep).pop(),
+                            color: 0xFF6347
                         });
                     }
                 }

@@ -280,7 +280,11 @@ class EpicScanner:
 
         # Method 1: Scan manifest files
         if self.manifests_path:
-            for manifest_file in self.manifests_path.glob('*.item'):
+            print(f"  Found Epic Games manifests directory: {self.manifests_path}")
+            manifest_files = list(self.manifests_path.glob('*.item'))
+            print(f"  Found {len(manifest_files)} manifest files")
+
+            for manifest_file in manifest_files:
                 manifest = self._parse_manifest(manifest_file)
 
                 if not manifest:
@@ -364,6 +368,10 @@ class EpicScanner:
 
         # Method 2: Fallback to LauncherInstalled.dat
         if not games:
+            if not self.manifests_path:
+                print("  Epic Games manifests directory not found. Trying LauncherInstalled.dat...")
+            else:
+                print("  No games found in manifests. Trying LauncherInstalled.dat...")
             installed_data = self._get_launcher_installed_data()
             for install in installed_data:
                 app_name = install.get('AppName', '')
