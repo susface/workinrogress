@@ -1,6 +1,15 @@
 // Enhanced CoverFlow with Controller Support and GPU Rendering
 class CoverFlow {
     constructor() {
+        // ==================== MODULE INTEGRATION ====================
+        // Mix in modular functionality
+        Object.assign(this, new CoverFlowSettings());
+        Object.assign(this, new CoverFlowTextures());
+        Object.assign(this, new CoverFlowUIUtils());
+        Object.assign(this, new CoverFlowNavigation());
+        Object.assign(this, new CoverFlowUI());
+        // ============================================================
+
         this.container = document.getElementById('coverflow-container');
         this.currentIndex = 0;
         this.targetIndex = 0;
