@@ -4,6 +4,26 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const Database = require('better-sqlite3');
 
+// Constants
+const WINDOW_CONFIG = {
+    WIDTH: 1400,
+    HEIGHT: 900,
+    MIN_WIDTH: 1000,
+    MIN_HEIGHT: 700
+};
+
+const SCAN_PROGRESS = {
+    STEAM: 0.33,
+    EPIC: 0.66,
+    XBOX: 0.90,
+    COMPLETE: 100
+};
+
+const TASKBAR_PROGRESS = {
+    INDETERMINATE: 2,
+    CLEAR: -1
+};
+
 // Windows-specific features flag
 const isWindows = process.platform === 'win32';
 
@@ -79,6 +99,8 @@ function initDatabase() {
     db.exec('CREATE INDEX IF NOT EXISTS idx_title ON games(title)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_last_played ON games(last_played)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_is_favorite ON games(is_favorite)');
+    // Index for optimized duplicate detection
+    db.exec('CREATE INDEX IF NOT EXISTS idx_title_normalized ON games(LOWER(TRIM(title)))');
 
     // Create game sessions table
     db.exec(`
@@ -121,10 +143,10 @@ function initDatabase() {
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 1400,
-        height: 900,
-        minWidth: 1000,
-        minHeight: 700,
+        width: WINDOW_CONFIG.WIDTH,
+        height: WINDOW_CONFIG.HEIGHT,
+        minWidth: WINDOW_CONFIG.MIN_WIDTH,
+        minHeight: WINDOW_CONFIG.MIN_HEIGHT,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -358,7 +380,7 @@ ipcMain.handle('start-scan', async () => {
 
     // Set taskbar progress to indeterminate (Windows)
     if (isWindows && mainWindow) {
-        mainWindow.setProgressBar(2); // 2 = indeterminate mode
+        mainWindow.setProgressBar(TASKBAR_PROGRESS.INDETERMINATE);
     }
 
     // Find Python executable
@@ -397,13 +419,13 @@ ipcMain.handle('start-scan', async () => {
             if (output.includes('Scanning')) {
                 if (output.includes('STEAM')) {
                     scanStatus.current_platform = 'steam';
-                    scanStatus.progress = 0.33; // 33% when starting Steam
+                    scanStatus.progress = SCAN_PROGRESS.STEAM;
                 } else if (output.includes('EPIC')) {
                     scanStatus.current_platform = 'epic';
-                    scanStatus.progress = 0.66; // 66% when starting Epic
+                    scanStatus.progress = SCAN_PROGRESS.EPIC;
                 } else if (output.includes('XBOX')) {
                     scanStatus.current_platform = 'xbox';
-                    scanStatus.progress = 0.90; // 90% when starting Xbox
+                    scanStatus.progress = SCAN_PROGRESS.XBOX;
                 }
 
                 // Update taskbar progress (Windows)
@@ -430,11 +452,11 @@ ipcMain.handle('start-scan', async () => {
 
         scanningProcess.on('close', (code) => {
             scanStatus.scanning = false;
-            scanStatus.progress = 100;
+            scanStatus.progress = SCAN_PROGRESS.COMPLETE;
 
             // Clear taskbar progress (Windows)
             if (isWindows && mainWindow) {
-                mainWindow.setProgressBar(-1);
+                mainWindow.setProgressBar(TASKBAR_PROGRESS.CLEAR);
             }
 
             if (code === 0) {
@@ -515,7 +537,7 @@ async function loadGamesFromJSON() {
     }
 
     try {
-        const fileContent = fs.readFileSync(jsonPath, 'utf8');
+        const fileContent = await fs.promises.readFile(jsonPath, 'utf8');
         const data = JSON.parse(fileContent);
         const games = data.games || [];
 
@@ -899,15 +921,23 @@ ipcMain.handle('filter-games', async (event, filters) => {
             params.push(`%${filters.genre}%`);
         }
 
-        // Add sorting
-        const validSortFields = ['title', 'last_played', 'total_play_time', 'launch_count', 'created_at', 'release_date'];
-        const sortBy = validSortFields.includes(filters.sort_by) ? filters.sort_by : 'title';
+        // Add sorting - use whitelist mapping to prevent SQL injection
+        const sortFieldsMap = {
+            'title': 'title',
+            'last_played': 'last_played',
+            'total_play_time': 'total_play_time',
+            'launch_count': 'launch_count',
+            'created_at': 'created_at',
+            'release_date': 'release_date'
+        };
+        const sortBy = sortFieldsMap[filters.sort_by] || 'title';
         const sortOrder = filters.sort_order === 'DESC' ? 'DESC' : 'ASC';
 
+        // Handle NULL values for date/time fields
         if (['last_played', 'release_date'].includes(sortBy)) {
-            query += ` ORDER BY ${sortBy} IS NULL, ${sortBy} ${sortOrder}`;
+            query += ' ORDER BY ' + sortBy + ' IS NULL, ' + sortBy + ' ' + sortOrder;
         } else {
-            query += ` ORDER BY ${sortBy} ${sortOrder}`;
+            query += ' ORDER BY ' + sortBy + ' ' + sortOrder;
         }
 
         const games = db.prepare(query).all(...params);
@@ -931,7 +961,7 @@ ipcMain.handle('log-error', async (event, errorData) => {
         const context = errorData.context ? `Context: ${JSON.stringify(errorData.context)}\n` : '';
         const fullEntry = logEntry + stackTrace + context + '---\n';
 
-        fs.appendFileSync(errorLogPath, fullEntry, 'utf8');
+        await fs.promises.appendFile(errorLogPath, fullEntry, 'utf8');
         return { success: true };
     } catch (error) {
         console.error('Failed to write error log:', error);
@@ -942,7 +972,7 @@ ipcMain.handle('log-error', async (event, errorData) => {
 ipcMain.handle('get-error-log', async () => {
     try {
         if (fs.existsSync(errorLogPath)) {
-            const content = fs.readFileSync(errorLogPath, 'utf8');
+            const content = await fs.promises.readFile(errorLogPath, 'utf8');
             return { success: true, content };
         }
         return { success: true, content: 'No errors logged yet.' };
@@ -967,19 +997,14 @@ ipcMain.handle('clear-error-log', async () => {
 // Clear game data
 ipcMain.handle('clear-game-data', async () => {
     try {
-        // Close database connection if open
-        if (db) {
-            db.close();
-            db = null;
-        }
-
         // Delete database file
         if (fs.existsSync(dbPath)) {
             fs.unlinkSync(dbPath);
         }
 
-        // Reinitialize database
-        initDatabase();
+        // Reinitialize database (creates new empty database)
+        const db = initDatabase();
+        db.close();
 
         return { success: true };
     } catch (error) {
@@ -1080,6 +1105,8 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
 });
 
 console.log('CoverFlow Game Launcher - Electron app starting...');
-console.log('Game data path:', gameDataPath);
-console.log('Database path:', dbPath);
-console.log('Error log path:', errorLogPath);
+// Redacted sensitive paths for security
+if (isDev) {
+    console.log('Development mode - Game data path:', gameDataPath);
+    console.log('Development mode - Database path:', dbPath);
+}

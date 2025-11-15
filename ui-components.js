@@ -6,7 +6,8 @@
 class UIComponents {
     constructor() {
         this.currentView = 'coverflow'; // coverflow, grid, list
-        this.serverURL = 'http://localhost:5000'; // Flask server URL for loading images
+        // Configurable server URL - try to detect from environment or use default
+        this.serverURL = this.detectServerURL();
         this.filterState = {
             platform: null,
             genre: null,
@@ -16,7 +17,26 @@ class UIComponents {
             sort_by: 'title',
             sort_order: 'ASC'
         };
+        // AbortController for cleaning up event listeners
+        this.gridViewAbortController = null;
+        this.listViewAbortController = null;
+        this.duplicateListAbortController = null;
         this.init();
+    }
+
+    // Detect server URL from environment or config
+    detectServerURL() {
+        // Check if there's a global config
+        if (window.GAME_SCANNER_CONFIG && window.GAME_SCANNER_CONFIG.serverURL) {
+            return window.GAME_SCANNER_CONFIG.serverURL;
+        }
+        // Check localStorage for saved server URL
+        const savedURL = localStorage.getItem('game-scanner-server-url');
+        if (savedURL) {
+            return savedURL;
+        }
+        // Default to localhost
+        return 'http://localhost:5000';
     }
 
     // Helper to escape HTML to prevent XSS
@@ -153,17 +173,18 @@ class UIComponents {
     }
 
     renderGridView(games) {
+        // Clean up previous event listeners
+        if (this.gridViewAbortController) {
+            this.gridViewAbortController.abort();
+        }
+        this.gridViewAbortController = new AbortController();
+
         let wrapper = document.querySelector('#grid-view');
         if (!wrapper) {
             wrapper = document.createElement('div');
             wrapper.id = 'grid-view';
             document.body.appendChild(wrapper);
         }
-
-        // Remove old event listeners by cloning and replacing
-        const newWrapper = wrapper.cloneNode(false);
-        wrapper.parentNode.replaceChild(newWrapper, wrapper);
-        wrapper = newWrapper;
 
         const gridHtml = games.map(game => {
             const imagePath = game.boxart_path || game.icon_path;
@@ -196,21 +217,22 @@ class UIComponents {
         wrapper.innerHTML = `<div class="grid-view-container">${gridHtml}</div>`;
 
         // Add event listeners for play and favorite buttons
-        this.attachGridListEventListeners(wrapper, games);
+        this.attachGridListEventListeners(wrapper, games, this.gridViewAbortController.signal);
     }
 
     renderListView(games) {
+        // Clean up previous event listeners
+        if (this.listViewAbortController) {
+            this.listViewAbortController.abort();
+        }
+        this.listViewAbortController = new AbortController();
+
         let wrapper = document.querySelector('#list-view');
         if (!wrapper) {
             wrapper = document.createElement('div');
             wrapper.id = 'list-view';
             document.body.appendChild(wrapper);
         }
-
-        // Remove old event listeners by cloning and replacing
-        const newWrapper = wrapper.cloneNode(false);
-        wrapper.parentNode.replaceChild(newWrapper, wrapper);
-        wrapper = newWrapper;
 
         const tableHtml = `
             <table class="list-table">
@@ -258,14 +280,14 @@ class UIComponents {
         wrapper.innerHTML = `<div class="list-view-container">${tableHtml}</div>`;
 
         // Add event listeners for play and favorite buttons
-        this.attachGridListEventListeners(wrapper, games);
+        this.attachGridListEventListeners(wrapper, games, this.listViewAbortController.signal);
     }
 
-    attachGridListEventListeners(wrapper, games) {
+    attachGridListEventListeners(wrapper, games, signal) {
         // Create a map for quick lookup
         const gameMap = new Map(games.map(g => [g.id, g]));
 
-        // Event delegation for play buttons
+        // Event delegation for play buttons with AbortController signal
         wrapper.addEventListener('click', async (e) => {
             const playBtn = e.target.closest('.btn-play');
             if (playBtn) {
@@ -283,7 +305,7 @@ class UIComponents {
                 const gameId = parseInt(favBtn.dataset.gameId);
                 await toggleFavorite(gameId);
             }
-        });
+        }, { signal });
     }
 
     // ============================================
@@ -553,17 +575,18 @@ class UIComponents {
             const result = await window.electronAPI.findDuplicates();
             const duplicates = result.duplicates || [];
 
+            // Clean up previous event listeners
+            if (this.duplicateListAbortController) {
+                this.duplicateListAbortController.abort();
+            }
+            this.duplicateListAbortController = new AbortController();
+
             let list = document.getElementById('duplicate-list');
 
             if (duplicates.length === 0) {
                 list.innerHTML = '<p class="no-duplicates">✨ No duplicate games found! Your library is clean.</p>';
                 return;
             }
-
-            // Remove old event listeners by cloning and replacing
-            const newList = list.cloneNode(false);
-            list.parentNode.replaceChild(newList, list);
-            list = newList;
 
             list.innerHTML = duplicates.map(dup => {
                 const safeTitle = this.escapeHtml(dup.title);
@@ -587,14 +610,14 @@ class UIComponents {
                 `;
             }).join('');
 
-            // Add event delegation for hide buttons
+            // Add event delegation for hide buttons with AbortController signal
             list.addEventListener('click', async (e) => {
                 const hideBtn = e.target.closest('.btn-hide-duplicate');
                 if (hideBtn) {
                     const gameId = parseInt(hideBtn.dataset.gameId);
                     await hideDuplicate(gameId);
                 }
-            });
+            }, { signal: this.duplicateListAbortController.signal });
 
         } catch (error) {
             console.error('Error loading duplicates:', error);

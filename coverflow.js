@@ -37,8 +37,8 @@ class CoverFlow {
         this.isElectron = typeof window.electronAPI !== 'undefined';
         console.log(`Running in ${this.isElectron ? 'Electron' : 'Browser'} mode`);
 
-        // Game scanner server (for browser mode)
-        this.serverURL = 'http://localhost:5000';
+        // Game scanner server (for browser mode) - configurable
+        this.serverURL = this.detectServerURL();
         this.serverAvailable = false;
         this.scanInterval = null;
 
@@ -120,6 +120,20 @@ class CoverFlow {
                 }, 100);
             }
         }
+    }
+
+    detectServerURL() {
+        // Check if there's a global config
+        if (window.GAME_SCANNER_CONFIG && window.GAME_SCANNER_CONFIG.serverURL) {
+            return window.GAME_SCANNER_CONFIG.serverURL;
+        }
+        // Check localStorage for saved server URL
+        const savedURL = localStorage.getItem('game-scanner-server-url');
+        if (savedURL) {
+            return savedURL;
+        }
+        // Default to localhost
+        return 'http://localhost:5000';
     }
 
     loadSettings() {
@@ -401,6 +415,118 @@ class CoverFlow {
         window.addEventListener('resize', () => this.onWindowResize());
     }
 
+    createErrorPlaceholder(title = 'Image Not Found') {
+        /**
+         * Create a placeholder texture for failed image loads
+         * Provides visual feedback to users
+         */
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Gradient background (dark red)
+        const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+        gradient.addColorStop(0, '#4a1a1a');
+        gradient.addColorStop(1, '#2a0a0a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Error icon (exclamation mark in triangle)
+        ctx.strokeStyle = 'rgba(255, 100, 100, 0.9)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(256, 150);
+        ctx.lineTo(350, 300);
+        ctx.lineTo(162, 300);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Exclamation mark
+        ctx.fillStyle = 'rgba(255, 100, 100, 0.9)';
+        ctx.fillRect(246, 180, 20, 80);
+        ctx.fillRect(246, 275, 20, 20);
+
+        // Error text
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, 256, 350);
+        ctx.font = '16px Arial';
+        ctx.fillText('Click to retry loading', 256, 380);
+
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    loadTextureWithFallback(imageSrc, album, material) {
+        /**
+         * Load texture with automatic fallback and error handling
+         * Returns a promise that resolves with the texture or error placeholder
+         */
+        return new Promise((resolve) => {
+            const loader = new THREE.TextureLoader();
+
+            loader.load(
+                imageSrc,
+                (texture) => {
+                    // Success
+                    resolve(texture);
+                },
+                undefined, // onProgress
+                (error) => {
+                    // Primary load failed
+                    console.warn('Failed to load texture:', imageSrc, error);
+
+                    // Try fallback to icon if boxart failed
+                    if (album.type === 'game' && album.icon_path && album.boxart_path && imageSrc.includes(album.boxart_path.split('/').pop())) {
+                        let iconSrc = album.icon_path;
+                        if (iconSrc && iconSrc.includes(':/') && !iconSrc.startsWith('http')) {
+                            if (!iconSrc.startsWith('file://')) {
+                                iconSrc = 'file:///' + iconSrc;
+                            }
+                            iconSrc = iconSrc.replace(/\\/g, '/').split('/').map((part, index) => {
+                                if (index < 3) return part;
+                                return encodeURIComponent(part);
+                            }).join('/');
+                        }
+
+                        console.log('Trying fallback icon:', iconSrc);
+                        loader.load(
+                            iconSrc,
+                            (fallbackTexture) => {
+                                // Fallback success
+                                if (material) {
+                                    material.map = fallbackTexture;
+                                    material.needsUpdate = true;
+                                }
+                                resolve(fallbackTexture);
+                            },
+                            undefined,
+                            (iconError) => {
+                                // Both failed - use error placeholder
+                                console.warn('Fallback icon also failed:', iconSrc, iconError);
+                                const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
+                                if (material) {
+                                    material.map = errorTexture;
+                                    material.needsUpdate = true;
+                                }
+                                resolve(errorTexture);
+                            }
+                        );
+                    } else {
+                        // No fallback available - use error placeholder
+                        const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
+                        if (material) {
+                            material.map = errorTexture;
+                            material.needsUpdate = true;
+                        }
+                        resolve(errorTexture);
+                    }
+                }
+            );
+        });
+    }
+
     initPostProcessing() {
         if (typeof THREE.EffectComposer === 'undefined') {
             console.warn('Post-processing not available');
@@ -498,46 +624,17 @@ class CoverFlow {
                     }).join('/');
                 }
 
-                const texture = new THREE.TextureLoader().load(
-                    imageSrc,
-                    undefined, // onLoad
-                    undefined, // onProgress
-                    (error) => { // onError
-                        console.warn('Failed to load texture:', imageSrc, error);
-
-                        // For games, try fallback to icon if boxart failed
-                        if (album.type === 'game' && album.icon_path && album.boxart_path && imageSrc.includes(album.boxart_path.split('/').pop())) {
-                            let iconSrc = album.icon_path;
-                            if (iconSrc && iconSrc.includes(':/') && !iconSrc.startsWith('http')) {
-                                if (!iconSrc.startsWith('file://')) {
-                                    iconSrc = 'file:///' + iconSrc;
-                                }
-                                iconSrc = iconSrc.replace(/\\/g, '/').split('/').map((part, index) => {
-                                    if (index < 3) return part;
-                                    return encodeURIComponent(part);
-                                }).join('/');
-                            }
-
-                            console.log('Trying fallback icon:', iconSrc);
-                            const fallbackTexture = new THREE.TextureLoader().load(
-                                iconSrc,
-                                (loadedTexture) => {
-                                    // Replace the failed texture with the icon
-                                    material.map = loadedTexture;
-                                    material.needsUpdate = true;
-                                },
-                                undefined,
-                                (iconError) => {
-                                    console.warn('Fallback icon also failed:', iconSrc, iconError);
-                                }
-                            );
-                        }
-                    }
-                );
+                // Create material with placeholder texture first
                 material = new THREE.MeshPhongMaterial({
-                    map: texture,
+                    color: album.color || 0x808080,
                     side: THREE.DoubleSide,
                     shininess: 80
+                });
+
+                // Load texture with improved error handling
+                this.loadTextureWithFallback(imageSrc, album, material).then((texture) => {
+                    material.map = texture;
+                    material.needsUpdate = true;
                 });
             } else if (album.video) {
                 // Video placeholder with play icon
