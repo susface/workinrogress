@@ -1404,6 +1404,7 @@ class CoverFlow {
                         description: game.description || game.short_description || game.long_description || 'No description available.',
                         color: platformColors[game.platform] || 0x808080,
                         image: this.getImageSrc(game.boxart_path || game.icon_path),
+                        icon_path: game.icon_path || game.boxart_path,
                         launchCommand: game.launch_command,
                         installDir: game.install_directory,
                         appId: game.app_id || game.package_name
