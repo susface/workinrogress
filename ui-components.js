@@ -10,11 +10,11 @@ class UIComponents {
         this.filterState = {
             platform: null,
             genre: null,
-            search: '',
-            favoritesOnly: false,
-            showHidden: false,
-            sortBy: 'title',
-            sortOrder: 'ASC'
+            search_query: null,
+            favorites_only: false,
+            show_hidden: false,
+            sort_by: 'title',
+            sort_order: 'ASC'
         };
         this.init();
     }
@@ -82,12 +82,36 @@ class UIComponents {
         const gridContainer = document.querySelector('#grid-view');
         const listContainer = document.querySelector('#list-view');
 
-        if (coverflowContainer) coverflowContainer.style.display = viewMode === 'coverflow' ? 'block' : 'none';
-        if (gridContainer) gridContainer.style.display = viewMode === 'grid' ? 'block' : 'none';
-        if (listContainer) listContainer.style.display = viewMode === 'list' ? 'block' : 'none';
+        // Hide coverflow UI elements (info panel, thumbnails, controls)
+        const infoPanel = document.querySelector('#info-panel');
+        const thumbnailNav = document.querySelector('#thumbnail-nav');
+        const controls = document.querySelector('#controls');
+        const topBar = document.querySelector('#top-bar');
+
+        if (viewMode === 'coverflow') {
+            // Show coverflow, hide grid/list
+            if (coverflowContainer) coverflowContainer.style.display = 'block';
+            if (infoPanel) infoPanel.style.display = 'flex';
+            if (thumbnailNav) thumbnailNav.style.display = 'flex';
+            if (controls) controls.style.display = 'block';
+            if (topBar) topBar.style.display = 'flex';
+            if (gridContainer) gridContainer.style.display = 'none';
+            if (listContainer) listContainer.style.display = 'none';
+        } else {
+            // Hide coverflow UI, show selected view
+            if (coverflowContainer) coverflowContainer.style.display = 'none';
+            if (infoPanel) infoPanel.style.display = 'none';
+            if (thumbnailNav) thumbnailNav.style.display = 'none';
+            if (controls) controls.style.display = 'none';
+            if (topBar) topBar.style.display = 'none';
+            if (gridContainer) gridContainer.style.display = viewMode === 'grid' ? 'block' : 'none';
+            if (listContainer) listContainer.style.display = viewMode === 'list' ? 'block' : 'none';
+        }
 
         // Trigger view-specific rendering
-        this.renderView(viewMode);
+        if (viewMode !== 'coverflow') {
+            this.renderView(viewMode);
+        }
     }
 
     async renderView(viewMode) {
@@ -542,25 +566,25 @@ class UIComponents {
                 platform: document.getElementById('filter-platform').value || null,
                 genre: document.getElementById('filter-genre').value || null,
                 search_query: document.getElementById('filter-search').value || null,
-                favoritesOnly: document.getElementById('filter-favorites').checked,
-                showHidden: document.getElementById('filter-hidden').checked,
-                sortBy: document.getElementById('filter-sort').value,
-                sortOrder: document.getElementById('filter-order').value
+                favorites_only: document.getElementById('filter-favorites').checked,
+                show_hidden: document.getElementById('filter-hidden').checked,
+                sort_by: document.getElementById('filter-sort').value,
+                sort_order: document.getElementById('filter-order').value
             };
 
             await this.renderView(this.currentView);
         });
 
         // Reset filters
-        document.getElementById('reset-filters')?.addEventListener('click', () => {
+        document.getElementById('reset-filters')?.addEventListener('click', async () => {
             this.filterState = {
                 platform: null,
                 genre: null,
-                search: '',
-                favoritesOnly: false,
-                showHidden: false,
-                sortBy: 'title',
-                sortOrder: 'ASC'
+                search_query: null,
+                favorites_only: false,
+                show_hidden: false,
+                sort_by: 'title',
+                sort_order: 'ASC'
             };
 
             document.getElementById('filter-platform').value = '';
@@ -570,6 +594,8 @@ class UIComponents {
             document.getElementById('filter-hidden').checked = false;
             document.getElementById('filter-sort').value = 'title';
             document.getElementById('filter-order').value = 'ASC';
+
+            await this.renderView(this.currentView);
         });
     }
 }

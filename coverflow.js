@@ -1289,6 +1289,7 @@ class CoverFlow {
 
                     return {
                         type: 'game',
+                        id: game.id,  // Include ID for favorites/tracking
                         title: game.title,
                         platform: game.platform,
                         developer: game.developer || 'Unknown',
@@ -1298,9 +1299,18 @@ class CoverFlow {
                         description: game.description || game.short_description || game.long_description || 'No description available.',
                         color: platformColors[game.platform] || 0x808080,
                         image: game.boxart_path ? `${this.serverURL}/${game.boxart_path}` : (game.icon_path ? `${this.serverURL}/${game.icon_path}` : null),
-                        launchCommand: game.launch_command,
+                        icon_path: game.icon_path,  // Include icon path for thumbnails
+                        boxart_path: game.boxart_path,  // Include boxart path
+                        launch_command: game.launch_command,
+                        launchCommand: game.launch_command,  // Keep both for compatibility
                         installDir: game.install_directory,
-                        appId: game.app_id || game.package_name
+                        appId: game.app_id || game.package_name,
+                        is_favorite: game.is_favorite || false,  // Include favorite status
+                        is_hidden: game.is_hidden || false,
+                        total_play_time: game.total_play_time || 0,
+                        launch_count: game.launch_count || 0,
+                        last_played: game.last_played,
+                        user_rating: game.user_rating || 0
                     };
                 });
 
