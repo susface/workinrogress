@@ -789,7 +789,8 @@ class CoverFlow {
 
         // Face buttons
         if (justPressed(gamepad.buttons[0], 0)) {
-            // A button - currently does nothing
+            // A button - click element under controller cursor
+            this.clickElementUnderCursor();
         }
         if (justPressed(gamepad.buttons[1], 1)) {
             // B button - close modals
@@ -1305,8 +1306,8 @@ class CoverFlow {
                         launchCommand: game.launch_command,  // Keep both for compatibility
                         installDir: game.install_directory,
                         appId: game.app_id || game.package_name,
-                        is_favorite: game.is_favorite || false,  // Include favorite status
-                        is_hidden: game.is_hidden || false,
+                        is_favorite: Boolean(game.is_favorite),  // Explicitly convert to boolean
+                        is_hidden: Boolean(game.is_hidden),  // Explicitly convert to boolean
                         total_play_time: game.total_play_time || 0,
                         launch_count: game.launch_count || 0,
                         last_played: game.last_played,
@@ -1384,7 +1385,55 @@ class CoverFlow {
         this.controllerCursor.style.left = (this.cursorX - 20) + 'px';
         this.controllerCursor.style.top = (this.cursorY - 20) + 'px';
 
-        // Note: Element highlighting and clicking handled in pollGamepad to avoid conflicts
+        // Highlight element under cursor
+        this.highlightElementUnderCursor();
+    }
+
+    highlightElementUnderCursor() {
+        // Remove previous highlight
+        const previousHighlight = document.querySelector('.controller-highlight');
+        if (previousHighlight) {
+            previousHighlight.classList.remove('controller-highlight');
+        }
+
+        // Find element under cursor
+        const element = document.elementFromPoint(this.cursorX, this.cursorY);
+        if (!element) return;
+
+        // Find clickable element (button, link, or clickable parent)
+        let clickable = element;
+        while (clickable && clickable !== document.body) {
+            const tag = clickable.tagName.toLowerCase();
+            if (tag === 'button' || tag === 'a' || clickable.onclick || clickable.classList.contains('clickable')) {
+                clickable.classList.add('controller-highlight');
+                return;
+            }
+            clickable = clickable.parentElement;
+        }
+    }
+
+    clickElementUnderCursor() {
+        const element = document.elementFromPoint(this.cursorX, this.cursorY);
+        if (!element) return;
+
+        // Find clickable element
+        let clickable = element;
+        while (clickable && clickable !== document.body) {
+            const tag = clickable.tagName.toLowerCase();
+            if (tag === 'button' || tag === 'a' || clickable.onclick) {
+                clickable.click();
+                console.log('🎮 Controller clicked:', clickable);
+
+                // Visual feedback
+                clickable.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    clickable.style.transform = '';
+                }, 100);
+
+                return;
+            }
+            clickable = clickable.parentElement;
+        }
     }
 
     navigate(direction) {
@@ -2079,6 +2128,23 @@ class CoverFlow {
             clearLogBtn.addEventListener('click', () => {
                 if (confirm('Are you sure you want to clear the error log?')) {
                     this.clearErrorLog();
+                }
+            });
+        }
+
+        // Clear game data button
+        const clearGameDataBtn = document.getElementById('clear-game-data-btn');
+        if (clearGameDataBtn) {
+            clearGameDataBtn.addEventListener('click', async () => {
+                if (confirm('⚠️ This will delete all scanned game data!\n\nYou will need to scan for games again.\n\nAre you sure?')) {
+                    const result = await window.electronAPI.clearGameData();
+                    if (result.success) {
+                        alert('✓ Game data cleared successfully!\n\nClick "Scan for Games" to find games again.');
+                        // Reload to show empty library
+                        await this.loadGames();
+                    } else {
+                        alert('❌ Failed to clear game data: ' + (result.error || 'Unknown error'));
+                    }
                 }
             });
         }

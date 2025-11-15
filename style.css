@@ -930,6 +930,25 @@ kbd {
     }
 }
 
+/* Controller highlight for elements under cursor */
+.controller-highlight {
+    outline: 3px solid rgba(100, 150, 255, 0.8) !important;
+    outline-offset: 2px;
+    background: rgba(100, 150, 255, 0.15) !important;
+    box-shadow: 0 0 20px rgba(100, 150, 255, 0.5),
+                inset 0 0 20px rgba(100, 150, 255, 0.2) !important;
+    animation: controllerHighlightPulse 1s ease-in-out infinite;
+}
+
+@keyframes controllerHighlightPulse {
+    0%, 100% {
+        outline-color: rgba(100, 150, 255, 0.8);
+    }
+    50% {
+        outline-color: rgba(100, 150, 255, 1);
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 900px) {
     .info-modal-layout {

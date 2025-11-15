@@ -54,6 +54,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getErrorLog: () => ipcRenderer.invoke('get-error-log'),
     clearErrorLog: () => ipcRenderer.invoke('clear-error-log'),
 
+    // Game data management
+    clearGameData: () => ipcRenderer.invoke('clear-game-data'),
+
     // Media folder selection
     selectMediaFolder: () => ipcRenderer.invoke('select-media-folder'),
     scanMediaFolder: (folderPath) => ipcRenderer.invoke('scan-media-folder', folderPath),
