@@ -29,6 +29,10 @@ class UIComponents {
             this.initializeAppPaths();
         }
 
+        // View switching state
+        this.isSwitchingView = false;
+        this.lastViewSwitch = 0;
+
         this.init();
     }
 
@@ -139,47 +143,84 @@ class UIComponents {
     }
 
     switchView(viewMode) {
-        this.currentView = viewMode;
-
-        // Update button states
-        document.querySelectorAll('.view-mode-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.view === viewMode);
-        });
-
-        // Hide/show appropriate containers
-        const coverflowContainer = document.querySelector('#canvas-container');
-        const gridContainer = document.querySelector('#grid-view');
-        const listContainer = document.querySelector('#list-view');
-
-        // Hide coverflow UI elements (info panel, thumbnails, controls)
-        const infoPanel = document.querySelector('#info-panel');
-        const thumbnailNav = document.querySelector('#thumbnail-nav');
-        const controls = document.querySelector('#controls');
-        const topBar = document.querySelector('#top-bar');
-
-        if (viewMode === 'coverflow') {
-            // Show coverflow, hide grid/list
-            if (coverflowContainer) coverflowContainer.style.display = 'block';
-            if (infoPanel) infoPanel.style.display = 'flex';
-            if (thumbnailNav) thumbnailNav.style.display = 'flex';
-            if (controls) controls.style.display = 'block';
-            if (topBar) topBar.style.display = 'flex';
-            if (gridContainer) gridContainer.style.display = 'none';
-            if (listContainer) listContainer.style.display = 'none';
-        } else {
-            // Hide coverflow UI, show selected view
-            if (coverflowContainer) coverflowContainer.style.display = 'none';
-            if (infoPanel) infoPanel.style.display = 'none';
-            if (thumbnailNav) thumbnailNav.style.display = 'none';
-            if (controls) controls.style.display = 'none';
-            if (topBar) topBar.style.display = 'none';
-            if (gridContainer) gridContainer.style.display = viewMode === 'grid' ? 'block' : 'none';
-            if (listContainer) listContainer.style.display = viewMode === 'list' ? 'block' : 'none';
+        // Prevent rapid switching or double-clicks
+        const now = Date.now();
+        if (this.isSwitchingView || (now - this.lastViewSwitch < 300)) {
+            console.log('View switch in progress or too soon, ignoring...');
+            return;
         }
 
-        // Trigger view-specific rendering
-        if (viewMode !== 'coverflow') {
-            this.renderView(viewMode);
+        // Already in this view
+        if (this.currentView === viewMode) {
+            console.log('Already in', viewMode, 'view');
+            return;
+        }
+
+        this.isSwitchingView = true;
+        this.lastViewSwitch = now;
+        this.currentView = viewMode;
+
+        try {
+            // Update button states
+            document.querySelectorAll('.view-mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === viewMode);
+            });
+
+            // Get or create containers
+            const coverflowContainer = document.querySelector('#coverflow-container') || document.querySelector('#canvas-container');
+            let gridContainer = document.querySelector('#grid-view');
+            let listContainer = document.querySelector('#list-view');
+
+            // Create containers if they don't exist
+            if (!gridContainer && viewMode === 'grid') {
+                gridContainer = document.createElement('div');
+                gridContainer.id = 'grid-view';
+                gridContainer.style.display = 'none';
+                document.body.appendChild(gridContainer);
+            }
+
+            if (!listContainer && viewMode === 'list') {
+                listContainer = document.createElement('div');
+                listContainer.id = 'list-view';
+                listContainer.style.display = 'none';
+                document.body.appendChild(listContainer);
+            }
+
+            // Hide coverflow UI elements (info panel, thumbnails, controls)
+            const infoPanel = document.querySelector('#info-panel');
+            const thumbnailNav = document.querySelector('#thumbnail-nav');
+            const controls = document.querySelector('#controls');
+            const topBar = document.querySelector('#top-bar');
+
+            if (viewMode === 'coverflow') {
+                // Show coverflow, hide grid/list
+                if (coverflowContainer) coverflowContainer.style.display = 'block';
+                if (infoPanel) infoPanel.style.display = 'flex';
+                if (thumbnailNav) thumbnailNav.style.display = 'flex';
+                if (controls) controls.style.display = 'block';
+                if (topBar) topBar.style.display = 'flex';
+                if (gridContainer) gridContainer.style.display = 'none';
+                if (listContainer) listContainer.style.display = 'none';
+            } else {
+                // Hide coverflow UI, show selected view
+                if (coverflowContainer) coverflowContainer.style.display = 'none';
+                if (infoPanel) infoPanel.style.display = 'none';
+                if (thumbnailNav) thumbnailNav.style.display = 'none';
+                if (controls) controls.style.display = 'none';
+                if (topBar) topBar.style.display = 'none';
+                if (gridContainer) gridContainer.style.display = viewMode === 'grid' ? 'block' : 'none';
+                if (listContainer) listContainer.style.display = viewMode === 'list' ? 'block' : 'none';
+            }
+
+            // Trigger view-specific rendering
+            if (viewMode !== 'coverflow') {
+                this.renderView(viewMode);
+            }
+        } finally {
+            // Reset switching flag after a short delay
+            setTimeout(() => {
+                this.isSwitchingView = false;
+            }, 100);
         }
     }
 
