@@ -355,6 +355,12 @@ app.whenReady().then(() => {
     createWindow();
     createTray();
 
+    // Initialize process tracker for accurate playtime monitoring
+    // Wait a bit for the window to be ready
+    setTimeout(() => {
+        initProcessTracker();
+    }, 2000);
+
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow();
@@ -751,6 +757,187 @@ ipcMain.handle('get-app-path', async () => {
 // Track active game sessions
 let activeGameSessions = new Map(); // gameId -> sessionId
 
+// Process tracker for accurate playtime monitoring
+let processTrackerService = null;
+let processTrackerReady = false;
+
+/**
+ * Initialize the process tracker service
+ */
+function initProcessTracker() {
+    if (processTrackerService) {
+        console.log('[PROCESS_TRACKER] Already initialized');
+        return;
+    }
+
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const trackerPath = path.join(appPath, 'gameinfodownload-main', 'launchers', 'process_tracker_service.py');
+
+    // Check if tracker file exists
+    if (!fs.existsSync(trackerPath)) {
+        console.error('[PROCESS_TRACKER] Service file not found:', trackerPath);
+        return;
+    }
+
+    try {
+        processTrackerService = spawn(pythonCmd, [trackerPath], {
+            cwd: path.join(appPath, 'gameinfodownload-main', 'launchers'),
+            stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        console.log('[PROCESS_TRACKER] Service started');
+
+        // Handle stdout (JSON responses and notifications)
+        processTrackerService.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n');
+            lines.forEach(line => {
+                if (!line.trim()) return;
+
+                try {
+                    const message = JSON.parse(line.trim());
+
+                    if (message.type === 'notification') {
+                        handleProcessTrackerNotification(message);
+                    } else if (message.success !== undefined) {
+                        // This is a response to a command
+                        // For now, just log it
+                        if (message.data && message.data.message === 'ready') {
+                            processTrackerReady = true;
+                            console.log('[PROCESS_TRACKER] Service ready');
+                        }
+                    }
+                } catch (e) {
+                    console.error('[PROCESS_TRACKER] Failed to parse message:', line, e);
+                }
+            });
+        });
+
+        // Handle stderr (logs)
+        processTrackerService.stderr.on('data', (data) => {
+            console.log('[PROCESS_TRACKER]', data.toString().trim());
+        });
+
+        // Handle process exit
+        processTrackerService.on('error', (error) => {
+            console.error('[PROCESS_TRACKER] Failed to start:', error);
+            processTrackerService = null;
+            processTrackerReady = false;
+        });
+
+        processTrackerService.on('close', (code) => {
+            console.log(`[PROCESS_TRACKER] Service exited with code ${code}`);
+            processTrackerService = null;
+            processTrackerReady = false;
+        });
+
+    } catch (error) {
+        console.error('[PROCESS_TRACKER] Error starting service:', error);
+        processTrackerService = null;
+        processTrackerReady = false;
+    }
+}
+
+/**
+ * Send command to process tracker service
+ */
+function sendProcessTrackerCommand(command, params = {}) {
+    return new Promise((resolve, reject) => {
+        if (!processTrackerService || !processTrackerReady) {
+            reject(new Error('Process tracker not ready'));
+            return;
+        }
+
+        const commandObj = {
+            command,
+            params,
+            timestamp: Date.now()
+        };
+
+        try {
+            processTrackerService.stdin.write(JSON.stringify(commandObj) + '\n');
+            // For simplicity, resolve immediately
+            // In production, you'd want to track request IDs and wait for responses
+            resolve({ success: true });
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+/**
+ * Handle notifications from process tracker
+ */
+function handleProcessTrackerNotification(message) {
+    console.log('[PROCESS_TRACKER] Notification:', message.event, message.data);
+
+    if (message.event === 'process_ended') {
+        const { session_id, runtime } = message.data;
+
+        // Find the game ID for this session
+        let gameId = null;
+        for (const [gId, sId] of activeGameSessions.entries()) {
+            if (sId === session_id) {
+                gameId = gId;
+                break;
+            }
+        }
+
+        if (gameId) {
+            console.log(`[PROCESS_TRACKER] Game ${gameId} process ended, runtime: ${runtime}s`);
+
+            // Update the database with accurate runtime
+            try {
+                const db = initDatabase();
+
+                // Update session with accurate duration
+                db.prepare(`
+                    UPDATE game_sessions
+                    SET end_time = CURRENT_TIMESTAMP,
+                        duration = ?
+                    WHERE id = ?
+                `).run(runtime, session_id);
+
+                // Update total play time
+                db.prepare(`
+                    UPDATE games
+                    SET total_play_time = total_play_time + ?
+                    WHERE id = ?
+                `).run(runtime, gameId);
+
+                db.close();
+
+                // Remove from active sessions
+                activeGameSessions.delete(gameId);
+
+                console.log(`[PROCESS_TRACKER] Updated playtime for game ${gameId}: +${runtime}s`);
+            } catch (error) {
+                console.error('[PROCESS_TRACKER] Error updating playtime:', error);
+            }
+        }
+    }
+}
+
+/**
+ * Shutdown process tracker service
+ */
+function shutdownProcessTracker() {
+    if (processTrackerService) {
+        try {
+            sendProcessTrackerCommand('shutdown');
+            setTimeout(() => {
+                if (processTrackerService) {
+                    processTrackerService.kill();
+                }
+            }, 1000);
+        } catch (error) {
+            console.error('[PROCESS_TRACKER] Error shutting down:', error);
+            if (processTrackerService) {
+                processTrackerService.kill();
+            }
+        }
+    }
+}
+
 // Internal helper to end a game session
 function endGameSessionInternal(gameId, sessionId) {
     try {
@@ -805,6 +992,16 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                 console.log(`[PLAYTIME] Game ${gameId} already has an active session, ending it first`);
                 // End the previous session before starting a new one
                 const oldSessionId = activeGameSessions.get(gameId);
+
+                // Stop process tracking for old session
+                if (processTrackerReady) {
+                    try {
+                        await sendProcessTrackerCommand('stop_tracking', { session_id: oldSessionId });
+                    } catch (e) {
+                        console.error('[PROCESS_TRACKER] Error stopping old session:', e);
+                    }
+                }
+
                 db.prepare(`
                     UPDATE game_sessions
                     SET end_time = CURRENT_TIMESTAMP,
@@ -821,6 +1018,9 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                     `).run(Math.floor(oldSession.duration), gameId);
                 }
             }
+
+            // Get game details for process tracking
+            const game = db.prepare('SELECT title, install_directory FROM games WHERE id = ?').get(gameId);
 
             const stmt = db.prepare(`
                 INSERT INTO game_sessions (game_id, start_time)
@@ -842,6 +1042,38 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
             // Store active session with timestamp
             activeGameSessions.set(gameId, sessionId);
             console.log(`[PLAYTIME] Started session ${sessionId} for game ${gameId}`);
+
+            // Start process tracking if available
+            if (processTrackerReady && game) {
+                // Wait a bit for the game to launch
+                setTimeout(async () => {
+                    try {
+                        // Try to find exe path in install directory
+                        let exePath = '';
+                        if (game.install_directory && fs.existsSync(game.install_directory)) {
+                            // Look for .exe files in the install directory
+                            const files = fs.readdirSync(game.install_directory);
+                            const exeFile = files.find(f => f.toLowerCase().endsWith('.exe'));
+                            if (exeFile) {
+                                exePath = path.join(game.install_directory, exeFile);
+                            }
+                        }
+
+                        if (exePath) {
+                            console.log(`[PROCESS_TRACKER] Starting tracking for ${game.title} at ${exePath}`);
+                            await sendProcessTrackerCommand('start_tracking', {
+                                session_id: sessionId,
+                                exe_path: exePath,
+                                game_name: game.title
+                            });
+                        } else {
+                            console.log(`[PROCESS_TRACKER] Could not find exe for ${game.title}, tracking disabled`);
+                        }
+                    } catch (error) {
+                        console.error('[PROCESS_TRACKER] Error starting tracking:', error);
+                    }
+                }, 3000); // Wait 3 seconds for game to launch
+            }
 
             // Set up auto-end after 4 hours (safety timeout)
             setTimeout(() => {
@@ -1787,16 +2019,19 @@ if (isDev) {
 app.on('before-quit', () => {
     console.log('[PLAYTIME] App closing, ending all active sessions');
     endAllActiveSessions();
+    shutdownProcessTracker();
 });
 
 app.on('will-quit', () => {
     console.log('[PLAYTIME] App quitting');
     endAllActiveSessions();
+    shutdownProcessTracker();
 });
 
 // Handle window close
 app.on('window-all-closed', () => {
     endAllActiveSessions();
+    shutdownProcessTracker();
     if (process.platform !== 'darwin') {
         app.quit();
     }

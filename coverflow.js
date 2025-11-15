@@ -17,12 +17,29 @@ class CoverFlow {
     constructor() {
         // ==================== MODULE INTEGRATION ====================
         // Mix in modular functionality from separate files
-        // These modules override any duplicate methods defined later in this file
-        Object.assign(this, new CoverFlowSettings());
-        Object.assign(this, new CoverFlowTextures());
-        Object.assign(this, new CoverFlowUIUtils());
-        Object.assign(this, new CoverFlowNavigation());
-        Object.assign(this, new CoverFlowUI());
+        // Object.assign only copies own properties, not prototype methods,
+        // so we need to manually copy methods from module prototypes
+
+        const modules = [
+            new CoverFlowSettings(),
+            new CoverFlowTextures(),
+            new CoverFlowUIUtils(),
+            new CoverFlowNavigation(),
+            new CoverFlowUI()
+        ];
+
+        // Copy instance properties
+        modules.forEach(module => Object.assign(this, module));
+
+        // Copy prototype methods (this ensures module methods override class methods)
+        modules.forEach(module => {
+            const proto = Object.getPrototypeOf(module);
+            Object.getOwnPropertyNames(proto).forEach(name => {
+                if (name !== 'constructor' && typeof proto[name] === 'function') {
+                    this[name] = proto[name].bind(this);
+                }
+            });
+        });
         // ============================================================
 
         this.container = document.getElementById('coverflow-container');
