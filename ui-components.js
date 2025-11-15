@@ -19,6 +19,14 @@ class UIComponents {
         this.init();
     }
 
+    // Helper to escape HTML to prevent XSS
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     init() {
         this.createViewModeSwitcher();
         this.createFilterPanel();
@@ -136,6 +144,10 @@ class UIComponents {
                 break;
             case 'coverflow':
                 // CoverFlow is handled by existing coverflow.js
+                // But we need to update the coverflow instance with filtered games
+                if (window.coverFlow && this.filterState.search_query) {
+                    window.coverFlow.searchGames(this.filterState.search_query);
+                }
                 break;
         }
     }
@@ -148,25 +160,32 @@ class UIComponents {
             document.body.appendChild(wrapper);
         }
 
+        // Remove old event listeners by cloning and replacing
+        const newWrapper = wrapper.cloneNode(false);
+        wrapper.parentNode.replaceChild(newWrapper, wrapper);
+        wrapper = newWrapper;
+
         const gridHtml = games.map(game => {
             const imagePath = game.boxart_path || game.icon_path;
             const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+            const safeTitle = this.escapeHtml(game.title);
+            const safePlatform = this.escapeHtml(game.platform);
             return `
             <div class="grid-item" data-game-id="${game.id}">
                 <div class="grid-item-image">
                     <img src="${imageSrc}"
-                         alt="${game.title}"
+                         alt="${safeTitle}"
                          onerror="this.src='placeholder.png'"/>
                     ${game.is_favorite ? '<div class="favorite-badge">⭐</div>' : ''}
                 </div>
                 <div class="grid-item-info">
-                    <h3>${game.title}</h3>
-                    <p class="platform-badge ${game.platform}">${game.platform.toUpperCase()}</p>
+                    <h3>${safeTitle}</h3>
+                    <p class="platform-badge ${safePlatform}">${safePlatform.toUpperCase()}</p>
                     ${game.total_play_time ? `<p class="play-time">${this.formatPlayTime(game.total_play_time)}</p>` : ''}
                 </div>
                 <div class="grid-item-actions">
-                    <button class="btn-play" onclick="launchGame(${game.id}, '${game.launch_command}')">Play</button>
-                    <button class="btn-favorite" onclick="toggleFavorite(${game.id})">
+                    <button class="btn-play" data-game-id="${game.id}">Play</button>
+                    <button class="btn-favorite" data-game-id="${game.id}">
                         ${game.is_favorite ? '★' : '☆'}
                     </button>
                 </div>
@@ -175,6 +194,9 @@ class UIComponents {
         }).join('');
 
         wrapper.innerHTML = `<div class="grid-view-container">${gridHtml}</div>`;
+
+        // Add event listeners for play and favorite buttons
+        this.attachGridListEventListeners(wrapper, games);
     }
 
     renderListView(games) {
@@ -184,6 +206,11 @@ class UIComponents {
             wrapper.id = 'list-view';
             document.body.appendChild(wrapper);
         }
+
+        // Remove old event listeners by cloning and replacing
+        const newWrapper = wrapper.cloneNode(false);
+        wrapper.parentNode.replaceChild(newWrapper, wrapper);
+        wrapper = newWrapper;
 
         const tableHtml = `
             <table class="list-table">
@@ -202,20 +229,22 @@ class UIComponents {
                     ${games.map(game => {
                         const imagePath = game.icon_path || game.boxart_path;
                         const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                        const safeTitle = this.escapeHtml(game.title);
+                        const safePlatform = this.escapeHtml(game.platform);
                         return `
                         <tr data-game-id="${game.id}">
                             <td><img src="${imageSrc}" width="40" height="40" onerror="this.src='placeholder.png'"/></td>
                             <td>
-                                <strong>${game.title}</strong>
+                                <strong>${safeTitle}</strong>
                                 ${game.is_favorite ? ' ⭐' : ''}
                             </td>
-                            <td><span class="platform-badge ${game.platform}">${game.platform.toUpperCase()}</span></td>
+                            <td><span class="platform-badge ${safePlatform}">${safePlatform.toUpperCase()}</span></td>
                             <td>${this.formatPlayTime(game.total_play_time || 0)}</td>
                             <td>${game.last_played ? new Date(game.last_played).toLocaleDateString() : 'Never'}</td>
                             <td>${this.renderStars(game.user_rating || 0)}</td>
                             <td>
-                                <button class="btn-play" onclick="launchGame(${game.id}, '${game.launch_command}')">Play</button>
-                                <button class="btn-favorite" onclick="toggleFavorite(${game.id})">
+                                <button class="btn-play" data-game-id="${game.id}">Play</button>
+                                <button class="btn-favorite" data-game-id="${game.id}">
                                     ${game.is_favorite ? '★' : '☆'}
                                 </button>
                             </td>
@@ -227,6 +256,34 @@ class UIComponents {
         `;
 
         wrapper.innerHTML = `<div class="list-view-container">${tableHtml}</div>`;
+
+        // Add event listeners for play and favorite buttons
+        this.attachGridListEventListeners(wrapper, games);
+    }
+
+    attachGridListEventListeners(wrapper, games) {
+        // Create a map for quick lookup
+        const gameMap = new Map(games.map(g => [g.id, g]));
+
+        // Event delegation for play buttons
+        wrapper.addEventListener('click', async (e) => {
+            const playBtn = e.target.closest('.btn-play');
+            if (playBtn) {
+                const gameId = parseInt(playBtn.dataset.gameId);
+                const game = gameMap.get(gameId);
+                if (game && game.launch_command) {
+                    await launchGame(gameId, game.launch_command);
+                }
+                return;
+            }
+
+            // Event delegation for favorite buttons
+            const favBtn = e.target.closest('.btn-favorite');
+            if (favBtn) {
+                const gameId = parseInt(favBtn.dataset.gameId);
+                await toggleFavorite(gameId);
+            }
+        });
     }
 
     // ============================================
@@ -406,11 +463,12 @@ class UIComponents {
             mostPlayedList.innerHTML = mostPlayed.games.map((game, index) => {
                 const imagePath = game.icon_path || game.boxart_path;
                 const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                const safeTitle = this.escapeHtml(game.title);
                 return `
                 <div class="stat-item">
                     <span class="rank">#${index + 1}</span>
                     <img src="${imageSrc}" width="30" height="30" onerror="this.src='placeholder.png'"/>
-                    <span class="game-title">${game.title}</span>
+                    <span class="game-title">${safeTitle}</span>
                     <span class="game-stat">${this.formatPlayTime(game.total_play_time)}</span>
                 </div>
                 `;
@@ -421,10 +479,11 @@ class UIComponents {
             recentlyPlayedList.innerHTML = recentlyPlayed.games.map(game => {
                 const imagePath = game.icon_path || game.boxart_path;
                 const imageSrc = imagePath ? `${this.serverURL}/${imagePath}` : 'placeholder.png';
+                const safeTitle = this.escapeHtml(game.title);
                 return `
                 <div class="stat-item">
                     <img src="${imageSrc}" width="30" height="30" onerror="this.src='placeholder.png'"/>
-                    <span class="game-title">${game.title}</span>
+                    <span class="game-title">${safeTitle}</span>
                     <span class="game-stat">${new Date(game.last_played).toLocaleDateString()}</span>
                 </div>
                 `;
@@ -494,28 +553,48 @@ class UIComponents {
             const result = await window.electronAPI.findDuplicates();
             const duplicates = result.duplicates || [];
 
-            const list = document.getElementById('duplicate-list');
+            let list = document.getElementById('duplicate-list');
 
             if (duplicates.length === 0) {
                 list.innerHTML = '<p class="no-duplicates">✨ No duplicate games found! Your library is clean.</p>';
                 return;
             }
 
-            list.innerHTML = duplicates.map(dup => `
+            // Remove old event listeners by cloning and replacing
+            const newList = list.cloneNode(false);
+            list.parentNode.replaceChild(newList, list);
+            list = newList;
+
+            list.innerHTML = duplicates.map(dup => {
+                const safeTitle = this.escapeHtml(dup.title);
+                return `
                 <div class="duplicate-group">
-                    <h3>${dup.title} <span class="duplicate-count">(${dup.count} versions)</span></h3>
+                    <h3>${safeTitle} <span class="duplicate-count">(${dup.count} versions)</span></h3>
                     <div class="duplicate-platforms">
-                        ${dup.platforms.map((platform, index) => `
+                        ${dup.platforms.map((platform, index) => {
+                            const safePlatform = this.escapeHtml(platform);
+                            return `
                             <div class="duplicate-platform">
-                                <span class="platform-badge ${platform}">${platform.toUpperCase()}</span>
-                                <button class="btn-hide-duplicate" onclick="hideDuplicate(${dup.game_ids[index]})">
+                                <span class="platform-badge ${safePlatform}">${safePlatform.toUpperCase()}</span>
+                                <button class="btn-hide-duplicate" data-game-id="${dup.game_ids[index]}">
                                     Hide This Version
                                 </button>
                             </div>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
+
+            // Add event delegation for hide buttons
+            list.addEventListener('click', async (e) => {
+                const hideBtn = e.target.closest('.btn-hide-duplicate');
+                if (hideBtn) {
+                    const gameId = parseInt(hideBtn.dataset.gameId);
+                    await hideDuplicate(gameId);
+                }
+            });
 
         } catch (error) {
             console.error('Error loading duplicates:', error);
