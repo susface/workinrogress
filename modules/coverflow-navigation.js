@@ -72,44 +72,67 @@ class CoverFlowNavigation {
         const speed = this.settings.animationSpeed;
 
         this.covers.forEach((cover, index) => {
-            const diff = index - this.currentIndex;
-            let targetX, targetZ, targetRotationY, targetScale;
+            const diff = index - this.targetIndex;
+            const parent = cover.parent;
+
+            let targetX, targetZ, targetRotY, targetScale, targetY;
 
             if (diff === 0) {
                 // Center cover
                 targetX = 0;
+                targetY = 0;
                 targetZ = 0;
-                targetRotationY = 0;
-                targetScale = 1;
+                targetRotY = 0;
+                targetScale = 1.3;
             } else if (diff < 0) {
                 // Left side covers
                 targetX = diff * spacing - sideOffset;
-                targetZ = Math.abs(diff) * depthOffset;
-                targetRotationY = sideAngle;
-                targetScale = 0.8;
+                targetY = -0.2 - Math.abs(diff) * 0.05;
+                targetZ = -depthOffset - Math.abs(diff) * 0.4;
+                targetRotY = sideAngle;
+                targetScale = Math.max(0.7, 1 - Math.abs(diff) * 0.1);
             } else {
                 // Right side covers
                 targetX = diff * spacing + sideOffset;
-                targetZ = Math.abs(diff) * depthOffset;
-                targetRotationY = -sideAngle;
-                targetScale = 0.8;
+                targetY = -0.2 - Math.abs(diff) * 0.05;
+                targetZ = -depthOffset - Math.abs(diff) * 0.4;
+                targetRotY = -sideAngle;
+                targetScale = Math.max(0.7, 1 - Math.abs(diff) * 0.1);
             }
 
             // Smooth animation or immediate positioning
             if (immediate) {
-                cover.parent.position.x = targetX;
-                cover.parent.position.z = targetZ;
-                cover.parent.rotation.y = targetRotationY;
-                cover.parent.scale.setScalar(targetScale);
+                parent.position.x = targetX;
+                parent.position.y = targetY;
+                parent.position.z = targetZ;
+                parent.rotation.y = targetRotY;
+                parent.scale.set(targetScale, targetScale, 1);
             } else {
                 // Lerp for smooth transitions
-                cover.parent.position.x += (targetX - cover.parent.position.x) * speed;
-                cover.parent.position.z += (targetZ - cover.parent.position.z) * speed;
-                cover.parent.rotation.y += (targetRotationY - cover.parent.rotation.y) * speed;
+                parent.position.x += (targetX - parent.position.x) * speed;
+                parent.position.y += (targetY - parent.position.y) * speed;
+                parent.position.z += (targetZ - parent.position.z) * speed;
+                parent.rotation.y += (targetRotY - parent.rotation.y) * speed;
 
-                const currentScale = cover.parent.scale.x;
+                const currentScale = parent.scale.x;
                 const newScale = currentScale + (targetScale - currentScale) * speed;
-                cover.parent.scale.setScalar(newScale);
+                parent.scale.set(newScale, newScale, 1);
+            }
+
+            // Handle opacity
+            const opacity = 1 - Math.min(Math.abs(diff) * 0.12, 0.6);
+            if (cover.material) {
+                cover.material.opacity = opacity;
+                cover.material.transparent = true;
+            }
+
+            // Handle reflection visibility and opacity
+            const reflection = parent.children && parent.children[1];
+            if (reflection && reflection.userData && reflection.userData.isReflection) {
+                reflection.visible = this.settings.showReflections;
+                if (reflection.material) {
+                    reflection.material.opacity = opacity * 0.3;
+                }
             }
         });
     }

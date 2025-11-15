@@ -1027,7 +1027,7 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                 VALUES (?, CURRENT_TIMESTAMP)
             `);
             const result = stmt.run(gameId);
-            const sessionId = result.lastInsertId;
+            const sessionId = Number(result.lastInsertRowid);
 
             // Update launch count and last played
             db.prepare(`
@@ -1053,9 +1053,30 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                         if (game.install_directory && fs.existsSync(game.install_directory)) {
                             // Look for .exe files in the install directory
                             const files = fs.readdirSync(game.install_directory);
-                            const exeFile = files.find(f => f.toLowerCase().endsWith('.exe'));
-                            if (exeFile) {
-                                exePath = path.join(game.install_directory, exeFile);
+
+                            // Filter out common utility exes
+                            const skipExes = [
+                                'createdump.exe', 'unins000.exe', 'uninstall.exe', 'setup.exe',
+                                'updater.exe', 'launcher.exe', 'crash_reporter.exe', 'crashhandler.exe'
+                            ];
+
+                            const exeFiles = files
+                                .filter(f => f.toLowerCase().endsWith('.exe'))
+                                .filter(f => !skipExes.includes(f.toLowerCase()))
+                                .map(f => {
+                                    const fullPath = path.join(game.install_directory, f);
+                                    const stats = fs.statSync(fullPath);
+                                    return {
+                                        name: f,
+                                        path: fullPath,
+                                        size: stats.size
+                                    };
+                                });
+
+                            if (exeFiles.length > 0) {
+                                // Prefer the largest exe (games are usually larger than utilities)
+                                exeFiles.sort((a, b) => b.size - a.size);
+                                exePath = exeFiles[0].path;
                             }
                         }
 
