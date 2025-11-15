@@ -964,6 +964,30 @@ ipcMain.handle('clear-error-log', async () => {
     }
 });
 
+// Clear game data
+ipcMain.handle('clear-game-data', async () => {
+    try {
+        // Close database connection if open
+        if (db) {
+            db.close();
+            db = null;
+        }
+
+        // Delete database file
+        if (fs.existsSync(dbPath)) {
+            fs.unlinkSync(dbPath);
+        }
+
+        // Reinitialize database
+        initDatabase();
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to clear game data:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // Media folder selection
 ipcMain.handle('select-media-folder', async () => {
     try {

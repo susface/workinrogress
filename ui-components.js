@@ -64,9 +64,8 @@ class UIComponents {
             </div>
         `;
 
-        // Add to controls area
-        const controls = document.querySelector('.controls') || document.body;
-        controls.insertBefore(switcher, controls.firstChild);
+        // Add to body
+        document.body.appendChild(switcher);
     }
 
     switchView(viewMode) {
@@ -121,7 +120,12 @@ class UIComponents {
         const result = await window.electronAPI.filterGames(this.filterState);
         if (!result.success) return;
 
-        const games = result.games;
+        // Convert SQLite integers to booleans
+        const games = result.games.map(game => ({
+            ...game,
+            is_favorite: Boolean(game.is_favorite),
+            is_hidden: Boolean(game.is_hidden)
+        }));
 
         switch (viewMode) {
             case 'grid':
@@ -627,6 +631,16 @@ async function hideDuplicate(gameId) {
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    window.uiComponents = new UIComponents();
-});
+function initUIComponents() {
+    if (!window.uiComponents) {
+        window.uiComponents = new UIComponents();
+    }
+}
+
+// Handle both cases: DOM already loaded or still loading
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initUIComponents);
+} else {
+    // DOM is already loaded, initialize immediately
+    initUIComponents();
+}
