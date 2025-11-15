@@ -522,12 +522,14 @@ class CoverFlow {
          */
         return new Promise((resolve) => {
             const loader = new THREE.TextureLoader();
+            console.log(`[TEXTURE] Loading texture for "${album.title}" from: ${imageSrc}`);
 
             const tryLoad = (src, nextFallback) => {
                 loader.load(
                     src,
                     (texture) => {
                         // Success
+                        console.log(`[TEXTURE] ✓ Successfully loaded texture for "${album.title}"`);
                         if (material) {
                             material.map = texture;
                             material.needsUpdate = true;
@@ -537,11 +539,12 @@ class CoverFlow {
                     undefined, // onProgress
                     (error) => {
                         // Load failed, try next fallback
-                        console.warn('Failed to load texture:', src, error);
+                        console.warn(`[TEXTURE] ✗ Failed to load texture for "${album.title}" from: ${src}`);
                         if (nextFallback) {
                             nextFallback();
                         } else {
                             // No more fallbacks - use error placeholder
+                            console.warn(`[TEXTURE] Using error placeholder for "${album.title}"`);
                             const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
                             if (material) {
                                 material.map = errorTexture;
@@ -557,11 +560,12 @@ class CoverFlow {
             if (album.type === 'game') {
                 // Try exe_icon as final fallback before error placeholder
                 const tryExeIcon = () => {
-                    if (album.exe_icon_path) {
-                        const exeIconSrc = this.getImageSrc(album.exe_icon_path);
-                        console.log('Trying exe icon fallback:', exeIconSrc);
-                        tryLoad(exeIconSrc, null);
+                    const exeIconPath = this.getImageSrc(album.exe_icon_path);
+                    if (album.exe_icon_path && exeIconPath !== imageSrc) {
+                        console.log(`[TEXTURE] Trying exe_icon fallback for "${album.title}": ${exeIconPath}`);
+                        tryLoad(exeIconPath, null);
                     } else {
+                        console.log(`[TEXTURE] No exe_icon available for "${album.title}"`);
                         // No exe icon - use error placeholder
                         const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
                         if (material) {
@@ -574,22 +578,24 @@ class CoverFlow {
 
                 // Try icon as second-to-last fallback
                 const tryIcon = () => {
-                    if (album.icon_path) {
-                        const iconSrc = this.getImageSrc(album.icon_path);
-                        console.log('Trying icon fallback:', iconSrc);
-                        tryLoad(iconSrc, tryExeIcon);
+                    const iconPath = this.getImageSrc(album.icon_path);
+                    if (album.icon_path && iconPath !== imageSrc) {
+                        console.log(`[TEXTURE] Trying icon fallback for "${album.title}": ${iconPath}`);
+                        tryLoad(iconPath, tryExeIcon);
                     } else {
+                        console.log(`[TEXTURE] No icon fallback available for "${album.title}" (same as primary or null)`);
                         tryExeIcon();
                     }
                 };
 
                 // Try boxart as middle fallback
                 const tryBoxart = () => {
-                    if (album.boxart_path && album.boxart_path !== imageSrc) {
-                        const boxartSrc = this.getImageSrc(album.boxart_path);
-                        console.log('Trying boxart fallback:', boxartSrc);
-                        tryLoad(boxartSrc, tryIcon);
+                    const boxartPath = this.getImageSrc(album.boxart_path);
+                    if (album.boxart_path && boxartPath !== imageSrc) {
+                        console.log(`[TEXTURE] Trying boxart fallback for "${album.title}": ${boxartPath}`);
+                        tryLoad(boxartPath, tryIcon);
                     } else {
+                        console.log(`[TEXTURE] No boxart fallback available for "${album.title}" (same as primary or null)`);
                         tryIcon();
                     }
                 };
@@ -810,9 +816,8 @@ class CoverFlow {
             reflectionMaterial.transparent = true;
 
             const reflection = new THREE.Mesh(geometry, reflectionMaterial);
-            reflection.position.y = -coverHeight;
-            reflection.rotation.x = Math.PI;
-            reflection.scale.y = -0.6;
+            reflection.position.y = -coverHeight - 0.1; // Position below with small gap
+            reflection.scale.y = -0.6; // Flip vertically for mirror effect
             reflection.userData = { isReflection: true };
 
             // Ensure reflection visibility matches settings
@@ -1789,6 +1794,11 @@ class CoverFlow {
 
             // For games, prioritize exe icon for thumbnails
             if (album.type === 'game' && (album.exe_icon_path || album.icon_path)) {
+                console.log(`[THUMBNAIL] Loading thumbnail for "${album.title}"`);
+                console.log(`[THUMBNAIL]   exe_icon_path: ${album.exe_icon_path || 'null'}`);
+                console.log(`[THUMBNAIL]   icon_path: ${album.icon_path || 'null'}`);
+                console.log(`[THUMBNAIL]   boxart_path: ${album.boxart_path || 'null'}`);
+
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
 
@@ -1802,22 +1812,32 @@ class CoverFlow {
                 let primaryPath = album.exe_icon_path || album.icon_path;
                 let fallbackPath = album.exe_icon_path ? album.icon_path : null;
 
+                const primarySrc = this.getImageSrc(primaryPath, 'placeholder.png');
+                console.log(`[THUMBNAIL]   Primary source: ${primarySrc}`);
+
                 img.onload = () => {
+                    console.log(`[THUMBNAIL] ✓ Successfully loaded thumbnail for "${album.title}"`);
                     // Clear and draw the icon
                     ctx.clearRect(0, 0, 60, 60);
                     ctx.drawImage(img, 0, 0, 60, 60);
                 };
 
-                img.onerror = () => {
+                img.onerror = (error) => {
+                    console.warn(`[THUMBNAIL] ✗ Failed to load primary thumbnail for "${album.title}":`, error);
                     // Try fallback path if available
                     if (fallbackPath) {
+                        const fallbackSrc = this.getImageSrc(fallbackPath, 'placeholder.png');
+                        console.log(`[THUMBNAIL]   Trying fallback: ${fallbackSrc}`);
+
                         const fallbackImg = new Image();
                         fallbackImg.crossOrigin = 'anonymous';
                         fallbackImg.onload = () => {
+                            console.log(`[THUMBNAIL] ✓ Loaded fallback thumbnail for "${album.title}"`);
                             ctx.clearRect(0, 0, 60, 60);
                             ctx.drawImage(fallbackImg, 0, 0, 60, 60);
                         };
-                        fallbackImg.onerror = () => {
+                        fallbackImg.onerror = (fallbackError) => {
+                            console.warn(`[THUMBNAIL] ✗ Fallback also failed for "${album.title}":`, fallbackError);
                             // Keep the colored background if all images fail
                             const gradient = ctx.createLinearGradient(0, 0, 60, 60);
                             gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
@@ -1825,8 +1845,9 @@ class CoverFlow {
                             ctx.fillStyle = gradient;
                             ctx.fillRect(0, 0, 60, 60);
                         };
-                        fallbackImg.src = this.getImageSrc(fallbackPath, 'placeholder.png');
+                        fallbackImg.src = fallbackSrc;
                     } else {
+                        console.warn(`[THUMBNAIL] No fallback available for "${album.title}"`);
                         // Keep the colored background if image fails to load
                         const gradient = ctx.createLinearGradient(0, 0, 60, 60);
                         gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
@@ -1837,7 +1858,7 @@ class CoverFlow {
                 };
 
                 // Load from appropriate source based on environment
-                img.src = this.getImageSrc(primaryPath, 'placeholder.png');
+                img.src = primarySrc;
             } else if (album.type === 'image' && album.image) {
                 // For images, try to load the actual image as thumbnail
                 const img = new Image();
