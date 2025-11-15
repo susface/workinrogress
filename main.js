@@ -1003,12 +1003,37 @@ ipcMain.handle('filter-games', async (event, filters) => {
         const games = db.prepare(query).all(...params);
         db.close();
 
-        // Convert SQLite boolean integers to JavaScript booleans
-        const parsedGames = games.map(game => ({
-            ...game,
-            is_favorite: Boolean(game.is_favorite),
-            is_hidden: Boolean(game.is_hidden)
-        }));
+        // Parse JSON fields and fix image paths (same as get-games)
+        const parsedGames = games.map(game => {
+            const parsed = { ...game };
+
+            // Convert SQLite boolean integers to JavaScript booleans
+            parsed.is_favorite = Boolean(game.is_favorite);
+            parsed.is_hidden = Boolean(game.is_hidden);
+
+            // Parse JSON fields
+            if (game.genres) {
+                try {
+                    parsed.genres = JSON.parse(game.genres);
+                } catch (e) {
+                    parsed.genres = [];
+                }
+            }
+
+            // Fix image paths - convert relative to absolute
+            if (parsed.icon_path && !parsed.icon_path.startsWith('http')) {
+                // Remove leading 'game_data/' if present to avoid duplication
+                let iconPath = parsed.icon_path.replace(/^game_data[\/\\]/, '');
+                parsed.icon_path = path.join(gameDataPath, iconPath).replace(/\\/g, '/');
+            }
+            if (parsed.boxart_path && !parsed.boxart_path.startsWith('http')) {
+                // Remove leading 'game_data/' if present to avoid duplication
+                let boxartPath = parsed.boxart_path.replace(/^game_data[\/\\]/, '');
+                parsed.boxart_path = path.join(gameDataPath, boxartPath).replace(/\\/g, '/');
+            }
+
+            return parsed;
+        });
 
         return { success: true, games: parsedGames };
     } catch (error) {
