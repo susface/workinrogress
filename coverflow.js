@@ -17,29 +17,24 @@ class CoverFlow {
     constructor() {
         // ==================== MODULE INTEGRATION ====================
         // Mix in modular functionality from separate files
-        // Object.assign only copies own properties, not prototype methods,
-        // so we need to manually copy methods from module prototypes
+        const coverFlowSettings = new CoverFlowSettings();
+        const coverFlowTextures = new CoverFlowTextures();
+        const coverFlowUIUtils = new CoverFlowUIUtils();
+        const coverFlowNavigation = new CoverFlowNavigation();
+        const coverFlowUI = new CoverFlowUI();
 
-        const modules = [
-            new CoverFlowSettings(),
-            new CoverFlowTextures(),
-            new CoverFlowUIUtils(),
-            new CoverFlowNavigation(),
-            new CoverFlowUI()
-        ];
+        // Copy instance properties from modules
+        Object.assign(this, coverFlowSettings);
+        Object.assign(this, coverFlowTextures);
+        Object.assign(this, coverFlowUIUtils);
+        Object.assign(this, coverFlowNavigation);
+        Object.assign(this, coverFlowUI);
 
-        // Copy instance properties
-        modules.forEach(module => Object.assign(this, module));
-
-        // Copy prototype methods (this ensures module methods override class methods)
-        modules.forEach(module => {
-            const proto = Object.getPrototypeOf(module);
-            Object.getOwnPropertyNames(proto).forEach(name => {
-                if (name !== 'constructor' && typeof proto[name] === 'function') {
-                    this[name] = proto[name].bind(this);
-                }
-            });
-        });
+        // SURGICAL FIX: Override specific methods that need to come from modules
+        // This is needed because Object.assign doesn't copy prototype methods
+        // Only override the methods we specifically need from modules
+        this.updateInfo = coverFlowUI.updateInfo.bind(this);
+        this.showToast = coverFlowUIUtils.showToast.bind(this);
         // ============================================================
 
         this.container = document.getElementById('coverflow-container');
