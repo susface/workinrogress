@@ -420,6 +420,18 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+
+    <!-- CoverFlow Modular Architecture -->
+    <!-- Core utilities (no dependencies) -->
+    <script src="modules/coverflow-settings.js"></script>
+    <script src="modules/coverflow-textures.js"></script>
+    <script src="modules/coverflow-ui-utils.js"></script>
+
+    <!-- UI components (depends on textures) -->
+    <script src="modules/coverflow-navigation.js"></script>
+    <script src="modules/coverflow-ui.js"></script>
+
+    <!-- Main coverflow (uses all modules via Object.assign in constructor) -->
     <script src="coverflow.js"></script>
     <script src="ui-components.js"></script>
 </body>
