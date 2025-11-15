@@ -1351,6 +1351,11 @@ class CoverFlow {
     }
 
     // Reload games from server
+    // Alias for reloadGamesFromServer (for compatibility)
+    async loadGames() {
+        return this.reloadGamesFromServer();
+    }
+
     async reloadGamesFromServer() {
         if (this.isElectron) {
             // Electron mode - use IPC

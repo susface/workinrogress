@@ -269,6 +269,74 @@ class EpicScanner:
 
         return metadata
 
+    def _find_fortnite_manually(self) -> Optional[Dict]:
+        """
+        Manually search for Fortnite installation
+
+        Returns:
+            Game info dict if found, None otherwise
+        """
+        # Common Fortnite installation paths
+        possible_paths = []
+
+        if platform.system() == 'Windows':
+            # Check all drive letters
+            for drive in ['C', 'D', 'E', 'F', 'G']:
+                possible_paths.extend([
+                    f"{drive}:\\Program Files\\Epic Games\\Fortnite",
+                    f"{drive}:\\Epic Games\\Fortnite",
+                    f"{drive}:\\Games\\Epic Games\\Fortnite",
+                    f"{drive}:\\Fortnite"
+                ])
+
+        print("  Searching for Fortnite manually...")
+
+        for install_path in possible_paths:
+            if not os.path.exists(install_path):
+                continue
+
+            # Look for Fortnite executable
+            exe_paths = [
+                os.path.join(install_path, 'FortniteGame', 'Binaries', 'Win64', 'FortniteClient-Win64-Shipping.exe'),
+                os.path.join(install_path, 'FortniteGame', 'Binaries', 'Win64', 'FortniteLauncher.exe'),
+            ]
+
+            for exe_path in exe_paths:
+                if os.path.exists(exe_path):
+                    print(f"  ✓ Found Fortnite at: {install_path}")
+
+                    game_info = {
+                        'platform': 'epic',
+                        'app_name': 'Fortnite',
+                        'title': 'Fortnite',
+                        'install_directory': install_path,
+                        'launch_command': 'com.epicgames.launcher://apps/Fortnite?action=launch&silent=true',
+                        'launch_executable': exe_path,
+                        'namespace': '',
+                        'catalog_item_id': '',
+                        'icon_path': None,
+                        'boxart_path': None
+                    }
+
+                    # Try to extract icon from executable
+                    if ICON_EXTRACTOR_AVAILABLE:
+                        print(f"  Extracting icon from Fortnite executable...")
+                        exe_icon_filename = f"epic_Fortnite_exe.png"
+                        exe_icon_path = self.icons_dir / exe_icon_filename
+
+                        extracted_path = extract_game_icon(install_path, 'Fortnite', str(exe_icon_path))
+                        if extracted_path:
+                            game_info['icon_path'] = f"game_data/icons/{exe_icon_filename}"
+                            game_info['boxart_path'] = game_info['icon_path']
+                            print(f"  ✓ Extracted icon from Fortnite executable")
+
+                    # Enrich with known metadata
+                    self._enrich_game_metadata(game_info)
+
+                    return game_info
+
+        return None
+
     def scan_games(self) -> List[Dict]:
         """
         Scan for installed Epic Games
@@ -408,5 +476,14 @@ class EpicScanner:
                 self._enrich_game_metadata(game_info)
 
                 games.append(game_info)
+
+        # Method 3: Manual Fortnite detection (if not already found)
+        fortnite_found = any(game.get('title', '').lower() == 'fortnite' for game in games)
+        if not fortnite_found:
+            print("  Fortnite not found in manifests, searching manually...")
+            fortnite_game = self._find_fortnite_manually()
+            if fortnite_game:
+                games.append(fortnite_game)
+                print(f"  ✓ Successfully added Fortnite to game list")
 
         return games
