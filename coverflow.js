@@ -384,7 +384,7 @@ class CoverFlow {
                     genre: Array.isArray(game.genres) ? game.genres.join(', ') : game.genres || '-',
                     description: game.description || game.short_description || game.long_description || 'No description available.',
                     color: platformColors[game.platform] || 0x808080,
-                    image: imagePath,
+                    image: this.getImageSrc(imagePath), // Process path for coverflow display
                     icon_path: game.icon_path, // Store icon for fallback
                     boxart_path: game.boxart_path, // Store boxart separately
                     exe_icon_path: game.exe_icon_path, // Store exe icon for fallback
@@ -690,7 +690,7 @@ class CoverFlow {
 
                 // Create material with placeholder texture first
                 material = new THREE.MeshPhongMaterial({
-                    color: album.color || 0x808080,
+                    color: 0xffffff, // White color to avoid tinting the texture
                     side: THREE.DoubleSide,
                     shininess: 80
                 });
@@ -698,25 +698,14 @@ class CoverFlow {
                 // Load texture with improved error handling
                 // Store the index to access the cover later
                 const currentIndex = index;
-                this.loadTextureWithFallback(imageSrc, album, null).then((texture) => {
-                    // Update main material
-                    material.map = texture;
-                    material.needsUpdate = true;
-
-                    // Update reflection material and mesh
-                    if (this.covers[currentIndex]) {
-                        const userData = this.covers[currentIndex].userData;
-
-                        // Update reflection material
-                        if (userData.reflectionMaterial) {
-                            userData.reflectionMaterial.map = texture.clone();
-                            userData.reflectionMaterial.needsUpdate = true;
-                        }
-
-                        // Also update via direct reflection reference if available
-                        if (userData.reflection && userData.reflection.material) {
-                            userData.reflection.material.map = texture.clone();
-                            userData.reflection.material.needsUpdate = true;
+                this.loadTextureWithFallback(imageSrc, album, material).then((texture) => {
+                    // Texture is already applied to material by loadTextureWithFallback
+                    // Now update the reflection if it exists
+                    if (this.covers[currentIndex] && this.covers[currentIndex].userData.reflection) {
+                        const reflectionMesh = this.covers[currentIndex].userData.reflection;
+                        if (reflectionMesh.material) {
+                            reflectionMesh.material.map = texture;
+                            reflectionMesh.material.needsUpdate = true;
                         }
                     }
                 });
