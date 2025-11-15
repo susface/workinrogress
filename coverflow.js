@@ -1,6 +1,30 @@
-// Enhanced CoverFlow with Controller Support and GPU Rendering
+/**
+ * Enhanced CoverFlow with Controller Support, GPU Rendering, and Modular Architecture
+ *
+ * MODULAR ARCHITECTURE:
+ * This class uses Object.assign to mix in functionality from separate modules:
+ * - modules/coverflow-settings.js: Settings management (load, save, export, import, toggles)
+ * - modules/coverflow-textures.js: Texture loading with fallback chain (getImageSrc, loadTextureWithFallback)
+ * - modules/coverflow-ui-utils.js: UI utilities (showToast, openModal, toggleFullscreen)
+ * - modules/coverflow-navigation.js: Navigation logic (navigateTo, navigate, updateCoverPositions)
+ * - modules/coverflow-ui.js: UI updates (createThumbnails, updateThumbnails, updateInfo, onWindowResize)
+ *
+ * MODULE METHODS OVERRIDE ANY DUPLICATE METHODS IN THIS FILE
+ * Note: Some legacy duplicate method implementations may still exist in this file
+ * but are effectively unused as the module versions take precedence.
+ */
 class CoverFlow {
     constructor() {
+        // ==================== MODULE INTEGRATION ====================
+        // Mix in modular functionality from separate files
+        // These modules override any duplicate methods defined later in this file
+        Object.assign(this, new CoverFlowSettings());
+        Object.assign(this, new CoverFlowTextures());
+        Object.assign(this, new CoverFlowUIUtils());
+        Object.assign(this, new CoverFlowNavigation());
+        Object.assign(this, new CoverFlowUI());
+        // ============================================================
+
         this.container = document.getElementById('coverflow-container');
         this.currentIndex = 0;
         this.targetIndex = 0;

@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     launchGame: (launchCommand, gameId) => ipcRenderer.invoke('launch-game', launchCommand, gameId),
     endGameSession: (gameId) => ipcRenderer.invoke('end-game-session', gameId),
     getPlayTime: (gameId) => ipcRenderer.invoke('get-play-time', gameId),
+    getActiveSessions: () => ipcRenderer.invoke('get-active-sessions'),
 
     // Favorites and hidden
     toggleFavorite: (gameId) => ipcRenderer.invoke('toggle-favorite', gameId),

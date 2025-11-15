@@ -359,7 +359,7 @@ class XboxScanner:
                     if extracted_path:
                         icon_path = f"game_data/icons/{exe_icon_filename}"
                         boxart_path = icon_path
-                        print(f"  ✓ Extracted icon from game executable")
+                        print(f"  [OK] Extracted icon from game executable")
 
             game_info['icon_path'] = icon_path
             game_info['boxart_path'] = boxart_path
