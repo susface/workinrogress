@@ -287,6 +287,11 @@ ipcMain.handle('get-games', async () => {
         // Parse JSON fields and fix image paths
         const parsedGames = games.map(game => {
             const parsed = { ...game };
+
+            // Convert SQLite boolean integers to JavaScript booleans
+            parsed.is_favorite = Boolean(game.is_favorite);
+            parsed.is_hidden = Boolean(game.is_hidden);
+
             if (game.genres) {
                 try {
                     parsed.genres = JSON.parse(game.genres);
@@ -773,8 +778,13 @@ ipcMain.handle('toggle-hidden', async (event, gameId) => {
 // Set rating
 ipcMain.handle('set-rating', async (event, gameId, rating) => {
     try {
+        // Validate rating
+        if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
+            return { success: false, error: 'Rating must be a number between 1 and 5' };
+        }
+
         const db = initDatabase();
-        db.prepare('UPDATE games SET user_rating = ? WHERE id = ?').run(rating, gameId);
+        db.prepare('UPDATE games SET user_rating = ? WHERE id = ?').run(Math.floor(rating), gameId);
         db.close();
         return { success: true };
     } catch (error) {
@@ -786,8 +796,17 @@ ipcMain.handle('set-rating', async (event, gameId, rating) => {
 // Set notes
 ipcMain.handle('set-notes', async (event, gameId, notes) => {
     try {
+        // Validate notes
+        if (notes !== null && notes !== undefined && typeof notes !== 'string') {
+            return { success: false, error: 'Notes must be a string' };
+        }
+
+        // Limit notes length to prevent database bloat
+        const MAX_NOTES_LENGTH = 5000;
+        const validatedNotes = notes ? notes.substring(0, MAX_NOTES_LENGTH) : '';
+
         const db = initDatabase();
-        db.prepare('UPDATE games SET user_notes = ? WHERE id = ?').run(notes, gameId);
+        db.prepare('UPDATE games SET user_notes = ? WHERE id = ?').run(validatedNotes, gameId);
         db.close();
         return { success: true };
     } catch (error) {
@@ -802,7 +821,15 @@ ipcMain.handle('get-favorites', async () => {
         const db = initDatabase();
         const games = db.prepare('SELECT * FROM games WHERE is_favorite = 1 ORDER BY title').all();
         db.close();
-        return { success: true, games };
+
+        // Convert SQLite boolean integers to JavaScript booleans
+        const parsedGames = games.map(game => ({
+            ...game,
+            is_favorite: Boolean(game.is_favorite),
+            is_hidden: Boolean(game.is_hidden)
+        }));
+
+        return { success: true, games: parsedGames };
     } catch (error) {
         console.error('Error getting favorites:', error);
         return { success: false, error: error.message };
@@ -820,7 +847,15 @@ ipcMain.handle('get-recently-played', async (event, limit = 10) => {
             LIMIT ?
         `).all(limit);
         db.close();
-        return { success: true, games };
+
+        // Convert SQLite boolean integers to JavaScript booleans
+        const parsedGames = games.map(game => ({
+            ...game,
+            is_favorite: Boolean(game.is_favorite),
+            is_hidden: Boolean(game.is_hidden)
+        }));
+
+        return { success: true, games: parsedGames };
     } catch (error) {
         console.error('Error getting recently played:', error);
         return { success: false, error: error.message };
@@ -838,7 +873,15 @@ ipcMain.handle('get-most-played', async (event, limit = 10) => {
             LIMIT ?
         `).all(limit);
         db.close();
-        return { success: true, games };
+
+        // Convert SQLite boolean integers to JavaScript booleans
+        const parsedGames = games.map(game => ({
+            ...game,
+            is_favorite: Boolean(game.is_favorite),
+            is_hidden: Boolean(game.is_hidden)
+        }));
+
+        return { success: true, games: parsedGames };
     } catch (error) {
         console.error('Error getting most played:', error);
         return { success: false, error: error.message };
@@ -856,7 +899,15 @@ ipcMain.handle('get-recently-added', async (event, limit = 10) => {
             LIMIT ?
         `).all(limit);
         db.close();
-        return { success: true, games };
+
+        // Convert SQLite boolean integers to JavaScript booleans
+        const parsedGames = games.map(game => ({
+            ...game,
+            is_favorite: Boolean(game.is_favorite),
+            is_hidden: Boolean(game.is_hidden)
+        }));
+
+        return { success: true, games: parsedGames };
     } catch (error) {
         console.error('Error getting recently added:', error);
         return { success: false, error: error.message };
@@ -943,7 +994,14 @@ ipcMain.handle('filter-games', async (event, filters) => {
         const games = db.prepare(query).all(...params);
         db.close();
 
-        return { success: true, games };
+        // Convert SQLite boolean integers to JavaScript booleans
+        const parsedGames = games.map(game => ({
+            ...game,
+            is_favorite: Boolean(game.is_favorite),
+            is_hidden: Boolean(game.is_hidden)
+        }));
+
+        return { success: true, games: parsedGames };
     } catch (error) {
         console.error('Error filtering games:', error);
         return { success: false, error: error.message };
