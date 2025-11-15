@@ -660,12 +660,77 @@ ipcMain.handle('get-app-path', async () => {
 // Track active game sessions
 let activeGameSessions = new Map(); // gameId -> sessionId
 
+// Internal helper to end a game session
+function endGameSessionInternal(gameId, sessionId) {
+    try {
+        const db = initDatabase();
+
+        // Update session end time and calculate duration
+        db.prepare(`
+            UPDATE game_sessions
+            SET end_time = CURRENT_TIMESTAMP,
+                duration = (julianday(CURRENT_TIMESTAMP) - julianday(start_time)) * 86400
+            WHERE id = ?
+        `).run(sessionId);
+
+        // Get duration and update total play time
+        const session = db.prepare('SELECT duration FROM game_sessions WHERE id = ?').get(sessionId);
+
+        if (session && session.duration) {
+            db.prepare(`
+                UPDATE games
+                SET total_play_time = total_play_time + ?
+                WHERE id = ?
+            `).run(Math.floor(session.duration), gameId);
+            console.log(`[PLAYTIME] Ended session ${sessionId}, duration: ${Math.floor(session.duration)}s`);
+        }
+
+        db.close();
+        activeGameSessions.delete(gameId);
+        return true;
+    } catch (error) {
+        console.error(`[PLAYTIME] Error ending session ${sessionId}:`, error);
+        return false;
+    }
+}
+
+// End all active sessions (called on app close)
+function endAllActiveSessions() {
+    console.log(`[PLAYTIME] Ending ${activeGameSessions.size} active session(s)`);
+    for (const [gameId, sessionId] of activeGameSessions.entries()) {
+        endGameSessionInternal(gameId, sessionId);
+    }
+}
+
 // Launch game with session tracking
 ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
     try {
         // Start game session if gameId provided
         if (gameId) {
             const db = initDatabase();
+
+            // Check if there's already an active session for this game
+            if (activeGameSessions.has(gameId)) {
+                console.log(`[PLAYTIME] Game ${gameId} already has an active session, ending it first`);
+                // End the previous session before starting a new one
+                const oldSessionId = activeGameSessions.get(gameId);
+                db.prepare(`
+                    UPDATE game_sessions
+                    SET end_time = CURRENT_TIMESTAMP,
+                        duration = (julianday(CURRENT_TIMESTAMP) - julianday(start_time)) * 86400
+                    WHERE id = ?
+                `).run(oldSessionId);
+
+                const oldSession = db.prepare('SELECT duration FROM game_sessions WHERE id = ?').get(oldSessionId);
+                if (oldSession && oldSession.duration) {
+                    db.prepare(`
+                        UPDATE games
+                        SET total_play_time = total_play_time + ?
+                        WHERE id = ?
+                    `).run(Math.floor(oldSession.duration), gameId);
+                }
+            }
+
             const stmt = db.prepare(`
                 INSERT INTO game_sessions (game_id, start_time)
                 VALUES (?, CURRENT_TIMESTAMP)
@@ -683,12 +748,21 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
 
             db.close();
 
-            // Store active session
+            // Store active session with timestamp
             activeGameSessions.set(gameId, sessionId);
+            console.log(`[PLAYTIME] Started session ${sessionId} for game ${gameId}`);
+
+            // Set up auto-end after 4 hours (safety timeout)
+            setTimeout(() => {
+                if (activeGameSessions.has(gameId) && activeGameSessions.get(gameId) === sessionId) {
+                    console.log(`[PLAYTIME] Auto-ending session ${sessionId} after 4 hours`);
+                    endGameSessionInternal(gameId, sessionId);
+                }
+            }, 4 * 60 * 60 * 1000); // 4 hours
         }
 
         await shell.openExternal(launchCommand);
-        return { success: true };
+        return { success: true, sessionId: activeGameSessions.get(gameId) };
     } catch (error) {
         console.error('Error launching game:', error);
         return { success: false, error: error.message };
@@ -703,34 +777,41 @@ ipcMain.handle('end-game-session', async (event, gameId) => {
             return { success: false, error: 'No active session found' };
         }
 
-        const db = initDatabase();
-
-        // Update session end time and calculate duration
-        db.prepare(`
-            UPDATE game_sessions
-            SET end_time = CURRENT_TIMESTAMP,
-                duration = (julianday(CURRENT_TIMESTAMP) - julianday(start_time)) * 86400
-            WHERE id = ?
-        `).run(sessionId);
-
-        // Get duration and update total play time
-        const session = db.prepare('SELECT game_id, duration FROM game_sessions WHERE id = ?').get(sessionId);
-
-        if (session && session.duration) {
-            db.prepare(`
-                UPDATE games
-                SET total_play_time = total_play_time + ?
-                WHERE id = ?
-            `).run(Math.floor(session.duration), gameId);
-        }
-
-        db.close();
-        activeGameSessions.delete(gameId);
-
-        return { success: true };
+        const result = endGameSessionInternal(gameId, sessionId);
+        return { success: result };
     } catch (error) {
         console.error('Error ending game session:', error);
         return { success: false, error: error.message };
+    }
+});
+
+// Get active game sessions
+ipcMain.handle('get-active-sessions', async () => {
+    try {
+        const sessions = [];
+        const db = initDatabase();
+
+        for (const [gameId, sessionId] of activeGameSessions.entries()) {
+            const game = db.prepare('SELECT title FROM games WHERE id = ?').get(gameId);
+            const session = db.prepare('SELECT start_time FROM game_sessions WHERE id = ?').get(sessionId);
+
+            if (game && session) {
+                const duration = Math.floor((Date.now() - new Date(session.start_time).getTime()) / 1000);
+                sessions.push({
+                    gameId,
+                    sessionId,
+                    title: game.title,
+                    startTime: session.start_time,
+                    currentDuration: duration
+                });
+            }
+        }
+
+        db.close();
+        return { success: true, sessions };
+    } catch (error) {
+        console.error('Error getting active sessions:', error);
+        return { success: false, error: error.message, sessions: [] };
     }
 });
 
@@ -1249,3 +1330,22 @@ if (isDev) {
     console.log('Development mode - Game data path:', gameDataPath);
     console.log('Development mode - Database path:', dbPath);
 }
+
+// App lifecycle handlers for playtime tracking
+app.on('before-quit', () => {
+    console.log('[PLAYTIME] App closing, ending all active sessions');
+    endAllActiveSessions();
+});
+
+app.on('will-quit', () => {
+    console.log('[PLAYTIME] App quitting');
+    endAllActiveSessions();
+});
+
+// Handle window close
+app.on('window-all-closed', () => {
+    endAllActiveSessions();
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});

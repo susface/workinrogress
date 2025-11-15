@@ -205,12 +205,80 @@ class CoverFlowUI {
                 ctx.fillRect(0, 0, 60, 60);
             }
 
-            // Click handler
-            thumb.addEventListener('click', () => {
-                this.navigateTo(index);
+            // Create wrapper for thumbnail + play button
+            const thumbWrapper = document.createElement('div');
+            thumbWrapper.className = 'thumbnail-wrapper';
+            thumbWrapper.style.position = 'relative';
+            thumbWrapper.style.display = 'inline-block';
+
+            // Click handler for thumbnail - navigate to item
+            thumb.addEventListener('click', (e) => {
+                // Only navigate if not clicking play button
+                if (!e.target.closest('.thumbnail-play-btn')) {
+                    this.navigateTo(index);
+                }
             });
 
-            container.appendChild(thumb);
+            thumbWrapper.appendChild(thumb);
+
+            // Add play button overlay for games
+            if (album.type === 'game' && album.launch_command) {
+                const playBtn = document.createElement('button');
+                playBtn.className = 'thumbnail-play-btn';
+                playBtn.innerHTML = '▶';
+                playBtn.title = `Play ${album.title}`;
+                playBtn.style.cssText = `
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    background: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    border: 2px solid rgba(255, 255, 255, 0.8);
+                    cursor: pointer;
+                    font-size: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    transition: opacity 0.2s, background 0.2s;
+                    padding-left: 2px;
+                    z-index: 10;
+                `;
+
+                // Show on hover
+                thumbWrapper.addEventListener('mouseenter', () => {
+                    playBtn.style.opacity = '1';
+                });
+                thumbWrapper.addEventListener('mouseleave', () => {
+                    playBtn.style.opacity = '0';
+                });
+
+                // Hover effect for button
+                playBtn.addEventListener('mouseenter', () => {
+                    playBtn.style.background = 'rgba(0, 0, 0, 0.9)';
+                    playBtn.style.borderColor = 'white';
+                });
+                playBtn.addEventListener('mouseleave', () => {
+                    playBtn.style.background = 'rgba(0, 0, 0, 0.7)';
+                    playBtn.style.borderColor = 'rgba(255, 255, 255, 0.8)';
+                });
+
+                // Click handler - launch game directly
+                playBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation(); // Prevent thumbnail navigation
+                    if (window.electronAPI && album.id && album.launch_command) {
+                        await window.electronAPI.launchGame(album.launch_command, album.id);
+                    }
+                });
+
+                thumbWrapper.appendChild(playBtn);
+            }
+
+            container.appendChild(thumbWrapper);
         });
 
         this.updateThumbnails();
