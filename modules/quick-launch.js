@@ -12,6 +12,8 @@ class QuickLaunch {
         this.filteredGames = [];
         this.selectedIndex = 0;
         this.isOpen = false;
+        this.platformFilter = 'all';
+        this.sortBy = 'relevance'; // 'relevance', 'playtime', 'alphabetical'
     }
 
     /**
@@ -90,6 +92,61 @@ class QuickLaunch {
 
         header.appendChild(this.input);
 
+        // Create filter row
+        const filterRow = document.createElement('div');
+        filterRow.style.cssText = `
+            padding: 12px 20px 0 20px;
+            display: flex;
+            gap: 10px;
+            background: #252525;
+        `;
+
+        const platformSelect = document.createElement('select');
+        platformSelect.id = 'quick-launch-platform-filter';
+        platformSelect.style.cssText = `
+            padding: 6px 10px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 12px;
+            flex: 1;
+        `;
+        platformSelect.innerHTML = `
+            <option value="all">All Platforms</option>
+            <option value="steam">Steam</option>
+            <option value="epic">Epic Games</option>
+            <option value="xbox">Xbox/Game Pass</option>
+        `;
+        platformSelect.addEventListener('change', (e) => {
+            this.platformFilter = e.target.value;
+            this.handleSearch();
+        });
+
+        const sortSelect = document.createElement('select');
+        sortSelect.id = 'quick-launch-sort';
+        sortSelect.style.cssText = `
+            padding: 6px 10px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 12px;
+            flex: 1;
+        `;
+        sortSelect.innerHTML = `
+            <option value="relevance">Sort: Relevance</option>
+            <option value="playtime">Sort: Playtime</option>
+            <option value="alphabetical">Sort: A-Z</option>
+        `;
+        sortSelect.addEventListener('change', (e) => {
+            this.sortBy = e.target.value;
+            this.handleSearch();
+        });
+
+        filterRow.appendChild(platformSelect);
+        filterRow.appendChild(sortSelect);
+
         // Create results container
         this.results = document.createElement('div');
         this.results.className = 'quick-launch-results';
@@ -116,6 +173,7 @@ class QuickLaunch {
         `;
 
         container.appendChild(header);
+        container.appendChild(filterRow);
         container.appendChild(this.results);
         container.appendChild(footer);
         this.overlay.appendChild(container);
@@ -199,34 +257,73 @@ class QuickLaunch {
      */
     handleSearch() {
         const query = this.input.value.trim();
+        let games = [...this.games];
+
+        // Apply platform filter
+        if (this.platformFilter !== 'all') {
+            games = games.filter(game =>
+                (game.platform || '').toLowerCase() === this.platformFilter.toLowerCase()
+            );
+        }
 
         if (!query) {
-            // Show all games sorted by most played
-            this.filteredGames = [...this.games]
-                .sort((a, b) => (b.total_play_time || 0) - (a.total_play_time || 0))
-                .slice(0, 20);
+            // Show filtered games
+            this.filteredGames = games;
         } else {
-            // Fuzzy search
-            const results = this.games.map(game => {
+            // Fuzzy search on filtered games
+            const results = games.map(game => {
                 const titleMatch = this.fuzzySearch(query, game.title);
                 const platformMatch = this.fuzzySearch(query, game.platform || '');
-                const score = Math.max(titleMatch.score, platformMatch.score * 0.5);
+                const developerMatch = this.fuzzySearch(query, game.developer || '');
+                const score = Math.max(
+                    titleMatch.score,
+                    platformMatch.score * 0.3,
+                    developerMatch.score * 0.2
+                );
 
                 return { game, score, matches: titleMatch.matches };
             })
-            .filter(r => r.score > 0)
-            .sort((a, b) => {
-                // Sort by score, then by playtime
-                if (b.score !== a.score) return b.score - a.score;
-                return (b.game.total_play_time || 0) - (a.game.total_play_time || 0);
-            })
-            .slice(0, 20);
+            .filter(r => r.score > 0);
 
             this.filteredGames = results.map(r => r.game);
         }
 
+        // Apply sorting
+        this.applySorting();
+
+        // Limit to 20 results
+        this.filteredGames = this.filteredGames.slice(0, 20);
+
         this.selectedIndex = 0;
         this.renderResults();
+    }
+
+    /**
+     * Apply sorting to filtered games
+     */
+    applySorting() {
+        switch (this.sortBy) {
+            case 'playtime':
+                this.filteredGames.sort((a, b) =>
+                    (b.total_play_time || 0) - (a.total_play_time || 0)
+                );
+                break;
+            case 'alphabetical':
+                this.filteredGames.sort((a, b) =>
+                    (a.title || '').localeCompare(b.title || '')
+                );
+                break;
+            case 'relevance':
+            default:
+                // Already sorted by search relevance if there's a query
+                // Otherwise sort by playtime
+                if (!this.input.value.trim()) {
+                    this.filteredGames.sort((a, b) =>
+                        (b.total_play_time || 0) - (a.total_play_time || 0)
+                    );
+                }
+                break;
+        }
     }
 
     /**
@@ -392,6 +489,15 @@ class QuickLaunch {
         this.overlay.style.display = 'block';
         this.isOpen = true;
         this.input.value = '';
+
+        // Reset filters
+        const platformSelect = document.getElementById('quick-launch-platform-filter');
+        const sortSelect = document.getElementById('quick-launch-sort');
+        if (platformSelect) platformSelect.value = 'all';
+        if (sortSelect) sortSelect.value = 'relevance';
+        this.platformFilter = 'all';
+        this.sortBy = 'relevance';
+
         this.handleSearch(); // Show recent/popular games
         this.input.focus();
 
