@@ -34,6 +34,8 @@ class CoverFlow {
         // This is needed because Object.assign doesn't copy prototype methods
         // Only override the methods we specifically need from modules
         this.updateInfo = coverFlowUI.updateInfo.bind(this);
+        this.toggleAudioPlayback = coverFlowUI.toggleAudioPlayback.bind(this);
+        this.createFileTypeThumbnail = coverFlowUI.createFileTypeThumbnail.bind(this);
         this.showToast = coverFlowUIUtils.showToast.bind(this);
         // ============================================================
 
