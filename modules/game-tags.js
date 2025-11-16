@@ -314,6 +314,206 @@ class GameTags {
     }
 
     /**
+     * Smart auto-tagging based on game metadata
+     */
+    smartAutoTag(games) {
+        let taggedCount = 0;
+
+        games.forEach(game => {
+            const autoTags = this.generateAutoTags(game);
+
+            autoTags.forEach(tagName => {
+                // Create tag if it doesn't exist
+                if (!this.tags.has(tagName)) {
+                    try {
+                        this.createTag(tagName, this.getTagColorForType(tagName));
+                    } catch (e) {
+                        // Tag might already exist from concurrent operation
+                    }
+                }
+
+                // Add tag to game
+                try {
+                    if (!this.gameTags.has(game.id)) {
+                        this.gameTags.set(game.id, new Set());
+                    }
+
+                    if (!this.gameTags.get(game.id).has(tagName)) {
+                        this.addTagToGame(game.id, tagName);
+                        taggedCount++;
+                    }
+                } catch (e) {
+                    console.error(`[AUTO_TAG] Error tagging ${game.title}:`, e);
+                }
+            });
+        });
+
+        console.log(`[AUTO_TAG] Auto-tagged ${taggedCount} games`);
+        return taggedCount;
+    }
+
+    /**
+     * Generate automatic tags for a game based on metadata
+     */
+    generateAutoTags(game) {
+        const tags = [];
+
+        // Platform tags
+        if (game.platform) {
+            tags.push(game.platform.toUpperCase());
+        }
+
+        // Genre-based tags
+        if (game.genres) {
+            const genres = Array.isArray(game.genres) ? game.genres :
+                          typeof game.genres === 'string' ? game.genres.split(',').map(g => g.trim()) : [];
+
+            genres.forEach(genre => {
+                if (genre) {
+                    tags.push(genre);
+                }
+            });
+        }
+
+        // Publisher/Developer tags for well-known studios
+        const famousStudios = [
+            'Valve', 'Bethesda', 'Rockstar', 'EA', 'Ubisoft', 'Activision',
+            'Blizzard', 'Nintendo', 'Sony', 'Microsoft', 'Square Enix',
+            'CD Projekt', 'FromSoftware', 'Capcom', 'Konami', 'SEGA'
+        ];
+
+        famousStudios.forEach(studio => {
+            if (game.developer?.toLowerCase().includes(studio.toLowerCase()) ||
+                game.publisher?.toLowerCase().includes(studio.toLowerCase())) {
+                tags.push(studio);
+            }
+        });
+
+        // Playtime-based tags
+        if (game.total_play_time > 0) {
+            const hours = game.total_play_time / 3600;
+
+            if (hours >= 100) {
+                tags.push('100+ Hours');
+            } else if (hours >= 50) {
+                tags.push('50+ Hours');
+            } else if (hours >= 10) {
+                tags.push('10+ Hours');
+            }
+
+            // Recently played
+            if (game.last_played) {
+                const lastPlayed = new Date(game.last_played);
+                const daysSince = (Date.now() - lastPlayed.getTime()) / (1000 * 60 * 60 * 24);
+
+                if (daysSince <= 7) {
+                    tags.push('Recently Played');
+                }
+            }
+        }
+
+        // Title-based pattern matching
+        const title = game.title.toLowerCase();
+
+        // Multiplayer indicators
+        if (title.includes('multiplayer') || title.includes('online') ||
+            title.includes('co-op') || title.includes('versus')) {
+            tags.push('Multiplayer');
+        }
+
+        // Series detection
+        const seriesPatterns = [
+            { pattern: /call of duty/i, tag: 'Call of Duty' },
+            { pattern: /assassin'?s creed/i, tag: "Assassin's Creed" },
+            { pattern: /grand theft auto|gta/i, tag: 'GTA Series' },
+            { pattern: /elder scrolls/i, tag: 'Elder Scrolls' },
+            { pattern: /fallout/i, tag: 'Fallout' },
+            { pattern: /far cry/i, tag: 'Far Cry' },
+            { pattern: /battlefield/i, tag: 'Battlefield' },
+            { pattern: /tomb raider/i, tag: 'Tomb Raider' },
+            { pattern: /dark souls|elden ring|bloodborne/i, tag: 'Soulslike' },
+            { pattern: /witcher/i, tag: 'The Witcher' },
+            { pattern: /halo/i, tag: 'Halo' },
+            { pattern: /pokemon|pokémon/i, tag: 'Pokemon' }
+        ];
+
+        seriesPatterns.forEach(({ pattern, tag }) => {
+            if (pattern.test(title)) {
+                tags.push(tag);
+            }
+        });
+
+        // Year-based tags (if release date available)
+        if (game.release_date) {
+            const year = new Date(game.release_date).getFullYear();
+            const currentYear = new Date().getFullYear();
+
+            if (year >= currentYear - 1) {
+                tags.push('New Release');
+            } else if (year >= 2020) {
+                tags.push('Modern');
+            } else if (year >= 2010) {
+                tags.push('Classic');
+            } else if (year < 2010) {
+                tags.push('Retro');
+            }
+        }
+
+        // Installation size tags
+        if (game.size_on_disk) {
+            const gb = game.size_on_disk / (1024 * 1024 * 1024);
+
+            if (gb >= 100) {
+                tags.push('Large Game (100GB+)');
+            } else if (gb <= 5) {
+                tags.push('Small Game (<5GB)');
+            }
+        }
+
+        return [...new Set(tags)]; // Remove duplicates
+    }
+
+    /**
+     * Get appropriate color for auto-generated tag type
+     */
+    getTagColorForType(tagName) {
+        const colorMap = {
+            // Platforms
+            'STEAM': '#1B2838',
+            'EPIC': '#313131',
+            'XBOX': '#107C10',
+
+            // Playtime
+            'Recently Played': '#4fc3f7',
+            '10+ Hours': '#81c784',
+            '50+ Hours': '#ffb74d',
+            '100+ Hours': '#e57373',
+
+            // Era
+            'New Release': '#ff6b6b',
+            'Modern': '#4ecdc4',
+            'Classic': '#95a5a6',
+            'Retro': '#9b59b6',
+
+            // Types
+            'Multiplayer': '#3498db',
+            'Soulslike': '#2c3e50',
+
+            // Studios
+            'Valve': '#171a21',
+            'Bethesda': '#d4af37',
+            'Rockstar': '#fcaf17',
+            'CD Projekt': '#cd2a2a',
+            'FromSoftware': '#1a1a1a',
+
+            // Default
+            'default': '#4fc3f7'
+        };
+
+        return colorMap[tagName] || colorMap['default'];
+    }
+
+    /**
      * Show tags management UI
      */
     showTagsUI() {
@@ -403,6 +603,22 @@ class GameTags {
                     }
                 </div>
 
+                <div style="margin-bottom: 12px;">
+                    <button id="auto-tag-btn" style="
+                        width: 100%;
+                        padding: 12px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border: none;
+                        border-radius: 6px;
+                        color: #fff;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">🤖 Smart Auto-Tag All Games</button>
+                    <small style="display: block; color: #888; margin-top: 4px; font-size: 11px;">
+                        Automatically tag games by platform, genre, playtime, series, and more
+                    </small>
+                </div>
+
                 <div style="display: flex; gap: 10px;">
                     <button id="export-tags-btn" style="
                         flex: 1;
@@ -442,6 +658,49 @@ class GameTags {
         document.body.appendChild(modal);
 
         // Event listeners
+        modal.querySelector('#auto-tag-btn').addEventListener('click', async () => {
+            const autoTagBtn = modal.querySelector('#auto-tag-btn');
+            autoTagBtn.textContent = '🤖 Auto-tagging...';
+            autoTagBtn.disabled = true;
+
+            try {
+                // Get all games
+                let games = [];
+                if (window.coverflow && window.coverflow.allAlbums) {
+                    games = window.coverflow.allAlbums.filter(g => g.type === 'game');
+                } else if (window.electronAPI) {
+                    const result = await window.electronAPI.getGames();
+                    if (result.success) {
+                        games = result.games;
+                    }
+                }
+
+                if (games.length === 0) {
+                    throw new Error('No games found to tag');
+                }
+
+                const taggedCount = this.smartAutoTag(games);
+
+                modal.remove();
+                this.showTagsUI(); // Refresh
+
+                if (window.coverflow && typeof window.coverflow.showToast === 'function') {
+                    window.coverflow.showToast(`Auto-tagged ${taggedCount} games!`, 'success');
+                } else {
+                    alert(`Auto-tagged ${taggedCount} games!`);
+                }
+            } catch (error) {
+                console.error('[AUTO_TAG] Error:', error);
+                if (window.coverflow && typeof window.coverflow.showToast === 'function') {
+                    window.coverflow.showToast(`Auto-tag failed: ${error.message}`, 'error');
+                } else {
+                    alert(`Auto-tag failed: ${error.message}`);
+                }
+                autoTagBtn.textContent = '🤖 Smart Auto-Tag All Games';
+                autoTagBtn.disabled = false;
+            }
+        });
+
         modal.querySelector('#create-tag-btn').addEventListener('click', () => {
             const nameInput = modal.querySelector('#new-tag-name');
             const colorInput = modal.querySelector('#new-tag-color');

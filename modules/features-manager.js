@@ -11,6 +11,8 @@ class FeaturesManager {
         this.recentGames = []; // Store recent games for safe event handling
         this.gameTags = null;
         this.libraryExport = null;
+        this.backlogManager = null;
+        this.screenshotGallery = null;
     }
 
     /**
@@ -47,6 +49,18 @@ class FeaturesManager {
             window.libraryExport = this.libraryExport; // Make globally accessible
         }
 
+        // Initialize Backlog Manager
+        if (window.BacklogManager) {
+            this.backlogManager = new BacklogManager();
+            window.backlogManager = this.backlogManager; // Make globally accessible
+        }
+
+        // Initialize Screenshot Gallery
+        if (window.ScreenshotGallery) {
+            this.screenshotGallery = new ScreenshotGallery();
+            window.screenshotGallery = this.screenshotGallery; // Make globally accessible
+        }
+
         // Load and apply theme
         await this.loadTheme();
 
@@ -59,6 +73,8 @@ class FeaturesManager {
         this.setupStatsButton();
         this.setupTagsButton();
         this.setupLibraryBackupButton();
+        this.setupBacklogButton();
+        this.setupScreenshotGalleryButton();
         this.setupRecentlyLaunched();
     }
 
@@ -247,6 +263,69 @@ class FeaturesManager {
             document.getElementById('library-backup-btn').addEventListener('click', () => {
                 if (this.libraryExport) {
                     this.libraryExport.showExportImportUI();
+                }
+            });
+        }
+    }
+
+    /**
+     * Setup backlog manager button
+     */
+    setupBacklogButton() {
+        const gameLibrarySection = Array.from(document.querySelectorAll('.setting-section-title'))
+            .find(el => el.textContent.includes('Game Library'));
+
+        if (!gameLibrarySection || document.getElementById('backlog-btn')) return;
+
+        const backlogGroup = document.createElement('div');
+        backlogGroup.className = 'setting-group';
+        backlogGroup.innerHTML = `
+            <button id="backlog-btn" class="btn">📚 Game Backlog Manager</button>
+            <small class="setting-info">Track games you want to play, completion status, and more</small>
+        `;
+
+        // Add after library backup button
+        const libraryBackupBtn = document.getElementById('library-backup-btn');
+        if (libraryBackupBtn && libraryBackupBtn.parentElement) {
+            libraryBackupBtn.parentElement.after(backlogGroup);
+
+            document.getElementById('backlog-btn').addEventListener('click', () => {
+                if (this.backlogManager) {
+                    this.backlogManager.showBacklogUI();
+                }
+            });
+        }
+    }
+
+    /**
+     * Setup screenshot gallery button
+     */
+    setupScreenshotGalleryButton() {
+        const mediaLibrarySection = Array.from(document.querySelectorAll('.setting-section-title'))
+            .find(el => el.textContent.includes('Media Library'));
+
+        if (!mediaLibrarySection || document.getElementById('screenshot-gallery-btn')) return;
+
+        const galleryGroup = document.createElement('div');
+        galleryGroup.className = 'setting-group';
+        galleryGroup.innerHTML = `
+            <button id="screenshot-gallery-btn" class="btn">📸 Screenshot Gallery</button>
+            <small class="setting-info">View and organize your game screenshots</small>
+        `;
+
+        // Add after media library section
+        if (mediaLibrarySection.parentElement) {
+            // Find the last setting-group in media library section
+            const lastMediaGroup = Array.from(mediaLibrarySection.parentElement.querySelectorAll('.setting-group')).pop();
+            if (lastMediaGroup) {
+                lastMediaGroup.after(galleryGroup);
+            } else {
+                mediaLibrarySection.after(galleryGroup);
+            }
+
+            document.getElementById('screenshot-gallery-btn').addEventListener('click', () => {
+                if (this.screenshotGallery) {
+                    this.screenshotGallery.showGalleryUI();
                 }
             });
         }
