@@ -511,6 +511,18 @@ class CoverFlow {
         this.renderer.toneMappingExposure = 1.2;
         this.container.appendChild(this.renderer.domElement);
 
+        // Initialize Visual Effects Manager
+        if (window.VisualEffectsManager) {
+            this.visualEffectsManager = new VisualEffectsManager(
+                this.scene,
+                this.camera,
+                this.renderer,
+                this
+            );
+            window.visualEffectsManager = this.visualEffectsManager; // Make globally accessible
+            console.log('[COVERFLOW] Visual Effects Manager initialized');
+        }
+
         // Enhanced lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
@@ -3043,6 +3055,11 @@ class CoverFlow {
         if (centerCover && centerCover.parent) {
             const baseY = centerCover.parent.position.y;
             centerCover.parent.position.y = baseY + Math.sin(Date.now() * 0.001) * 0.03;
+        }
+
+        // Update visual effects
+        if (this.visualEffectsManager) {
+            this.visualEffectsManager.update(this.covers);
         }
 
         // Render with post-processing if enabled, otherwise normal render

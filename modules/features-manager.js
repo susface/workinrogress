@@ -13,6 +13,7 @@ class FeaturesManager {
         this.libraryExport = null;
         this.backlogManager = null;
         this.screenshotGallery = null;
+        this.visualEffects = null;
     }
 
     /**
@@ -75,6 +76,7 @@ class FeaturesManager {
         this.setupLibraryBackupButton();
         this.setupBacklogButton();
         this.setupScreenshotGalleryButton();
+        this.setupVisualEffectsButton();
         this.setupRecentlyLaunched();
     }
 
@@ -326,6 +328,42 @@ class FeaturesManager {
             document.getElementById('screenshot-gallery-btn').addEventListener('click', () => {
                 if (this.screenshotGallery) {
                     this.screenshotGallery.showGalleryUI();
+                }
+            });
+        }
+    }
+
+    /**
+     * Setup Visual Effects button in settings
+     */
+    setupVisualEffectsButton() {
+        // Find the display settings section
+        const displaySection = Array.from(document.querySelectorAll('.setting-section-title'))
+            .find(el => el.textContent.includes('Display'));
+
+        if (!displaySection || document.getElementById('visual-effects-btn')) return;
+
+        const vfxGroup = document.createElement('div');
+        vfxGroup.className = 'setting-group';
+        vfxGroup.innerHTML = `
+            <button id="visual-effects-btn" class="btn">✨ Visual Effects</button>
+            <small class="setting-info">Configure particles, shaders, lighting, and visual enhancements</small>
+        `;
+
+        // Add after display section
+        if (displaySection.parentElement) {
+            const lastDisplayGroup = Array.from(displaySection.parentElement.querySelectorAll('.setting-group')).pop();
+            if (lastDisplayGroup) {
+                lastDisplayGroup.after(vfxGroup);
+            } else {
+                displaySection.after(vfxGroup);
+            }
+
+            document.getElementById('visual-effects-btn').addEventListener('click', () => {
+                if (window.visualEffectsManager) {
+                    window.visualEffectsManager.showSettingsUI();
+                } else {
+                    alert('Visual Effects are initializing. Please wait a moment and try again.');
                 }
             });
         }
