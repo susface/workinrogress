@@ -6,6 +6,17 @@
 
 class VisualEffectsManager {
     constructor(scene, camera, renderer, coverflowInstance) {
+        // Validate THREE.js is available
+        if (typeof THREE === 'undefined') {
+            console.error('[VISUAL_FX] THREE.js is not loaded! Visual effects will not work.');
+            throw new Error('THREE.js is required for Visual Effects Manager');
+        }
+
+        if (!scene || !camera || !renderer) {
+            console.error('[VISUAL_FX] Invalid scene, camera, or renderer provided');
+            throw new Error('Valid scene, camera, and renderer are required');
+        }
+
         this.scene = scene;
         this.camera = camera;
         this.renderer = renderer;
@@ -105,9 +116,15 @@ class VisualEffectsManager {
      * Load settings from localStorage
      */
     loadSettings() {
-        const saved = localStorage.getItem('visual-effects-settings');
-        if (saved) {
-            this.settings = { ...this.settings, ...JSON.parse(saved) };
+        try {
+            const saved = localStorage.getItem('visual-effects-settings');
+            if (saved) {
+                this.settings = { ...this.settings, ...JSON.parse(saved) };
+                console.log('[VISUAL_FX] Settings loaded from localStorage');
+            }
+        } catch (error) {
+            console.error('[VISUAL_FX] Error loading settings from localStorage:', error);
+            console.log('[VISUAL_FX] Using default settings');
         }
     }
 
@@ -115,54 +132,98 @@ class VisualEffectsManager {
      * Save settings to localStorage
      */
     saveSettings() {
-        localStorage.setItem('visual-effects-settings', JSON.stringify(this.settings));
+        try {
+            localStorage.setItem('visual-effects-settings', JSON.stringify(this.settings));
+        } catch (error) {
+            console.error('[VISUAL_FX] Error saving settings to localStorage:', error);
+        }
     }
 
     /**
      * Initialize effects based on settings
      */
     init() {
-        // Setup mouse tracking
-        this.setupMouseTracking();
+        try {
+            // Setup mouse tracking
+            this.setupMouseTracking();
 
-        // Initialize enabled effects
-        if (this.settings.particlesEnabled) {
-            this.initParticleSystem();
+            // Initialize enabled effects with error handling
+            if (this.settings.particlesEnabled) {
+                try {
+                    this.initParticleSystem();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize particle system:', error);
+                }
+            }
+
+            if (this.settings.parallaxEnabled) {
+                try {
+                    this.initParallaxBackground();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize parallax background:', error);
+                }
+            }
+
+            if (this.settings.holographicUIEnabled) {
+                try {
+                    this.initHolographicUI();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize holographic UI:', error);
+                }
+            }
+
+            if (this.settings.gestureTrailsEnabled) {
+                try {
+                    this.initGestureTrails();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize gesture trails:', error);
+                }
+            }
+
+            if (this.settings.advancedLightingEnabled) {
+                try {
+                    this.initAdvancedLighting();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize advanced lighting:', error);
+                }
+            }
+
+            if (this.settings.customShadersEnabled) {
+                try {
+                    this.initCustomShader();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize custom shader:', error);
+                }
+            }
+
+            if (this.settings.vrModeEnabled || this.settings.stereo3DEnabled) {
+                try {
+                    this.initVRMode();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize VR mode:', error);
+                }
+            }
+
+            if (this.settings.audioReactiveEnabled) {
+                try {
+                    this.initAudioVisualizer();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize audio visualizer:', error);
+                }
+            }
+
+            if (this.settings.enhancedReflectionsEnabled) {
+                try {
+                    this.initEnhancedReflections();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to initialize enhanced reflections:', error);
+                }
+            }
+
+            console.log('[VISUAL_FX] Initialized with settings:', this.settings);
+        } catch (error) {
+            console.error('[VISUAL_FX] Critical error during initialization:', error);
         }
-
-        if (this.settings.parallaxEnabled) {
-            this.initParallaxBackground();
-        }
-
-        if (this.settings.holographicUIEnabled) {
-            this.initHolographicUI();
-        }
-
-        if (this.settings.gestureTrailsEnabled) {
-            this.initGestureTrails();
-        }
-
-        if (this.settings.advancedLightingEnabled) {
-            this.initAdvancedLighting();
-        }
-
-        if (this.settings.customShadersEnabled) {
-            this.initCustomShader();
-        }
-
-        if (this.settings.vrModeEnabled || this.settings.stereo3DEnabled) {
-            this.initVRMode();
-        }
-
-        if (this.settings.audioReactiveEnabled) {
-            this.initAudioVisualizer();
-        }
-
-        if (this.settings.enhancedReflectionsEnabled) {
-            this.initEnhancedReflections();
-        }
-
-        console.log('[VISUAL_FX] Initialized with settings:', this.settings);
     }
 
     /**
@@ -1518,49 +1579,93 @@ class VisualEffectsManager {
      * Main update loop - call this in animation frame
      */
     update(covers = []) {
-        // Cache covers for cleanup operations
-        if (covers && covers.length > 0) {
-            this.coversCache = covers;
-        }
+        try {
+            // Cache covers for cleanup operations
+            if (covers && covers.length > 0) {
+                this.coversCache = covers;
+            }
 
-        if (this.settings.particlesEnabled) {
-            this.updateParticles();
-        }
+            if (this.settings.particlesEnabled) {
+                try {
+                    this.updateParticles();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating particles:', error);
+                }
+            }
 
-        if (this.settings.parallaxEnabled) {
-            this.updateParallax();
-        }
+            if (this.settings.parallaxEnabled) {
+                try {
+                    this.updateParallax();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating parallax:', error);
+                }
+            }
 
-        if (this.settings.gestureTrailsEnabled) {
-            this.updateGestureTrails();
-        }
+            if (this.settings.gestureTrailsEnabled) {
+                try {
+                    this.updateGestureTrails();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating gesture trails:', error);
+                }
+            }
 
-        if (this.settings.idleAnimationsEnabled) {
-            this.updateIdleAnimations(covers);
-        }
+            if (this.settings.idleAnimationsEnabled) {
+                try {
+                    this.updateIdleAnimations(covers);
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating idle animations:', error);
+                }
+            }
 
-        if (this.settings.advancedLightingEnabled) {
-            this.updateAdvancedLighting();
-        }
+            if (this.settings.advancedLightingEnabled) {
+                try {
+                    this.updateAdvancedLighting();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating advanced lighting:', error);
+                }
+            }
 
-        if (this.settings.customShadersEnabled) {
-            this.updateCustomShader();
-        }
+            if (this.settings.customShadersEnabled) {
+                try {
+                    this.updateCustomShader();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating custom shader:', error);
+                }
+            }
 
-        if (this.settings.audioReactiveEnabled) {
-            this.updateAudioReactive();
-        }
+            if (this.settings.audioReactiveEnabled) {
+                try {
+                    this.updateAudioReactive();
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating audio reactive:', error);
+                }
+            }
 
-        if (this.settings.magneticCovers) {
-            this.updateMagneticCovers(covers);
-        }
+            if (this.settings.magneticCovers) {
+                try {
+                    this.updateMagneticCovers(covers);
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating magnetic covers:', error);
+                }
+            }
 
-        if (this.settings.tiltWithMouse) {
-            this.updateTiltWithMouse(covers);
-        }
+            if (this.settings.tiltWithMouse) {
+                try {
+                    this.updateTiltWithMouse(covers);
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating tilt with mouse:', error);
+                }
+            }
 
-        if (this.settings.enhancedReflectionsEnabled) {
-            this.updateEnhancedReflections(covers);
+            if (this.settings.enhancedReflectionsEnabled) {
+                try {
+                    this.updateEnhancedReflections(covers);
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating enhanced reflections:', error);
+                }
+            }
+        } catch (error) {
+            console.error('[VISUAL_FX] Critical error in update loop:', error);
         }
     }
 
@@ -1568,11 +1673,12 @@ class VisualEffectsManager {
      * Toggle effect on/off
      */
     toggleEffect(effectName, enabled) {
-        this.settings[effectName] = enabled;
-        this.saveSettings();
+        try {
+            this.settings[effectName] = enabled;
+            this.saveSettings();
 
-        // Reinitialize effect if needed
-        switch (effectName) {
+            // Reinitialize effect if needed
+            switch (effectName) {
             case 'particlesEnabled':
                 if (enabled) {
                     this.initParticleSystem();
@@ -1654,35 +1760,45 @@ class VisualEffectsManager {
                     }
                 }
                 break;
-        }
+            }
 
-        console.log(`[VISUAL_FX] ${effectName} = ${enabled}`);
+            console.log(`[VISUAL_FX] ${effectName} = ${enabled}`);
+        } catch (error) {
+            console.error(`[VISUAL_FX] Error toggling effect ${effectName}:`, error);
+            // Revert setting on error
+            this.settings[effectName] = !enabled;
+            this.saveSettings();
+        }
     }
 
     /**
      * Update setting value
      */
     updateSetting(settingName, value) {
-        this.settings[settingName] = value;
-        this.saveSettings();
+        try {
+            this.settings[settingName] = value;
+            this.saveSettings();
 
-        // Reinit if needed
-        if (settingName === 'particlePreset' && this.settings.particlesEnabled) {
-            this.initParticleSystem();
-        }
-
-        // Reinit shader when preset changes
-        if (settingName === 'shaderPreset' && this.settings.customShadersEnabled) {
-            // Remove old shader first
-            if (this.shaderMesh) {
-                this.scene.remove(this.shaderMesh);
-                this.shaderMesh = null;
+            // Reinit if needed
+            if (settingName === 'particlePreset' && this.settings.particlesEnabled) {
+                this.initParticleSystem();
             }
-            // Initialize new shader
-            this.initCustomShader();
-        }
 
-        console.log(`[VISUAL_FX] ${settingName} = ${value}`);
+            // Reinit shader when preset changes
+            if (settingName === 'shaderPreset' && this.settings.customShadersEnabled) {
+                // Remove old shader first
+                if (this.shaderMesh) {
+                    this.scene.remove(this.shaderMesh);
+                    this.shaderMesh = null;
+                }
+                // Initialize new shader
+                this.initCustomShader();
+            }
+
+            console.log(`[VISUAL_FX] ${settingName} = ${value}`);
+        } catch (error) {
+            console.error(`[VISUAL_FX] Error updating setting ${settingName}:`, error);
+        }
     }
 
     /**
@@ -1696,65 +1812,75 @@ class VisualEffectsManager {
      * Cleanup
      */
     dispose() {
-        // Particles
-        if (this.particleSystem) {
-            this.scene.remove(this.particleSystem);
+        try {
+            // Particles
+            if (this.particleSystem) {
+                this.scene.remove(this.particleSystem);
+            }
+
+            // Parallax
+            this.clearParallaxLayers();
+
+            // Trails
+            if (this.trailLine) {
+                this.scene.remove(this.trailLine);
+            }
+
+            // Lighting
+            if (this.rimLight) this.scene.remove(this.rimLight);
+            if (this.godRaysMesh) this.scene.remove(this.godRaysMesh);
+            if (this.colorLight1) this.scene.remove(this.colorLight1);
+            if (this.colorLight2) this.scene.remove(this.colorLight2);
+
+            // Shaders
+            if (this.shaderMesh) this.scene.remove(this.shaderMesh);
+
+            // Reflections
+            this.clearReflections(this.coversCache);
+            if (this.reflectionPlane) this.scene.remove(this.reflectionPlane);
+
+            // Holographic UI
+            document.getElementById('scanlines-overlay')?.remove();
+            document.getElementById('holographic-style')?.remove();
+
+            // Loading animations
+            document.getElementById('visual-fx-loader')?.remove();
+
+            console.log('[VISUAL_FX] Disposed');
+        } catch (error) {
+            console.error('[VISUAL_FX] Error during disposal:', error);
         }
-
-        // Parallax
-        this.clearParallaxLayers();
-
-        // Trails
-        if (this.trailLine) {
-            this.scene.remove(this.trailLine);
-        }
-
-        // Lighting
-        if (this.rimLight) this.scene.remove(this.rimLight);
-        if (this.godRaysMesh) this.scene.remove(this.godRaysMesh);
-        if (this.colorLight1) this.scene.remove(this.colorLight1);
-        if (this.colorLight2) this.scene.remove(this.colorLight2);
-
-        // Shaders
-        if (this.shaderMesh) this.scene.remove(this.shaderMesh);
-
-        // Reflections
-        this.clearReflections(this.coversCache);
-        if (this.reflectionPlane) this.scene.remove(this.reflectionPlane);
-
-        // Holographic UI
-        document.getElementById('scanlines-overlay')?.remove();
-        document.getElementById('holographic-style')?.remove();
-
-        // Loading animations
-        document.getElementById('visual-fx-loader')?.remove();
-
-        console.log('[VISUAL_FX] Disposed');
     }
 
     /**
      * Create settings UI panel
      */
     showSettingsUI() {
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.style.display = 'block';
+        try {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'block';
 
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
-                <span class="close" onclick="this.parentElement.parentElement.remove()">&times;</span>
-                <h2>Visual Effects Settings</h2>
-                <div id="visual-effects-settings" style="display: grid; gap: 20px;">
-                    ${this.createSettingsHTML()}
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                    <span class="close" onclick="this.parentElement.parentElement.remove()">&times;</span>
+                    <h2>Visual Effects Settings</h2>
+                    <div id="visual-effects-settings" style="display: grid; gap: 20px;">
+                        ${this.createSettingsHTML()}
+                    </div>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="primary-button" onclick="this.parentElement.parentElement.parentElement.remove()">Close</button>
+                    </div>
                 </div>
-                <div style="margin-top: 20px; text-align: center;">
-                    <button class="primary-button" onclick="this.parentElement.parentElement.parentElement.remove()">Close</button>
-                </div>
-            </div>
-        `;
+            `;
 
-        document.body.appendChild(modal);
-        this.attachSettingsListeners();
+            document.body.appendChild(modal);
+            this.attachSettingsListeners();
+            console.log('[VISUAL_FX] Settings UI opened');
+        } catch (error) {
+            console.error('[VISUAL_FX] Error showing settings UI:', error);
+            alert('Error opening Visual Effects settings. Check console for details.');
+        }
     }
 
     /**
@@ -1913,34 +2039,58 @@ class VisualEffectsManager {
      * Attach event listeners to settings
      */
     attachSettingsListeners() {
-        // Checkboxes
-        document.querySelectorAll('#visual-effects-settings input[type="checkbox"]').forEach(checkbox => {
-            checkbox.addEventListener('change', (e) => {
-                this.toggleEffect(e.target.id, e.target.checked);
+        try {
+            // Checkboxes
+            document.querySelectorAll('#visual-effects-settings input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    try {
+                        this.toggleEffect(e.target.id, e.target.checked);
+                    } catch (error) {
+                        console.error(`[VISUAL_FX] Error toggling effect ${e.target.id}:`, error);
+                    }
+                });
             });
-        });
 
-        // Dropdowns
-        document.getElementById('particlePreset')?.addEventListener('change', (e) => {
-            this.updateSetting('particlePreset', e.target.value);
-        });
+            // Dropdowns
+            document.getElementById('particlePreset')?.addEventListener('change', (e) => {
+                try {
+                    this.updateSetting('particlePreset', e.target.value);
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating particle preset:', error);
+                }
+            });
 
-        document.getElementById('shaderPreset')?.addEventListener('change', (e) => {
-            this.updateSetting('shaderPreset', e.target.value);
-        });
+            document.getElementById('shaderPreset')?.addEventListener('change', (e) => {
+                try {
+                    this.updateSetting('shaderPreset', e.target.value);
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating shader preset:', error);
+                }
+            });
 
-        document.getElementById('transitionType')?.addEventListener('change', (e) => {
-            this.updateSetting('transitionType', e.target.value);
-        });
+            document.getElementById('transitionType')?.addEventListener('change', (e) => {
+                try {
+                    this.updateSetting('transitionType', e.target.value);
+                } catch (error) {
+                    console.error('[VISUAL_FX] Error updating transition type:', error);
+                }
+            });
 
-        // Enable/disable dependent controls
-        document.getElementById('particlesEnabled')?.addEventListener('change', (e) => {
-            document.getElementById('particlePreset').disabled = !e.target.checked;
-        });
+            // Enable/disable dependent controls
+            document.getElementById('particlesEnabled')?.addEventListener('change', (e) => {
+                const presetSelect = document.getElementById('particlePreset');
+                if (presetSelect) presetSelect.disabled = !e.target.checked;
+            });
 
-        document.getElementById('customShadersEnabled')?.addEventListener('change', (e) => {
-            document.getElementById('shaderPreset').disabled = !e.target.checked;
-        });
+            document.getElementById('customShadersEnabled')?.addEventListener('change', (e) => {
+                const shaderSelect = document.getElementById('shaderPreset');
+                if (shaderSelect) shaderSelect.disabled = !e.target.checked;
+            });
+
+            console.log('[VISUAL_FX] Settings listeners attached');
+        } catch (error) {
+            console.error('[VISUAL_FX] Error attaching settings listeners:', error);
+        }
     }
 }
 
