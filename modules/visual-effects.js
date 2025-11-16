@@ -1868,8 +1868,23 @@ class VisualEffectsManager {
             modal.className = 'modal active';
             modal.style.display = 'flex';
 
+            // Calculate responsive dimensions
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            let maxWidth = '900px';
+            let maxHeight = '85vh';
+
+            if (viewportWidth <= 480) {
+                maxWidth = '100%';
+                maxHeight = '95vh';
+            } else if (viewportWidth <= 768) {
+                maxWidth = '95%';
+                maxHeight = '90vh';
+            }
+
             modal.innerHTML = `
-                <div class="modal-content" style="max-width: 900px; max-height: 85vh; overflow-y: auto;">
+                <div class="modal-content" id="vfx-modal-content" style="max-width: ${maxWidth}; max-height: ${maxHeight}; overflow-y: auto; width: 100%;">
                     <span class="close" onclick="this.parentElement.parentElement.remove()">&times;</span>
                     <h2 style="text-align: center; margin-bottom: 20px;">✨ Visual Effects Settings</h2>
                     <div id="visual-effects-settings" style="display: grid; gap: 20px;">
@@ -1883,7 +1898,35 @@ class VisualEffectsManager {
 
             document.body.appendChild(modal);
             this.attachSettingsListeners();
-            console.log('[VISUAL_FX] Settings UI opened');
+
+            // Handle window resize while modal is open
+            const resizeHandler = () => {
+                const modalContent = document.getElementById('vfx-modal-content');
+                if (modalContent) {
+                    const vw = window.innerWidth;
+                    if (vw <= 480) {
+                        modalContent.style.maxWidth = '100%';
+                        modalContent.style.maxHeight = '95vh';
+                    } else if (vw <= 768) {
+                        modalContent.style.maxWidth = '95%';
+                        modalContent.style.maxHeight = '90vh';
+                    } else {
+                        modalContent.style.maxWidth = '900px';
+                        modalContent.style.maxHeight = '85vh';
+                    }
+                }
+            };
+
+            window.addEventListener('resize', resizeHandler);
+
+            // Clean up resize listener when modal is closed
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    window.removeEventListener('resize', resizeHandler);
+                }
+            });
+
+            console.log('[VISUAL_FX] Settings UI opened (viewport:', viewportWidth, 'x', viewportHeight, ')');
         } catch (error) {
             console.error('[VISUAL_FX] Error showing settings UI:', error);
             alert('Error opening Visual Effects settings. Check console for details.');

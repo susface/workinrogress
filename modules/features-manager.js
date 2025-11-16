@@ -382,7 +382,7 @@ class FeaturesManager {
             padding: 16px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             z-index: 100;
-            transition: top 0.3s ease;
+            transition: all 0.3s ease;
         `;
 
         sidebar.innerHTML = `
@@ -418,6 +418,48 @@ class FeaturesManager {
                 }
             });
         }
+
+        // Dynamic viewport repositioning
+        const repositionSidebar = () => {
+            const rect = sidebar.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // Check if sidebar is outside viewport horizontally
+            if (rect.right > viewportWidth) {
+                // Move to left side if doesn't fit on right
+                sidebar.style.right = 'auto';
+                sidebar.style.left = '20px';
+                console.log('[FEATURES] Sidebar repositioned to left (viewport width:', viewportWidth, 'px)');
+            } else if (rect.left < 0 && sidebar.style.left !== 'auto') {
+                // Move back to right if went too far left
+                sidebar.style.left = 'auto';
+                sidebar.style.right = '20px';
+                console.log('[FEATURES] Sidebar repositioned to right');
+            }
+
+            // Check vertical position
+            if (rect.bottom > viewportHeight) {
+                // Move up if going off bottom
+                const newTop = viewportHeight - rect.height - 20;
+                sidebar.style.top = `${Math.max(80, newTop)}px`;
+                console.log('[FEATURES] Sidebar repositioned vertically (viewport height:', viewportHeight, 'px)');
+            }
+
+            // Handle very small screens
+            if (viewportWidth < 480) {
+                sidebar.style.display = 'none';
+            } else {
+                sidebar.style.display = 'block';
+            }
+        };
+
+        // Check on resize and scroll
+        window.addEventListener('resize', repositionSidebar);
+        window.addEventListener('scroll', repositionSidebar);
+
+        // Initial check
+        setTimeout(repositionSidebar, 100);
     }
 
     /**
