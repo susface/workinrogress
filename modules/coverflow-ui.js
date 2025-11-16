@@ -99,10 +99,11 @@ class CoverFlowUI {
             if (publisherEl) publisherEl.parentElement.style.display = 'none';
         }
 
-        // Show/hide and setup play button for games
+        // Show/hide and setup play button for games AND audio files
         const playBtn = document.getElementById('play-btn');
         if (playBtn && album.type === 'game') {
             playBtn.style.display = 'block';
+            playBtn.innerHTML = '▶ Play Game';
             // Set up click handler for launching game
             playBtn.onclick = async () => {
                 if (window.electronAPI && album.id && album.launch_command) {
@@ -137,6 +138,16 @@ class CoverFlowUI {
                     }
                 }
             };
+        } else if (playBtn && album.type === 'music') {
+            playBtn.style.display = 'block';
+            // Update button text based on current playback state
+            const isPlaying = this.audioPlayer && !this.audioPlayer.paused && this.currentAudioFile === album.audio;
+            playBtn.innerHTML = isPlaying ? '⏸ Pause Music' : '▶ Play Music';
+
+            // Set up click handler for playing audio
+            playBtn.onclick = () => {
+                this.toggleAudioPlayback(album);
+            };
         } else if (playBtn) {
             playBtn.style.display = 'none';
             playBtn.onclick = null; // Clear handler
@@ -161,6 +172,82 @@ class CoverFlowUI {
         if (positionEl) {
             positionEl.textContent = this.currentIndex + 1;
         }
+    }
+
+    /**
+     * Create a fallback thumbnail with file type label
+     */
+    createFileTypeThumbnail(ctx, album, width = 60, height = 60) {
+        // Color schemes for different file types
+        const typeColors = {
+            'game': { bg: '#1B2838', text: '#FFFFFF' },
+            'mp3': { bg: '#FF6B6B', text: '#FFFFFF' },
+            'wav': { bg: '#FF6B6B', text: '#FFFFFF' },
+            'flac': { bg: '#FF6B6B', text: '#FFFFFF' },
+            'ogg': { bg: '#FF6B6B', text: '#FFFFFF' },
+            'midi': { bg: '#FF6B6B', text: '#FFFFFF' },
+            'm4a': { bg: '#FF6B6B', text: '#FFFFFF' },
+            'jpg': { bg: '#4ECDC4', text: '#FFFFFF' },
+            'jpeg': { bg: '#4ECDC4', text: '#FFFFFF' },
+            'png': { bg: '#4ECDC4', text: '#FFFFFF' },
+            'gif': { bg: '#4ECDC4', text: '#FFFFFF' },
+            'bmp': { bg: '#4ECDC4', text: '#FFFFFF' },
+            'webp': { bg: '#4ECDC4', text: '#FFFFFF' },
+            'mp4': { bg: '#9B59B6', text: '#FFFFFF' },
+            'avi': { bg: '#9B59B6', text: '#FFFFFF' },
+            'mkv': { bg: '#9B59B6', text: '#FFFFFF' },
+            'mov': { bg: '#9B59B6', text: '#FFFFFF' },
+            'wmv': { bg: '#9B59B6', text: '#FFFFFF' },
+            'flv': { bg: '#9B59B6', text: '#FFFFFF' },
+            'webm': { bg: '#9B59B6', text: '#FFFFFF' }
+        };
+
+        // Determine file type and extension
+        let fileType = 'FILE';
+        let bgColor = '#808080';
+        let textColor = '#FFFFFF';
+
+        if (album.type === 'game') {
+            fileType = 'GAME';
+            const colors = typeColors['game'];
+            bgColor = colors.bg;
+            textColor = colors.text;
+        } else if (album.type === 'music' && album.audio) {
+            const ext = album.audio.split('.').pop().toLowerCase();
+            fileType = ext.toUpperCase();
+            const colors = typeColors[ext] || { bg: '#FF6B6B', text: '#FFFFFF' };
+            bgColor = colors.bg;
+            textColor = colors.text;
+        } else if (album.type === 'image' && album.image) {
+            const ext = album.image.split('.').pop().toLowerCase();
+            fileType = ext.toUpperCase();
+            const colors = typeColors[ext] || { bg: '#4ECDC4', text: '#FFFFFF' };
+            bgColor = colors.bg;
+            textColor = colors.text;
+        } else if (album.type === 'video' && album.video) {
+            const ext = album.video.split('.').pop().toLowerCase();
+            fileType = ext.toUpperCase();
+            const colors = typeColors[ext] || { bg: '#9B59B6', text: '#FFFFFF' };
+            bgColor = colors.bg;
+            textColor = colors.text;
+        }
+
+        // Draw background
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw file type text
+        ctx.fillStyle = textColor;
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Truncate text if too long
+        if (fileType.length > 6) {
+            fileType = fileType.substring(0, 6);
+        }
+
+        ctx.fillText(fileType, width / 2, height / 2);
     }
 
     /**
@@ -250,22 +337,16 @@ class CoverFlowUI {
                         fallbackImg.onerror = (fallbackError) => {
                             console.warn(`[THUMBNAIL] ✗ Fallback also failed for "${album.title}":`, fallbackError);
                             if (thumb.isConnected) {
-                                const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-                                gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-                                gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
-                                ctx.fillStyle = gradient;
-                                ctx.fillRect(0, 0, 60, 60);
+                                ctx.clearRect(0, 0, 60, 60);
+                                this.createFileTypeThumbnail(ctx, album, 60, 60);
                             }
                         };
                         fallbackImg.src = fallbackSrc;
                     } else {
                         console.warn(`[THUMBNAIL] No fallback available for "${album.title}"`);
                         if (thumb.isConnected) {
-                            const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-                            gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-                            gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
-                            ctx.fillStyle = gradient;
-                            ctx.fillRect(0, 0, 60, 60);
+                            ctx.clearRect(0, 0, 60, 60);
+                            this.createFileTypeThumbnail(ctx, album, 60, 60);
                         }
                     }
                 };
@@ -288,43 +369,15 @@ class CoverFlowUI {
 
                 img.onerror = () => {
                     if (thumb.isConnected) {
-                        const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-                        gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-                        gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
-                        ctx.fillStyle = gradient;
-                        ctx.fillRect(0, 0, 60, 60);
+                        ctx.clearRect(0, 0, 60, 60);
+                        this.createFileTypeThumbnail(ctx, album, 60, 60);
                     }
                 };
 
                 img.src = this.getImageSrc(album.image, 'placeholder.png');
-            } else if (album.type === 'video') {
-                // Video thumbnail
-                const gradient = ctx.createLinearGradient(0, 0, 0, 60);
-                gradient.addColorStop(0, '#8B4789');
-                gradient.addColorStop(1, '#5A2D58');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, 60, 60);
-
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.beginPath();
-                ctx.moveTo(20, 15);
-                ctx.lineTo(20, 45);
-                ctx.lineTo(45, 30);
-                ctx.closePath();
-                ctx.fill();
-            } else if (album.type === 'music' || album.audio) {
-                // Music thumbnail
-                const gradient = ctx.createLinearGradient(0, 0, 0, 60);
-                gradient.addColorStop(0, '#FF6347');
-                gradient.addColorStop(1, '#DC143C');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, 60, 60);
-
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.beginPath();
-                ctx.fillRect(35, 15, 3, 25);
-                ctx.ellipse(33, 40, 5, 4, -0.3, 0, Math.PI * 2);
-                ctx.fill();
+            } else if (album.type === 'video' || album.type === 'music') {
+                // Video and music thumbnails - show file type
+                this.createFileTypeThumbnail(ctx, album, 60, 60);
             } else {
                 // Default colored thumbnail
                 const thumbColor = typeof album.color === 'number' && !isNaN(album.color)
@@ -480,6 +533,63 @@ class CoverFlowUI {
 
         if (this.composer) {
             this.composer.setSize(this.container.clientWidth, this.container.clientHeight);
+        }
+    }
+
+    /**
+     * Toggle audio playback for music files
+     */
+    toggleAudioPlayback(album) {
+        if (!album || !album.audio) {
+            this.showToast('No audio file available', 'error');
+            return;
+        }
+
+        // Initialize audio player if needed
+        if (!this.audioPlayer) {
+            this.audioPlayer = new Audio();
+            this.currentAudioFile = null;
+
+            // Add event listeners for playback events
+            this.audioPlayer.addEventListener('ended', () => {
+                this.showToast('Playback finished', 'info');
+                this.updateInfo(); // Update button state
+            });
+
+            this.audioPlayer.addEventListener('error', (e) => {
+                console.error('[AUDIO] Playback error:', e);
+                this.showToast('Error playing audio file', 'error');
+            });
+        }
+
+        // If playing a different file, stop it and start the new one
+        if (this.currentAudioFile !== album.audio) {
+            this.audioPlayer.pause();
+            this.audioPlayer.src = album.audio;
+            this.currentAudioFile = album.audio;
+
+            this.audioPlayer.play().then(() => {
+                this.showToast(`Playing: ${album.title}`, 'success');
+                this.updateInfo(); // Update button to show pause
+            }).catch(error => {
+                console.error('[AUDIO] Play error:', error);
+                this.showToast('Failed to play audio', 'error');
+            });
+        } else {
+            // Same file - toggle play/pause
+            if (this.audioPlayer.paused) {
+                this.audioPlayer.play().then(() => {
+                    this.showToast(`Playing: ${album.title}`, 'success');
+                    this.updateInfo(); // Update button to show pause
+                }).catch(error => {
+                    console.error('[AUDIO] Play error:', error);
+                    this.showToast('Failed to play audio', 'error');
+                });
+            } else {
+                this.audioPlayer.pause();
+                this.showToast('Playback paused', 'info');
+                this.updateInfo(); // Update button to show play
+            }
         }
     }
 }
