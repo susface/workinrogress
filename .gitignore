@@ -57,3 +57,6 @@ game_data/games_export.json
 
 # Error logs
 error.log
+
+# Downloaded libraries (use download-libs.sh/bat to download)
+libs/
