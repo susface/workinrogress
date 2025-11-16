@@ -701,82 +701,259 @@ class CoverFlowUI {
             this.analyser.getByteFrequencyData(dataArray);
 
             const mode = this.settings.visualizerMode || 'bars';
+            const centerX = width / 2;
+            const centerY = height / 2;
 
-            if (mode === 'trippy') {
-                // Trippy wave visualizer
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-                ctx.fillRect(0, 0, width, height);
+            switch (mode) {
+                case 'trippy':
+                    // Trippy wave visualizer
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                    ctx.fillRect(0, 0, width, height);
 
-                time += 0.01;
+                    time += 0.01;
 
-                // Draw multiple overlapping waves
-                for (let layer = 0; layer < 3; layer++) {
+                    // Draw multiple overlapping waves
+                    for (let layer = 0; layer < 3; layer++) {
+                        ctx.beginPath();
+                        ctx.lineWidth = 2 + layer;
+
+                        for (let x = 0; x < width; x++) {
+                            const index = Math.floor((x / width) * bufferLength);
+                            const amplitude = (dataArray[index] / 255) * (height / 3);
+                            const wave1 = Math.sin(x * 0.01 + time * (1 + layer * 0.5)) * amplitude;
+                            const wave2 = Math.cos(x * 0.015 - time * (1 - layer * 0.3)) * amplitude * 0.5;
+                            const y = height / 2 + wave1 + wave2 + Math.sin(time + layer) * 20;
+
+                            if (x === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+
+                        const hue = (time * 50 + layer * 120) % 360;
+                        ctx.strokeStyle = `hsl(${hue}, 100%, ${60 - layer * 10}%)`;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+                    }
+
+                    // Add particles
+                    for (let i = 0; i < bufferLength; i += 8) {
+                        if (dataArray[i] > 128) {
+                            const particleX = (i / bufferLength) * width;
+                            const particleY = height / 2 + Math.sin(time + i) * 100;
+                            const size = (dataArray[i] / 255) * 8;
+                            ctx.beginPath();
+                            ctx.arc(particleX, particleY, size, 0, Math.PI * 2);
+                            ctx.fillStyle = `hsla(${(i * 3 + time * 50) % 360}, 100%, 60%, 0.6)`;
+                            ctx.fill();
+                        }
+                    }
+                    break;
+
+                case 'circle':
+                    // Circle radial visualizer
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                    ctx.fillRect(0, 0, width, height);
+
+                    time += 0.02;
+                    const radius = Math.min(width, height) / 3;
+
+                    for (let i = 0; i < bufferLength; i++) {
+                        const value = dataArray[i] / 255;
+                        const angle = (i / bufferLength) * Math.PI * 2;
+                        const barHeight = value * radius;
+
+                        const x1 = centerX + Math.cos(angle) * radius;
+                        const y1 = centerY + Math.sin(angle) * radius;
+                        const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+                        const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+
+                        const hue = (i * 2 + time * 30) % 360;
+                        ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.stroke();
+                    }
+
+                    // Draw center circle
                     ctx.beginPath();
-                    ctx.lineWidth = 2 + layer;
+                    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `hsl(${(time * 50) % 360}, 100%, 50%)`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    break;
 
-                    for (let x = 0; x < width; x++) {
-                        // Get frequency data index for this x position
-                        const index = Math.floor((x / width) * bufferLength);
-                        const amplitude = (dataArray[index] / 255) * (height / 3);
+                case 'waveform':
+                    // Waveform visualizer
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.fillRect(0, 0, width, height);
 
-                        // Create wavy pattern
-                        const wave1 = Math.sin(x * 0.01 + time * (1 + layer * 0.5)) * amplitude;
-                        const wave2 = Math.cos(x * 0.015 - time * (1 - layer * 0.3)) * amplitude * 0.5;
-                        const y = height / 2 + wave1 + wave2 + Math.sin(time + layer) * 20;
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = `hsl(${(Date.now() * 0.05) % 360}, 100%, 60%)`;
+                    ctx.beginPath();
 
-                        if (x === 0) {
+                    const sliceWidth = width / bufferLength;
+                    let x = 0;
+
+                    for (let i = 0; i < bufferLength; i++) {
+                        const v = dataArray[i] / 255;
+                        const y = v * height;
+
+                        if (i === 0) {
                             ctx.moveTo(x, y);
                         } else {
                             ctx.lineTo(x, y);
                         }
+
+                        x += sliceWidth;
                     }
 
-                    // Rainbow gradient based on time and layer
-                    const hue = (time * 50 + layer * 120) % 360;
-                    ctx.strokeStyle = `hsl(${hue}, 100%, ${60 - layer * 10}%)`;
                     ctx.stroke();
 
-                    // Add glow effect
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                    // Add mirror effect
+                    ctx.save();
+                    ctx.scale(1, -1);
+                    ctx.translate(0, -height);
+                    ctx.globalAlpha = 0.3;
                     ctx.stroke();
-                    ctx.shadowBlur = 0;
-                }
+                    ctx.restore();
+                    break;
 
-                // Add particles
-                for (let i = 0; i < bufferLength; i += 8) {
-                    if (dataArray[i] > 128) {
-                        const particleX = (i / bufferLength) * width;
-                        const particleY = height / 2 + Math.sin(time + i) * 100;
-                        const size = (dataArray[i] / 255) * 8;
+                case 'particles':
+                    // Particle explosion visualizer
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                    ctx.fillRect(0, 0, width, height);
+
+                    time += 0.02;
+
+                    for (let i = 0; i < bufferLength; i += 2) {
+                        const value = dataArray[i] / 255;
+                        if (value > 0.3) {
+                            const angle = (i / bufferLength) * Math.PI * 2 + time;
+                            const distance = value * 200 + Math.sin(time + i) * 50;
+                            const x = centerX + Math.cos(angle) * distance;
+                            const y = centerY + Math.sin(angle) * distance;
+                            const size = value * 10;
+
+                            ctx.beginPath();
+                            ctx.arc(x, y, size, 0, Math.PI * 2);
+                            const hue = (i * 3 + time * 50) % 360;
+                            const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+                            gradient.addColorStop(0, `hsla(${hue}, 100%, 70%, 1)`);
+                            gradient.addColorStop(1, `hsla(${hue}, 100%, 50%, 0)`);
+                            ctx.fillStyle = gradient;
+                            ctx.fill();
+                        }
+                    }
+                    break;
+
+                case 'starfield':
+                    // Starfield visualizer
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.fillRect(0, 0, width, height);
+
+                    time += 0.01;
+
+                    for (let i = 0; i < bufferLength; i += 3) {
+                        const value = dataArray[i] / 255;
+                        const angle = ((i / bufferLength) * Math.PI * 2 + time) * 3;
+                        const distance = (value * 300 + 50) * (Math.sin(time * 0.5) * 0.5 + 1);
+                        const x = centerX + Math.cos(angle) * distance;
+                        const y = centerY + Math.sin(angle) * distance;
+                        const size = value * 4 + 1;
 
                         ctx.beginPath();
-                        ctx.arc(particleX, particleY, size, 0, Math.PI * 2);
-                        ctx.fillStyle = `hsla(${(i * 3 + time * 50) % 360}, 100%, 60%, 0.6)`;
+                        ctx.arc(x, y, size, 0, Math.PI * 2);
+                        const brightness = 50 + value * 50;
+                        ctx.fillStyle = `hsl(200, 100%, ${brightness}%)`;
+                        ctx.shadowBlur = size * 3;
+                        ctx.shadowColor = `hsl(200, 100%, ${brightness}%)`;
                         ctx.fill();
+                        ctx.shadowBlur = 0;
+
+                        // Draw trail
+                        ctx.beginPath();
+                        const trailX = centerX + Math.cos(angle - 0.1) * (distance * 0.8);
+                        const trailY = centerY + Math.sin(angle - 0.1) * (distance * 0.8);
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(trailX, trailY);
+                        ctx.strokeStyle = `hsla(200, 100%, ${brightness}%, 0.5)`;
+                        ctx.lineWidth = size / 2;
+                        ctx.stroke();
                     }
-                }
-            } else {
-                // Original frequency bars visualizer
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                ctx.fillRect(0, 0, width, height);
+                    break;
 
-                const barWidth = (width / bufferLength) * 2.5;
-                let x = 0;
+                case 'oscilloscope':
+                    // Oscilloscope visualizer
+                    ctx.fillStyle = 'rgba(0, 20, 0, 0.2)';
+                    ctx.fillRect(0, 0, width, height);
 
-                for (let i = 0; i < bufferLength; i++) {
-                    const barHeight = (dataArray[i] / 255) * height;
+                    time += 0.01;
 
-                    // Create gradient for each bar
-                    const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
-                    gradient.addColorStop(0, `hsl(${i * 2}, 100%, 60%)`);
-                    gradient.addColorStop(1, `hsl(${i * 2}, 100%, 40%)`);
+                    // Draw grid
+                    ctx.strokeStyle = 'rgba(0, 255, 0, 0.1)';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < width; i += 50) {
+                        ctx.beginPath();
+                        ctx.moveTo(i, 0);
+                        ctx.lineTo(i, height);
+                        ctx.stroke();
+                    }
+                    for (let i = 0; i < height; i += 50) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, i);
+                        ctx.lineTo(width, i);
+                        ctx.stroke();
+                    }
 
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+                    // Draw waveform
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#00ff00';
+                    ctx.beginPath();
 
-                    x += barWidth + 1;
-                }
+                    for (let i = 0; i < bufferLength; i++) {
+                        const x = (i / bufferLength) * width;
+                        const v = dataArray[i] / 128;
+                        const y = (v * height) / 2;
+
+                        if (i === 0) {
+                            ctx.moveTo(x, centerY - y);
+                        } else {
+                            ctx.lineTo(x, centerY - y);
+                        }
+                    }
+
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    break;
+
+                default:
+                    // Original frequency bars visualizer
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.fillRect(0, 0, width, height);
+
+                    const barWidth = (width / bufferLength) * 2.5;
+                    let barX = 0;
+
+                    for (let i = 0; i < bufferLength; i++) {
+                        const barHeight = (dataArray[i] / 255) * height;
+
+                        const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
+                        gradient.addColorStop(0, `hsl(${i * 2}, 100%, 60%)`);
+                        gradient.addColorStop(1, `hsl(${i * 2}, 100%, 40%)`);
+
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(barX, height - barHeight, barWidth, barHeight);
+
+                        barX += barWidth + 1;
+                    }
             }
         };
 
