@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getPlayTime: (gameId) => ipcRenderer.invoke('get-play-time', gameId),
     getActiveSessions: () => ipcRenderer.invoke('get-active-sessions'),
 
+    // Media file opening
+    openMediaFile: (filePath) => ipcRenderer.invoke('open-media-file', filePath),
+
     // Favorites and hidden
     toggleFavorite: (gameId) => ipcRenderer.invoke('toggle-favorite', gameId),
     toggleHidden: (gameId) => ipcRenderer.invoke('toggle-hidden', gameId),

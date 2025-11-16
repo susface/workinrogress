@@ -726,8 +726,32 @@ class CoverFlow {
                     opacity: 0.95,
                     ior: 1.5 // Index of refraction for glass-like appearance
                 });
-            } else if (album.image) {
-                // album.image is already properly formatted by getImageSrc()
+            } else if (album.type === 'image' && album.image) {
+                // For image type, ensure path is properly formatted
+                const imageSrc = this.getImageSrc(album.image);
+
+                // Create material with placeholder texture first
+                material = new THREE.MeshPhongMaterial({
+                    color: 0xffffff, // White color to avoid tinting the texture
+                    side: THREE.DoubleSide,
+                    shininess: 80
+                });
+
+                // Load texture with improved error handling
+                const currentIndex = index;
+                this.loadTextureWithFallback(imageSrc, album, material).then((texture) => {
+                    // Texture is already applied to material by loadTextureWithFallback
+                    // Now update the reflection if it exists
+                    if (this.covers[currentIndex] && this.covers[currentIndex].userData.reflection) {
+                        const reflectionMesh = this.covers[currentIndex].userData.reflection;
+                        if (reflectionMesh.material) {
+                            reflectionMesh.material.map = texture;
+                            reflectionMesh.material.needsUpdate = true;
+                        }
+                    }
+                });
+            } else if (album.type === 'game' && album.image) {
+                // For games, image is already formatted via getImageSrc during load
                 const imageSrc = album.image;
 
                 // Create material with placeholder texture first
@@ -738,7 +762,6 @@ class CoverFlow {
                 });
 
                 // Load texture with improved error handling
-                // Store the index to access the cover later
                 const currentIndex = index;
                 this.loadTextureWithFallback(imageSrc, album, material).then((texture) => {
                     // Texture is already applied to material by loadTextureWithFallback
@@ -1250,6 +1273,49 @@ class CoverFlow {
                 this.showToast('Game launching is platform-specific. Please use your game launcher.', 'info');
                 console.log('Platform:', game.platform);
                 console.log('Launch command:', game.launchCommand);
+            }
+        }
+    }
+
+    // Open media file in default Windows app
+    openMediaFile(item) {
+        let filePath = null;
+
+        // Get the file path based on media type
+        if (item.type === 'image' && item.image) {
+            filePath = item.image;
+        } else if (item.type === 'video' && item.video) {
+            filePath = item.video;
+        } else if (item.type === 'music' && item.audio) {
+            filePath = item.audio;
+        }
+
+        if (!filePath) {
+            this.showToast('No file path available', 'error');
+            return;
+        }
+
+        console.log('Opening media file:', item.title, 'at path:', filePath);
+
+        if (this.isElectron) {
+            // Use Electron shell API to open in default app
+            window.electronAPI.openMediaFile(filePath).then(result => {
+                if (result && result.success) {
+                    this.showToast(`Opening ${item.title}...`, 'success');
+                } else {
+                    this.showToast('Failed to open file', 'error');
+                }
+            }).catch(error => {
+                console.error('Error opening media file:', error);
+                this.showToast('Error opening file', 'error');
+            });
+        } else {
+            // Browser mode - try to open file URL
+            if (filePath.startsWith('http')) {
+                window.open(filePath, '_blank');
+                this.showToast(`Opening ${item.title}...`, 'success');
+            } else {
+                this.showToast('File opening is only available in desktop mode', 'info');
             }
         }
     }
@@ -2308,7 +2374,7 @@ class CoverFlow {
             }
         });
 
-        // Double-click to launch game
+        // Double-click to launch game or open media file
         this.container.addEventListener('dblclick', (e) => {
             const rect = this.container.getBoundingClientRect();
             const mouse = new THREE.Vector2();
@@ -2324,8 +2390,13 @@ class CoverFlow {
                 if (clickedCover.userData.isCover && clickedCover.userData.index === this.currentIndex) {
                     // Double-click on current cover
                     const item = this.filteredAlbums[this.currentIndex];
-                    if (item && item.type === 'game') {
-                        this.launchGame(item);
+                    if (item) {
+                        if (item.type === 'game') {
+                            this.launchGame(item);
+                        } else if (item.type === 'image' || item.type === 'video' || item.type === 'music') {
+                            // Open media file in default Windows app
+                            this.openMediaFile(item);
+                        }
                     }
                 }
             }

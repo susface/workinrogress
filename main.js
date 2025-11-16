@@ -1113,6 +1113,34 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
     }
 });
 
+// Open media file in default Windows app
+ipcMain.handle('open-media-file', async (event, filePath) => {
+    try {
+        console.log(`[MEDIA] Opening file: ${filePath}`);
+
+        // Validate file exists
+        if (!fs.existsSync(filePath)) {
+            console.error(`[MEDIA] File not found: ${filePath}`);
+            return { success: false, error: 'File not found' };
+        }
+
+        // Use shell.openPath to open with default app
+        const result = await shell.openPath(filePath);
+
+        if (result) {
+            // result is an error string if there was an error, empty string if success
+            console.error(`[MEDIA] Error opening file: ${result}`);
+            return { success: false, error: result };
+        }
+
+        console.log(`[MEDIA] Successfully opened: ${filePath}`);
+        return { success: true };
+    } catch (error) {
+        console.error('[MEDIA] Error opening media file:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // End game session
 ipcMain.handle('end-game-session', async (event, gameId) => {
     try {
