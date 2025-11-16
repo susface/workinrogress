@@ -177,8 +177,28 @@ class CoverFlowUI {
             thumb.className = 'thumbnail';
             thumb.width = 60;
             thumb.height = 60;
+            thumb.dataset.index = index; // Store index in dataset for debugging
 
             const ctx = thumb.getContext('2d');
+
+            // Create wrapper for thumbnail + play button
+            const thumbWrapper = document.createElement('div');
+            thumbWrapper.className = 'thumbnail-wrapper';
+            thumbWrapper.style.position = 'relative';
+            thumbWrapper.style.display = 'inline-block';
+            thumbWrapper.dataset.index = index; // Store index for click handler
+
+            // Click handler for thumbnail - navigate to item
+            // IMPORTANT: Capture index in closure by using dataset
+            thumb.addEventListener('click', (e) => {
+                // Only navigate if not clicking play button
+                if (!e.target.closest('.thumbnail-play-btn')) {
+                    const targetIndex = parseInt(e.target.dataset.index);
+                    this.navigateTo(targetIndex);
+                }
+            });
+
+            thumbWrapper.appendChild(thumb);
 
             // For games, prioritize exe icon for thumbnails
             if (album.type === 'game' && (album.exe_icon_path || album.icon_path)) {
@@ -205,8 +225,11 @@ class CoverFlowUI {
 
                 img.onload = () => {
                     console.log(`[THUMBNAIL] ✓ Successfully loaded thumbnail for "${album.title}"`);
-                    ctx.clearRect(0, 0, 60, 60);
-                    ctx.drawImage(img, 0, 0, 60, 60);
+                    // Only draw if this canvas is still in the DOM
+                    if (thumb.isConnected) {
+                        ctx.clearRect(0, 0, 60, 60);
+                        ctx.drawImage(img, 0, 0, 60, 60);
+                    }
                 };
 
                 img.onerror = (error) => {
@@ -219,25 +242,31 @@ class CoverFlowUI {
                         fallbackImg.crossOrigin = 'anonymous';
                         fallbackImg.onload = () => {
                             console.log(`[THUMBNAIL] ✓ Loaded fallback thumbnail for "${album.title}"`);
-                            ctx.clearRect(0, 0, 60, 60);
-                            ctx.drawImage(fallbackImg, 0, 0, 60, 60);
+                            if (thumb.isConnected) {
+                                ctx.clearRect(0, 0, 60, 60);
+                                ctx.drawImage(fallbackImg, 0, 0, 60, 60);
+                            }
                         };
                         fallbackImg.onerror = (fallbackError) => {
                             console.warn(`[THUMBNAIL] ✗ Fallback also failed for "${album.title}":`, fallbackError);
+                            if (thumb.isConnected) {
+                                const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+                                gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+                                gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+                                ctx.fillStyle = gradient;
+                                ctx.fillRect(0, 0, 60, 60);
+                            }
+                        };
+                        fallbackImg.src = fallbackSrc;
+                    } else {
+                        console.warn(`[THUMBNAIL] No fallback available for "${album.title}"`);
+                        if (thumb.isConnected) {
                             const gradient = ctx.createLinearGradient(0, 0, 60, 60);
                             gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
                             gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
                             ctx.fillStyle = gradient;
                             ctx.fillRect(0, 0, 60, 60);
-                        };
-                        fallbackImg.src = fallbackSrc;
-                    } else {
-                        console.warn(`[THUMBNAIL] No fallback available for "${album.title}"`);
-                        const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-                        gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-                        gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
-                        ctx.fillStyle = gradient;
-                        ctx.fillRect(0, 0, 60, 60);
+                        }
                     }
                 };
 
@@ -251,16 +280,20 @@ class CoverFlowUI {
                 ctx.fillRect(0, 0, 60, 60);
 
                 img.onload = () => {
-                    ctx.clearRect(0, 0, 60, 60);
-                    ctx.drawImage(img, 0, 0, 60, 60);
+                    if (thumb.isConnected) {
+                        ctx.clearRect(0, 0, 60, 60);
+                        ctx.drawImage(img, 0, 0, 60, 60);
+                    }
                 };
 
                 img.onerror = () => {
-                    const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-                    gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-                    gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(0, 0, 60, 60);
+                    if (thumb.isConnected) {
+                        const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+                        gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+                        gradient.addColorStop(1, 'rgba(0,0,0,0.2)');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, 60, 60);
+                    }
                 };
 
                 img.src = this.getImageSrc(album.image, 'placeholder.png');
@@ -304,22 +337,6 @@ class CoverFlowUI {
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, 60, 60);
             }
-
-            // Create wrapper for thumbnail + play button
-            const thumbWrapper = document.createElement('div');
-            thumbWrapper.className = 'thumbnail-wrapper';
-            thumbWrapper.style.position = 'relative';
-            thumbWrapper.style.display = 'inline-block';
-
-            // Click handler for thumbnail - navigate to item
-            thumb.addEventListener('click', (e) => {
-                // Only navigate if not clicking play button
-                if (!e.target.closest('.thumbnail-play-btn')) {
-                    this.navigateTo(index);
-                }
-            });
-
-            thumbWrapper.appendChild(thumb);
 
             // Add play button overlay for games
             if (album.type === 'game' && album.launch_command) {
