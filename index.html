@@ -486,12 +486,24 @@
     <!-- Initialize features -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('[INIT] DOMContentLoaded fired');
+            console.log('[INIT] window.coverflow:', window.coverflow);
+            console.log('[INIT] window.FeaturesManager:', window.FeaturesManager);
+
             // Wait for coverflow to initialize
             setTimeout(() => {
+                console.log('[INIT] Timeout fired after 1000ms');
+                console.log('[INIT] window.coverflow:', window.coverflow);
+                console.log('[INIT] window.FeaturesManager:', window.FeaturesManager);
+
                 if (window.coverflow && window.FeaturesManager) {
                     window.featuresManager = new FeaturesManager();
                     window.featuresManager.init(window.coverflow);
                     console.log('[FEATURES] Initialized: Quick Launch, Tags, Backlog, Screenshots, Themes, Stats, Collections');
+                } else {
+                    console.error('[INIT] Failed to initialize FeaturesManager!');
+                    console.error('[INIT] window.coverflow:', window.coverflow);
+                    console.error('[INIT] window.FeaturesManager:', window.FeaturesManager);
                 }
             }, 1000);
         });
