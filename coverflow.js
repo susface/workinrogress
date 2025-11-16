@@ -3094,7 +3094,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-        new CoverFlow();
+        window.coverflow = new CoverFlow();
+        console.log('[COVERFLOW] Instance assigned to window.coverflow');
     } catch (error) {
         document.getElementById('loading-screen').innerHTML = `
             <div style="color: #ff4444; padding: 20px; text-align: center;">
