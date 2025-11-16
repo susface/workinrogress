@@ -182,16 +182,17 @@ class FeaturesManager {
      * Setup theme switcher UI
      */
     setupThemeSwitcher() {
-        const settingsPanel = document.querySelector('.settings-panel');
-        if (!settingsPanel || document.getElementById('theme-switcher-btn')) return;
+        const themeBtn = document.getElementById('themes-btn');
+        if (!themeBtn) {
+            console.warn('[FEATURES] Themes button not found in top bar');
+            return;
+        }
 
-        const themeBtn = document.createElement('button');
-        themeBtn.id = 'theme-switcher-btn';
-        themeBtn.className = 'setting-btn';
-        themeBtn.innerHTML = '🎨 Themes';
-        themeBtn.onclick = () => this.showThemesModal();
+        themeBtn.addEventListener('click', () => {
+            this.showThemesModal();
+        });
 
-        settingsPanel.insertBefore(themeBtn, settingsPanel.firstChild);
+        console.log('[FEATURES] Theme switcher initialized');
     }
 
     /**
@@ -334,54 +335,24 @@ class FeaturesManager {
     }
 
     /**
-     * Setup Visual Effects button in settings
+     * Setup Visual Effects button in top bar
      */
     setupVisualEffectsButton() {
-        // Find the Hardware Rendering section
-        const renderingSection = Array.from(document.querySelectorAll('.setting-section-title'))
-            .find(el => el.textContent.includes('Hardware Rendering'));
-
-        if (!renderingSection || document.getElementById('visual-effects-btn')) return;
-
-        const vfxGroup = document.createElement('div');
-        vfxGroup.className = 'setting-group';
-        vfxGroup.innerHTML = `
-            <button id="visual-effects-btn" class="btn">✨ Visual Effects</button>
-            <small class="setting-info">Configure particles, shaders, lighting, and visual enhancements</small>
-        `;
-
-        // Add after the Hardware Rendering section's last setting group
-        if (renderingSection.parentElement) {
-            // Find all setting groups in the modal body
-            const modalBody = renderingSection.closest('.modal-body');
-            if (modalBody) {
-                // Find the next divider after Hardware Rendering section
-                let currentElement = renderingSection.nextElementSibling;
-                let lastGroupBeforeDivider = null;
-
-                while (currentElement && !currentElement.classList.contains('setting-divider')) {
-                    if (currentElement.classList.contains('setting-group')) {
-                        lastGroupBeforeDivider = currentElement;
-                    }
-                    currentElement = currentElement.nextElementSibling;
-                }
-
-                // Insert before the divider, after last group
-                if (lastGroupBeforeDivider) {
-                    lastGroupBeforeDivider.after(vfxGroup);
-                } else {
-                    renderingSection.after(vfxGroup);
-                }
-            }
-
-            document.getElementById('visual-effects-btn').addEventListener('click', () => {
-                if (window.visualEffectsManager) {
-                    window.visualEffectsManager.showSettingsUI();
-                } else {
-                    alert('Visual Effects are initializing. Please wait a moment and try again.');
-                }
-            });
+        const vfxBtn = document.getElementById('visual-effects-btn');
+        if (!vfxBtn) {
+            console.warn('[FEATURES] Visual Effects button not found in top bar');
+            return;
         }
+
+        vfxBtn.addEventListener('click', () => {
+            if (window.visualEffectsManager) {
+                window.visualEffectsManager.showSettingsUI();
+            } else {
+                alert('Visual Effects are initializing. Please wait a moment and try again.');
+            }
+        });
+
+        console.log('[FEATURES] Visual Effects button initialized');
     }
 
     /**
