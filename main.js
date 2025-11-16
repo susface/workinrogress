@@ -208,6 +208,16 @@ function initDatabase() {
         } catch (e) { /* Theme already exists */ }
     });
 
+    // Create media folders table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS media_folders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            folder_path TEXT NOT NULL UNIQUE,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_scanned TIMESTAMP
+        )
+    `);
+
     // Migrate existing database (add new columns if they don't exist)
     try {
         db.exec('ALTER TABLE games ADD COLUMN is_favorite INTEGER DEFAULT 0');
@@ -1721,6 +1731,18 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
 
         scanDirectory(normalizedPath);
 
+        // Save folder path to database
+        try {
+            const db = initDatabase();
+            db.prepare(`
+                INSERT OR REPLACE INTO media_folders (folder_path, last_scanned)
+                VALUES (?, CURRENT_TIMESTAMP)
+            `).run(normalizedPath);
+            db.close();
+        } catch (dbError) {
+            console.error('Error saving media folder to database:', dbError);
+        }
+
         return {
             success: true,
             media,
@@ -1732,6 +1754,141 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
         return { success: false, error: error.message };
     }
 });
+
+// Get all saved media folders
+ipcMain.handle('get-media-folders', async () => {
+    try {
+        const db = initDatabase();
+        const folders = db.prepare('SELECT * FROM media_folders ORDER BY added_at').all();
+        db.close();
+        return { success: true, folders };
+    } catch (error) {
+        console.error('Error getting media folders:', error);
+        return { success: false, error: error.message, folders: [] };
+    }
+});
+
+// Load media from all saved folders
+ipcMain.handle('load-all-media-folders', async () => {
+    try {
+        const db = initDatabase();
+        const folders = db.prepare('SELECT folder_path FROM media_folders').all();
+        db.close();
+
+        let allMedia = [];
+        let totalCount = 0;
+        let successCount = 0;
+
+        for (const folder of folders) {
+            try {
+                // Check if folder still exists
+                if (!fs.existsSync(folder.folder_path)) {
+                    console.warn(`Skipping non-existent folder: ${folder.folder_path}`);
+                    continue;
+                }
+
+                // Scan the folder (reuse the scanning logic)
+                const scanResult = await scanMediaFolderSync(folder.folder_path);
+                if (scanResult.success) {
+                    allMedia = [...allMedia, ...scanResult.media];
+                    totalCount += scanResult.count;
+                    successCount++;
+                }
+            } catch (error) {
+                console.error(`Error loading folder ${folder.folder_path}:`, error);
+            }
+        }
+
+        return {
+            success: true,
+            media: allMedia,
+            count: totalCount,
+            foldersScanned: successCount,
+            totalFolders: folders.length
+        };
+    } catch (error) {
+        console.error('Error loading media folders:', error);
+        return { success: false, error: error.message, media: [] };
+    }
+});
+
+// Helper function to scan a folder synchronously (extracted from scan-media-folder handler)
+function scanMediaFolderSync(folderPath) {
+    try {
+        const normalizedPath = path.resolve(folderPath);
+        if (!fs.existsSync(normalizedPath) || !fs.statSync(normalizedPath).isDirectory()) {
+            return { success: false, error: 'Invalid folder path', media: [], count: 0 };
+        }
+
+        const media = [];
+        const supportedImages = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+        const supportedVideos = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
+        const supportedAudio = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac'];
+
+        function scanDirectory(dir) {
+            const items = fs.readdirSync(dir);
+
+            for (const item of items) {
+                const fullPath = path.join(dir, item);
+
+                if (!fullPath.startsWith(normalizedPath)) {
+                    continue;
+                }
+
+                const stat = fs.statSync(fullPath);
+
+                if (stat.isDirectory()) {
+                    scanDirectory(fullPath);
+                } else if (stat.isFile()) {
+                    const ext = path.extname(item).toLowerCase();
+
+                    if (supportedImages.includes(ext)) {
+                        media.push({
+                            type: 'image',
+                            title: path.basename(item, ext),
+                            image: fullPath.replace(/\\/g, '/'),
+                            category: 'User Media',
+                            year: new Date(stat.mtime).getFullYear().toString(),
+                            tags: path.dirname(fullPath).split(path.sep).pop(),
+                            color: 0x4682B4
+                        });
+                    } else if (supportedVideos.includes(ext)) {
+                        media.push({
+                            type: 'video',
+                            title: path.basename(item, ext),
+                            video: fullPath.replace(/\\/g, '/'),
+                            category: 'User Media',
+                            year: new Date(stat.mtime).getFullYear().toString(),
+                            tags: path.dirname(fullPath).split(path.sep).pop(),
+                            color: 0x8B4789
+                        });
+                    } else if (supportedAudio.includes(ext)) {
+                        media.push({
+                            type: 'music',
+                            title: path.basename(item, ext),
+                            audio: fullPath.replace(/\\/g, '/'),
+                            category: 'User Media',
+                            year: new Date(stat.mtime).getFullYear().toString(),
+                            tags: path.dirname(fullPath).split(path.sep).pop(),
+                            color: 0xFF6347
+                        });
+                    }
+                }
+            }
+        }
+
+        scanDirectory(normalizedPath);
+
+        return {
+            success: true,
+            media,
+            count: media.length
+        };
+    } catch (error) {
+        console.error('Error in scanMediaFolderSync:', error);
+        return { success: false, error: error.message, media: [], count: 0 };
+    }
+}
 
 // ============================================
 // COLLECTIONS API

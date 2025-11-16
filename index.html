@@ -85,6 +85,11 @@
         </div>
         <div id="visualizer-title">Track Title</div>
         <canvas id="visualizer-canvas"></canvas>
+        <div class="visualizer-progress">
+            <span id="visualizer-current-time">0:00</span>
+            <input type="range" id="visualizer-seek" min="0" max="100" value="0" step="0.1">
+            <span id="visualizer-duration">0:00</span>
+        </div>
         <div class="visualizer-controls">
             <button id="visualizer-play-pause" class="visualizer-btn">⏸</button>
             <input type="range" id="visualizer-volume" min="0" max="100" value="100" title="Volume">
@@ -207,6 +212,14 @@
                         Show FPS Counter
                     </label>
                     <small class="setting-info">Display performance metrics</small>
+                </div>
+                <div class="setting-group">
+                    <label>Music Visualizer Mode</label>
+                    <select id="visualizer-mode">
+                        <option value="bars">Frequency Bars</option>
+                        <option value="trippy">Trippy Waves</option>
+                    </select>
+                    <small class="setting-info">Choose visualizer animation style</small>
                 </div>
                 <div class="setting-group">
                     <label>

@@ -345,6 +345,18 @@ class CoverFlowSettings {
             });
         }
 
+        // Visualizer mode selector
+        const visualizerMode = document.getElementById('visualizer-mode');
+        if (visualizerMode) {
+            visualizerMode.value = this.settings.visualizerMode || 'bars';
+
+            visualizerMode.addEventListener('change', () => {
+                this.settings.visualizerMode = visualizerMode.value;
+                this.saveSettings();
+                this.showToast(`Visualizer mode set to ${visualizerMode.value}`, 'success');
+            });
+        }
+
         // Error logging toggle
         const errorLoggingToggle = document.getElementById('error-logging-toggle');
         if (errorLoggingToggle) {
