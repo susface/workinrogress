@@ -1185,3 +1185,294 @@ kbd {
         width: 100%;
     }
 }
+
+/* ==================================================
+   ENHANCED GUI ANIMATIONS
+   ================================================== */
+
+/* Smooth button hover effects */
+button:not(.visualizer-btn):not(.thumbnail-play-btn) {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:not(.visualizer-btn):not(.thumbnail-play-btn):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 195, 247, 0.3);
+}
+
+button:not(.visualizer-btn):not(.thumbnail-play-btn):active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(79, 195, 247, 0.2);
+}
+
+/* Thumbnail hover animations */
+.thumbnail {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.thumbnail:hover {
+    transform: scale(1.15) translateY(-5px);
+    box-shadow: 0 8px 20px rgba(79, 195, 247, 0.4);
+    border-color: var(--primary-color);
+    z-index: 10;
+}
+
+.thumbnail.active {
+    animation: thumbnailPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes thumbnailPulse {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(79, 195, 247, 0.8);
+    }
+}
+
+/* Info panel animations */
+#info-panel {
+    animation: slideInFromRight 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Info panel content fade in */
+#album-info h2, #album-info p {
+    animation: fadeInUp 0.6s ease-out backwards;
+}
+
+#album-info h2 {
+    animation-delay: 0.1s;
+}
+
+#album-info p:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+#album-info p:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Action button animations */
+.action-btn {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-btn:hover {
+    transform: scale(1.2) rotate(10deg);
+}
+
+.action-btn:active {
+    transform: scale(0.9);
+}
+
+#play-btn {
+    animation: playBtnPulse 2s ease-in-out infinite;
+}
+
+@keyframes playBtnPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* Settings modal slide in */
+.modal {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal.active .modal-content {
+    animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Top bar slide in */
+#top-bar {
+    animation: slideInFromTop 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInFromTop {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Search input focus effect */
+#search-input {
+    transition: all 0.3s ease;
+}
+
+#search-input:focus {
+    transform: scaleX(1.05);
+    box-shadow: 0 0 15px rgba(79, 195, 247, 0.4);
+}
+
+/* Thumbnail nav button hover */
+.thumb-nav-btn {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.thumb-nav-btn:hover {
+    transform: scale(1.3);
+    background: rgba(79, 195, 247, 0.3);
+}
+
+.thumb-nav-btn:active {
+    transform: scale(1.1);
+}
+
+/* Controller status glow */
+#controller-status {
+    transition: all 0.3s ease;
+}
+
+#controller-status.connected {
+    animation: controllerGlow 2s ease-in-out infinite;
+}
+
+@keyframes controllerGlow {
+    0%, 100% {
+        text-shadow: 0 0 10px rgba(129, 199, 132, 0.5);
+    }
+    50% {
+        text-shadow: 0 0 20px rgba(129, 199, 132, 0.8);
+    }
+}
+
+/* Settings button pulse */
+#settings-btn, #shortcuts-btn, #fullscreen-btn {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#settings-btn:hover, #shortcuts-btn:hover, #fullscreen-btn:hover {
+    transform: rotate(90deg) scale(1.2);
+}
+
+/* FPS counter smooth appearance */
+#fps-counter {
+    animation: fadeInScale 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Range slider animations */
+input[type="range"] {
+    transition: all 0.2s ease;
+}
+
+input[type="range"]:hover {
+    transform: scaleY(1.2);
+}
+
+/* Checkbox animations */
+input[type="checkbox"] {
+    transition: all 0.2s ease;
+}
+
+input[type="checkbox"]:checked {
+    animation: checkboxPop 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes checkboxPop {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.3);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Smooth page transitions */
+#container {
+    animation: containerFadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes containerFadeIn {
+    from {
+        opacity: 0;
+        filter: blur(10px);
+    }
+    to {
+        opacity: 1;
+        filter: blur(0);
+    }
+}
+
+/* Toast notification slide in */
+.toast {
+    animation: toastSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1), toastSlideOut 0.4s cubic-bezier(0.4, 0, 0.2, 1) 2.6s forwards;
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes toastSlideOut {
+    from {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+    }
+}

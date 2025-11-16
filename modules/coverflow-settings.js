@@ -9,7 +9,12 @@ class CoverFlowSettings {
      */
     loadSettings() {
         const savedSettings = localStorage.getItem('coverflowSettings');
-        return savedSettings ? JSON.parse(savedSettings) : this.getDefaultSettings();
+        const loadedSettings = savedSettings ? JSON.parse(savedSettings) : {};
+
+        // Merge loaded settings with current settings (preserves defaults for new settings)
+        Object.assign(this.settings, loadedSettings);
+
+        console.log('[SETTINGS] Loaded settings:', this.settings);
     }
 
     /**
