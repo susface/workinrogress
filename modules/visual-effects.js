@@ -17,6 +17,7 @@ class VisualEffectsManager {
         this.shaderMaterials = [];
         this.interactionEffects = [];
         this.idleAnimations = [];
+        this.coversCache = []; // Cache covers for cleanup
 
         // Mouse/cursor tracking
         this.mouseX = 0;
@@ -646,10 +647,13 @@ class VisualEffectsManager {
      */
     updateIdleAnimations(covers) {
         if (!this.settings.idleAnimationsEnabled) return;
+        if (!covers || covers.length === 0) return;
 
         const time = Date.now() * 0.001;
 
         covers.forEach((cover, index) => {
+            if (!cover) return;
+
             if (this.settings.idleFloating) {
                 cover.position.y += Math.sin(time + index) * 0.001;
             }
@@ -1063,24 +1067,32 @@ class VisualEffectsManager {
      */
     updateMagneticCovers(covers) {
         if (!this.settings.magneticCovers) return;
+        if (!covers || covers.length === 0) return;
 
         covers.forEach(cover => {
-            const coverPos = new THREE.Vector3();
-            cover.getWorldPosition(coverPos);
+            if (!cover) return;
 
-            // Project to screen space
-            coverPos.project(this.camera);
+            try {
+                const coverPos = new THREE.Vector3();
+                cover.getWorldPosition(coverPos);
 
-            // Calculate distance to mouse
-            const dx = this.mouseX - coverPos.x;
-            const dy = this.mouseY - coverPos.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+                // Project to screen space
+                coverPos.project(this.camera);
 
-            // Apply magnetic force
-            if (distance < 0.5) {
-                const force = (0.5 - distance) * 0.1;
-                cover.position.x += dx * force;
-                cover.position.y += dy * force;
+                // Calculate distance to mouse
+                const dx = this.mouseX - coverPos.x;
+                const dy = this.mouseY - coverPos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Apply magnetic force
+                if (distance < 0.5) {
+                    const force = (0.5 - distance) * 0.1;
+                    cover.position.x += dx * force;
+                    cover.position.y += dy * force;
+                }
+            } catch (error) {
+                // Skip this cover if there's an error
+                return;
             }
         });
     }
@@ -1090,8 +1102,11 @@ class VisualEffectsManager {
      */
     updateTiltWithMouse(covers) {
         if (!this.settings.tiltWithMouse) return;
+        if (!covers || covers.length === 0) return;
 
         covers.forEach(cover => {
+            if (!cover) return;
+
             cover.rotation.y = this.mouseX * 0.3;
             cover.rotation.x = this.mouseY * 0.3;
         });
@@ -1217,6 +1232,7 @@ class VisualEffectsManager {
      */
     transitionCovers(fromCover, toCover, type = null) {
         if (!this.settings.transitionsEnabled) return;
+        if (!fromCover || !toCover) return;
 
         const transitionType = type || this.settings.transitionType;
 
@@ -1317,20 +1333,24 @@ class VisualEffectsManager {
             const progress = Math.min(elapsed / duration, 1);
 
             if (progress < 0.5) {
-                const scale = 1 - (progress * 2);
+                const scale = Math.max(0.01, 1 - (progress * 2)); // Prevent scale from going to 0
                 fromCover.scale.setScalar(scale);
                 fromCover.rotation.z = progress * Math.PI * 4;
+                toCover.visible = false;
             } else {
                 fromCover.visible = false;
-                const scale = (progress - 0.5) * 2;
+                const scale = Math.max(0.01, (progress - 0.5) * 2); // Prevent scale from going to 0
                 toCover.scale.setScalar(scale);
                 toCover.rotation.z = -(1 - progress) * Math.PI * 4;
+                toCover.visible = true;
             }
 
             if (progress < 1) {
                 requestAnimationFrame(animate);
             } else {
+                // Reset both covers
                 fromCover.visible = true;
+                toCover.visible = true;
                 fromCover.scale.setScalar(1);
                 toCover.scale.setScalar(1);
                 fromCover.rotation.z = 0;
@@ -1348,6 +1368,14 @@ class VisualEffectsManager {
         const duration = 500;
         const startTime = Date.now();
 
+        // Ensure materials are transparent
+        if (fromCover.material) {
+            fromCover.material.transparent = true;
+        }
+        if (toCover.material) {
+            toCover.material.transparent = true;
+        }
+
         const animate = () => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
@@ -1357,8 +1385,13 @@ class VisualEffectsManager {
                 ? 2 * progress * progress
                 : 1 - Math.pow(-2 * progress + 2, 2) / 2;
 
-            fromCover.material.opacity = 1 - easeProgress;
-            toCover.material.opacity = easeProgress;
+            // Safely update opacity
+            if (fromCover.material && fromCover.material.opacity !== undefined) {
+                fromCover.material.opacity = 1 - easeProgress;
+            }
+            if (toCover.material && toCover.material.opacity !== undefined) {
+                toCover.material.opacity = easeProgress;
+            }
 
             fromCover.position.y = easeProgress * 2;
             toCover.position.y = -(1 - easeProgress) * 2;
@@ -1366,8 +1399,13 @@ class VisualEffectsManager {
             if (progress < 1) {
                 requestAnimationFrame(animate);
             } else {
-                fromCover.material.opacity = 1;
-                toCover.material.opacity = 1;
+                // Reset
+                if (fromCover.material && fromCover.material.opacity !== undefined) {
+                    fromCover.material.opacity = 1;
+                }
+                if (toCover.material && toCover.material.opacity !== undefined) {
+                    toCover.material.opacity = 1;
+                }
                 fromCover.position.y = 0;
                 toCover.position.y = 0;
             }
@@ -1400,29 +1438,65 @@ class VisualEffectsManager {
     }
 
     /**
+     * Clear all reflection meshes
+     */
+    clearReflections(covers) {
+        if (!covers) return;
+
+        covers.forEach(cover => {
+            if (cover && cover.userData && cover.userData.reflection) {
+                this.scene.remove(cover.userData.reflection);
+                cover.userData.reflection = null;
+            }
+        });
+    }
+
+    /**
      * Update enhanced reflections
      */
     updateEnhancedReflections(covers) {
         if (!this.reflectionPlane) return;
+        if (!covers || covers.length === 0) return;
 
         // Create mirrored covers effect
         covers.forEach((cover, index) => {
+            if (!cover || !cover.material) return;
+
             if (!cover.userData.reflection) {
-                const reflection = cover.clone();
-                reflection.scale.y = -1;
-                reflection.position.y = -6;
-                reflection.material = cover.material.clone();
-                reflection.material.opacity = 0.3;
-                reflection.material.transparent = true;
-                cover.userData.reflection = reflection;
-                this.scene.add(reflection);
+                try {
+                    const reflection = cover.clone();
+                    reflection.scale.y = -1;
+                    reflection.position.y = -6;
+
+                    // Safely clone material
+                    if (cover.material.clone) {
+                        reflection.material = cover.material.clone();
+                        reflection.material.opacity = 0.3;
+                        reflection.material.transparent = true;
+                    } else {
+                        // Fallback: create new basic material
+                        reflection.material = new THREE.MeshBasicMaterial({
+                            color: 0xffffff,
+                            opacity: 0.3,
+                            transparent: true
+                        });
+                    }
+
+                    cover.userData.reflection = reflection;
+                    this.scene.add(reflection);
+                } catch (error) {
+                    console.warn('[VISUAL_FX] Failed to create reflection for cover:', error);
+                    return;
+                }
             }
 
             // Update reflection position to match cover
-            const reflection = cover.userData.reflection;
-            reflection.position.x = cover.position.x;
-            reflection.position.z = cover.position.z;
-            reflection.rotation.y = cover.rotation.y;
+            if (cover.userData.reflection) {
+                const reflection = cover.userData.reflection;
+                reflection.position.x = cover.position.x;
+                reflection.position.z = cover.position.z;
+                reflection.rotation.y = cover.rotation.y;
+            }
         });
     }
 
@@ -1444,6 +1518,11 @@ class VisualEffectsManager {
      * Main update loop - call this in animation frame
      */
     update(covers = []) {
+        // Cache covers for cleanup operations
+        if (covers && covers.length > 0) {
+            this.coversCache = covers;
+        }
+
         if (this.settings.particlesEnabled) {
             this.updateParticles();
         }
@@ -1565,9 +1644,14 @@ class VisualEffectsManager {
             case 'enhancedReflectionsEnabled':
                 if (enabled) {
                     this.initEnhancedReflections();
-                } else if (this.reflectionPlane) {
-                    this.scene.remove(this.reflectionPlane);
-                    this.reflectionPlane = null;
+                } else {
+                    // Clean up reflection meshes
+                    this.clearReflections(this.coversCache);
+                    // Remove reflection plane
+                    if (this.reflectionPlane) {
+                        this.scene.remove(this.reflectionPlane);
+                        this.reflectionPlane = null;
+                    }
                 }
                 break;
         }
@@ -1585,6 +1669,17 @@ class VisualEffectsManager {
         // Reinit if needed
         if (settingName === 'particlePreset' && this.settings.particlesEnabled) {
             this.initParticleSystem();
+        }
+
+        // Reinit shader when preset changes
+        if (settingName === 'shaderPreset' && this.settings.customShadersEnabled) {
+            // Remove old shader first
+            if (this.shaderMesh) {
+                this.scene.remove(this.shaderMesh);
+                this.shaderMesh = null;
+            }
+            // Initialize new shader
+            this.initCustomShader();
         }
 
         console.log(`[VISUAL_FX] ${settingName} = ${value}`);
@@ -1624,6 +1719,7 @@ class VisualEffectsManager {
         if (this.shaderMesh) this.scene.remove(this.shaderMesh);
 
         // Reflections
+        this.clearReflections(this.coversCache);
         if (this.reflectionPlane) this.scene.remove(this.reflectionPlane);
 
         // Holographic UI
