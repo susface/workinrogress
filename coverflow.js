@@ -124,6 +124,8 @@ class CoverFlow {
             scrollSpeed: 1.0,
             // Performance
             showFpsCounter: false,
+            // Visualizer
+            visualizerMode: 'bars', // 'bars' or 'trippy'
             // Error logging
             errorLogging: false
         };

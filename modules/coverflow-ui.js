@@ -692,31 +692,91 @@ class CoverFlowUI {
         const width = rect.width;
         const height = rect.height;
 
+        // Animation state for trippy mode
+        let time = 0;
+
         const draw = () => {
             this.visualizerAnimationId = requestAnimationFrame(draw);
 
             this.analyser.getByteFrequencyData(dataArray);
 
-            // Clear canvas with trail effect
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.fillRect(0, 0, width, height);
+            const mode = this.settings.visualizerMode || 'bars';
 
-            // Draw bars
-            const barWidth = (width / bufferLength) * 2.5;
-            let x = 0;
+            if (mode === 'trippy') {
+                // Trippy wave visualizer
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                ctx.fillRect(0, 0, width, height);
 
-            for (let i = 0; i < bufferLength; i++) {
-                const barHeight = (dataArray[i] / 255) * height;
+                time += 0.01;
 
-                // Create gradient for each bar
-                const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
-                gradient.addColorStop(0, `hsl(${i * 2}, 100%, 60%)`);
-                gradient.addColorStop(1, `hsl(${i * 2}, 100%, 40%)`);
+                // Draw multiple overlapping waves
+                for (let layer = 0; layer < 3; layer++) {
+                    ctx.beginPath();
+                    ctx.lineWidth = 2 + layer;
 
-                ctx.fillStyle = gradient;
-                ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+                    for (let x = 0; x < width; x++) {
+                        // Get frequency data index for this x position
+                        const index = Math.floor((x / width) * bufferLength);
+                        const amplitude = (dataArray[index] / 255) * (height / 3);
 
-                x += barWidth + 1;
+                        // Create wavy pattern
+                        const wave1 = Math.sin(x * 0.01 + time * (1 + layer * 0.5)) * amplitude;
+                        const wave2 = Math.cos(x * 0.015 - time * (1 - layer * 0.3)) * amplitude * 0.5;
+                        const y = height / 2 + wave1 + wave2 + Math.sin(time + layer) * 20;
+
+                        if (x === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+
+                    // Rainbow gradient based on time and layer
+                    const hue = (time * 50 + layer * 120) % 360;
+                    ctx.strokeStyle = `hsl(${hue}, 100%, ${60 - layer * 10}%)`;
+                    ctx.stroke();
+
+                    // Add glow effect
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // Add particles
+                for (let i = 0; i < bufferLength; i += 8) {
+                    if (dataArray[i] > 128) {
+                        const particleX = (i / bufferLength) * width;
+                        const particleY = height / 2 + Math.sin(time + i) * 100;
+                        const size = (dataArray[i] / 255) * 8;
+
+                        ctx.beginPath();
+                        ctx.arc(particleX, particleY, size, 0, Math.PI * 2);
+                        ctx.fillStyle = `hsla(${(i * 3 + time * 50) % 360}, 100%, 60%, 0.6)`;
+                        ctx.fill();
+                    }
+                }
+            } else {
+                // Original frequency bars visualizer
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(0, 0, width, height);
+
+                const barWidth = (width / bufferLength) * 2.5;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * height;
+
+                    // Create gradient for each bar
+                    const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
+                    gradient.addColorStop(0, `hsl(${i * 2}, 100%, 60%)`);
+                    gradient.addColorStop(1, `hsl(${i * 2}, 100%, 40%)`);
+
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+
+                    x += barWidth + 1;
+                }
             }
         };
 
