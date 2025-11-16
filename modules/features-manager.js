@@ -382,6 +382,7 @@ class FeaturesManager {
             padding: 16px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             z-index: 100;
+            transition: top 0.3s ease;
         `;
 
         sidebar.innerHTML = `
@@ -394,6 +395,29 @@ class FeaturesManager {
 
         // Update every 30 seconds
         setInterval(() => this.updateRecentlyLaunched(), 30000);
+
+        // Watch for search input focus to move sidebar down
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('focus', () => {
+                sidebar.style.top = '140px'; // Move down when search is active
+            });
+            searchInput.addEventListener('blur', () => {
+                // Only move back up if search is empty
+                if (!searchInput.value.trim()) {
+                    sidebar.style.top = '80px';
+                }
+            });
+
+            // Also watch for typing
+            searchInput.addEventListener('input', () => {
+                if (searchInput.value.trim()) {
+                    sidebar.style.top = '140px';
+                } else {
+                    sidebar.style.top = '80px';
+                }
+            });
+        }
     }
 
     /**

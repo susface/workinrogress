@@ -72,19 +72,24 @@ class VisualEffectsManager {
             mouseEffectsEnabled: false,
             rippleOnClick: false,
             magneticCovers: false,
+            magneticIntensity: 50, // 0-100
             tiltWithMouse: false,
+            tiltIntensity: 30, // 0-100
 
             // Reflective surfaces
             enhancedReflectionsEnabled: false,
+            reflectionOpacity: 30, // 0-100
 
             // Loading/Idle animations
             loadingAnimationsEnabled: true,
             idleAnimationsEnabled: false,
             idleFloating: false,
             idleBreathing: false,
+            floatingIntensity: 50, // 0-100
 
             // Screen effects
             screenShakeEnabled: false,
+            shakeIntensity: 30, // 0-100
             motionBlurEnabled: false,
 
             // Micro-interactions
@@ -105,7 +110,9 @@ class VisualEffectsManager {
 
             // VR/3D Mode
             vrModeEnabled: false,
-            stereo3DEnabled: false
+            stereo3DEnabled: false,
+            stereoSeparation: 0.064, // Eye separation in meters (default 64mm)
+            convergence: 1.0 // Focal distance multiplier
         };
 
         this.loadSettings();
@@ -1858,13 +1865,13 @@ class VisualEffectsManager {
     showSettingsUI() {
         try {
             const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.style.display = 'block';
+            modal.className = 'modal active';
+            modal.style.display = 'flex';
 
             modal.innerHTML = `
-                <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-content" style="max-width: 900px; max-height: 85vh; overflow-y: auto;">
                     <span class="close" onclick="this.parentElement.parentElement.remove()">&times;</span>
-                    <h2>Visual Effects Settings</h2>
+                    <h2 style="text-align: center; margin-bottom: 20px;">✨ Visual Effects Settings</h2>
                     <div id="visual-effects-settings" style="display: grid; gap: 20px;">
                         ${this.createSettingsHTML()}
                     </div>
@@ -1972,10 +1979,24 @@ class VisualEffectsManager {
                     <input type="checkbox" id="magneticCovers" ${this.settings.magneticCovers ? 'checked' : ''}>
                     Magnetic Covers
                 </label>
+                <div style="margin-left: 20px; ${!this.settings.magneticCovers ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                    <label style="font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Magnetic Intensity:</span>
+                        <span id="magneticIntensityValue">${this.settings.magneticIntensity}%</span>
+                    </label>
+                    <input type="range" id="magneticIntensity" min="0" max="100" value="${this.settings.magneticIntensity}" style="width: 100%;">
+                </div>
                 <label>
                     <input type="checkbox" id="tiltWithMouse" ${this.settings.tiltWithMouse ? 'checked' : ''}>
                     Tilt with Mouse
                 </label>
+                <div style="margin-left: 20px; ${!this.settings.tiltWithMouse ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                    <label style="font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Tilt Intensity:</span>
+                        <span id="tiltIntensityValue">${this.settings.tiltIntensity}%</span>
+                    </label>
+                    <input type="range" id="tiltIntensity" min="0" max="100" value="${this.settings.tiltIntensity}" style="width: 100%;">
+                </div>
                 <label>
                     <input type="checkbox" id="gestureTrailsEnabled" ${this.settings.gestureTrailsEnabled ? 'checked' : ''}>
                     Gesture Trails
@@ -1992,6 +2013,13 @@ class VisualEffectsManager {
                     <input type="checkbox" id="idleFloating" ${this.settings.idleFloating ? 'checked' : ''}>
                     Floating Effect
                 </label>
+                <div style="margin-left: 20px; ${!this.settings.idleFloating ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                    <label style="font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Float Intensity:</span>
+                        <span id="floatingIntensityValue">${this.settings.floatingIntensity}%</span>
+                    </label>
+                    <input type="range" id="floatingIntensity" min="0" max="100" value="${this.settings.floatingIntensity}" style="width: 100%;">
+                </div>
                 <label>
                     <input type="checkbox" id="idleBreathing" ${this.settings.idleBreathing ? 'checked' : ''}>
                     Breathing Effect
@@ -2000,6 +2028,13 @@ class VisualEffectsManager {
                     <input type="checkbox" id="screenShakeEnabled" ${this.settings.screenShakeEnabled ? 'checked' : ''}>
                     Screen Shake
                 </label>
+                <div style="margin-left: 20px; ${!this.settings.screenShakeEnabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                    <label style="font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Shake Intensity:</span>
+                        <span id="shakeIntensityValue">${this.settings.shakeIntensity}%</span>
+                    </label>
+                    <input type="range" id="shakeIntensity" min="0" max="100" value="${this.settings.shakeIntensity}" style="width: 100%;">
+                </div>
             </div>
 
             <div class="settings-section">
@@ -2008,6 +2043,14 @@ class VisualEffectsManager {
                     <input type="checkbox" id="enhancedReflectionsEnabled" ${this.settings.enhancedReflectionsEnabled ? 'checked' : ''}>
                     Enhanced Reflections
                 </label>
+                <div style="margin-left: 20px; ${!this.settings.enhancedReflectionsEnabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                    <label style="font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Reflection Opacity:</span>
+                        <span id="reflectionOpacityValue">${this.settings.reflectionOpacity}%</span>
+                    </label>
+                    <input type="range" id="reflectionOpacity" min="0" max="100" value="${this.settings.reflectionOpacity}" style="width: 100%;">
+                </div>
+                <label style="margin-top: 10px;">Transition Effect:</label>
                 <select id="transitionType">
                     <option value="slide" ${this.settings.transitionType === 'slide' ? 'selected' : ''}>Slide</option>
                     <option value="flip" ${this.settings.transitionType === 'flip' ? 'selected' : ''}>Flip</option>
@@ -2026,11 +2069,26 @@ class VisualEffectsManager {
             </div>
 
             <div class="settings-section">
-                <h3>VR/3D Mode</h3>
+                <h3>VR/3D Stereoscopic Mode</h3>
                 <label>
                     <input type="checkbox" id="stereo3DEnabled" ${this.settings.stereo3DEnabled ? 'checked' : ''}>
-                    Stereoscopic 3D
+                    Enable Stereoscopic 3D
                 </label>
+                <div style="margin-left: 20px; ${!this.settings.stereo3DEnabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                    <label style="font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Eye Separation:</span>
+                        <span id="stereoSeparationValue">${Math.round(this.settings.stereoSeparation * 1000)}mm</span>
+                    </label>
+                    <input type="range" id="stereoSeparation" min="40" max="100" value="${this.settings.stereoSeparation * 1000}" style="width: 100%;">
+                    <label style="font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                        <span>Convergence:</span>
+                        <span id="convergenceValue">${this.settings.convergence.toFixed(2)}</span>
+                    </label>
+                    <input type="range" id="convergence" min="0.5" max="2.0" step="0.1" value="${this.settings.convergence}" style="width: 100%;">
+                </div>
+                <small style="display: block; margin-top: 8px; font-size: 0.85em; opacity: 0.7;">
+                    ℹ️ Use with VR headset or red-cyan 3D glasses
+                </small>
             </div>
         `;
     }
@@ -2085,6 +2143,44 @@ class VisualEffectsManager {
             document.getElementById('customShadersEnabled')?.addEventListener('change', (e) => {
                 const shaderSelect = document.getElementById('shaderPreset');
                 if (shaderSelect) shaderSelect.disabled = !e.target.checked;
+            });
+
+            // Intensity sliders
+            const sliders = [
+                { id: 'magneticIntensity', valueId: 'magneticIntensityValue', suffix: '%' },
+                { id: 'tiltIntensity', valueId: 'tiltIntensityValue', suffix: '%' },
+                { id: 'floatingIntensity', valueId: 'floatingIntensityValue', suffix: '%' },
+                { id: 'shakeIntensity', valueId: 'shakeIntensityValue', suffix: '%' },
+                { id: 'reflectionOpacity', valueId: 'reflectionOpacityValue', suffix: '%' },
+                { id: 'stereoSeparation', valueId: 'stereoSeparationValue', suffix: 'mm', scale: 1 },
+                { id: 'convergence', valueId: 'convergenceValue', suffix: '', scale: 1, decimals: 2 }
+            ];
+
+            sliders.forEach(slider => {
+                const element = document.getElementById(slider.id);
+                if (element) {
+                    element.addEventListener('input', (e) => {
+                        try {
+                            const value = parseFloat(e.target.value);
+                            const displayValue = slider.id === 'stereoSeparation' ?
+                                Math.round(value) :
+                                (slider.decimals ? value.toFixed(slider.decimals) : Math.round(value));
+
+                            // Update display
+                            const valueDisplay = document.getElementById(slider.valueId);
+                            if (valueDisplay) {
+                                valueDisplay.textContent = `${displayValue}${slider.suffix}`;
+                            }
+
+                            // Update setting
+                            const settingValue = slider.id === 'stereoSeparation' ? value / 1000 : value;
+                            this.settings[slider.id] = settingValue;
+                            this.saveSettings();
+                        } catch (error) {
+                            console.error(`[VISUAL_FX] Error updating ${slider.id}:`, error);
+                        }
+                    });
+                }
             });
 
             console.log('[VISUAL_FX] Settings listeners attached');
