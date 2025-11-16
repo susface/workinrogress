@@ -847,6 +847,14 @@ function sendProcessTrackerCommand(command, params = {}) {
             return;
         }
 
+        // Check if stdin is still writable
+        if (!processTrackerService.stdin ||
+            processTrackerService.stdin.destroyed ||
+            !processTrackerService.stdin.writable) {
+            reject(new Error('Process tracker stdin not writable'));
+            return;
+        }
+
         const commandObj = {
             command,
             params,
@@ -859,6 +867,8 @@ function sendProcessTrackerCommand(command, params = {}) {
             // In production, you'd want to track request IDs and wait for responses
             resolve({ success: true });
         } catch (error) {
+            // Handle EPIPE and other write errors gracefully
+            console.error('[PROCESS_TRACKER] Error writing command:', error.code || error.message);
             reject(error);
         }
     });
@@ -922,16 +932,43 @@ function handleProcessTrackerNotification(message) {
  */
 function shutdownProcessTracker() {
     if (processTrackerService) {
+        console.log('[PROCESS_TRACKER] Shutting down...');
+
+        // Set ready flag to false BEFORE attempting shutdown to prevent new commands
+        const wasReady = processTrackerReady;
+        processTrackerReady = false;
+
         try {
-            sendProcessTrackerCommand('shutdown');
+            // Only try to send shutdown command if the process was ready and stdin is writable
+            if (wasReady &&
+                processTrackerService.stdin &&
+                !processTrackerService.stdin.destroyed &&
+                processTrackerService.stdin.writable) {
+
+                const commandObj = {
+                    command: 'shutdown',
+                    params: {},
+                    timestamp: Date.now()
+                };
+
+                processTrackerService.stdin.write(JSON.stringify(commandObj) + '\n', (err) => {
+                    if (err) {
+                        console.log('[PROCESS_TRACKER] Shutdown command write failed (process may already be closed):', err.code || err.message);
+                    }
+                });
+            }
+
+            // Kill the process after a short delay to allow graceful shutdown
             setTimeout(() => {
-                if (processTrackerService) {
+                if (processTrackerService && !processTrackerService.killed) {
+                    console.log('[PROCESS_TRACKER] Force killing process');
                     processTrackerService.kill();
                 }
             }, 1000);
         } catch (error) {
-            console.error('[PROCESS_TRACKER] Error shutting down:', error);
-            if (processTrackerService) {
+            console.log('[PROCESS_TRACKER] Error during shutdown (expected if already closed):', error.code || error.message);
+            // Force kill if anything goes wrong
+            if (processTrackerService && !processTrackerService.killed) {
                 processTrackerService.kill();
             }
         }

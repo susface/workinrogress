@@ -125,17 +125,22 @@ class CoverFlow {
 
         this.loadSettings();
         this.setupErrorLogging();
-        this.initAlbumData();
         this.detectGPU();
         this.init();
-        this.createCovers();
-        this.createThumbnails();
         this.addEventListeners();
         this.initGamepadSupport();
         this.initControllerCursor();
         this.animate();
-        this.updateInfo();
-        this.hideLoadingScreen();
+
+        // Initialize data asynchronously, then create UI
+        this.initAlbumData().then(() => {
+            // UI is created by initAlbumData after games load
+            // createCovers(), createThumbnails(), updateInfo() are called in reloadGamesFromServer()/loadGamesFromJSON()
+            this.hideLoadingScreen();
+        }).catch(error => {
+            console.error('Failed to initialize album data:', error);
+            this.hideLoadingScreen();
+        });
     }
 
     detectGPU() {
@@ -359,7 +364,7 @@ class CoverFlow {
         }
     }
 
-    initAlbumData() {
+    async initAlbumData() {
         // Start with empty array - no hardcoded examples
         this.allAlbums = [];
         this.filteredAlbums = [];
@@ -368,10 +373,10 @@ class CoverFlow {
         // Load games from database (Electron) or JSON file (browser)
         if (this.isElectron) {
             // In Electron mode, load from database which has correct paths
-            this.reloadGamesFromServer();
+            await this.reloadGamesFromServer();
         } else {
             // In browser mode, load from JSON file
-            this.loadGamesFromJSON();
+            await this.loadGamesFromJSON();
         }
     }
 
