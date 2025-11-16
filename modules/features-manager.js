@@ -8,6 +8,19 @@ class FeaturesManager {
         this.quickLaunch = null;
         this.currentTheme = null;
         this.collections = [];
+        this.recentGames = []; // Store recent games for safe event handling
+        this.gameTags = null;
+        this.libraryExport = null;
+    }
+
+    /**
+     * Escape HTML to prevent XSS attacks
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     /**
@@ -22,6 +35,18 @@ class FeaturesManager {
             this.quickLaunch.init(this.coverflow.filteredAlbums || []);
         }
 
+        // Initialize Game Tags
+        if (window.GameTags) {
+            this.gameTags = new GameTags();
+            window.gameTags = this.gameTags; // Make globally accessible
+        }
+
+        // Initialize Library Export
+        if (window.LibraryExport) {
+            this.libraryExport = new LibraryExport();
+            window.libraryExport = this.libraryExport; // Make globally accessible
+        }
+
         // Load and apply theme
         await this.loadTheme();
 
@@ -32,6 +57,8 @@ class FeaturesManager {
         this.setupCollectionsUI();
         this.setupThemeSwitcher();
         this.setupStatsButton();
+        this.setupTagsButton();
+        this.setupLibraryBackupButton();
         this.setupRecentlyLaunched();
     }
 
@@ -41,7 +68,17 @@ class FeaturesManager {
     updateQuickLaunchGames(games) {
         if (this.quickLaunch) {
             this.quickLaunch.updateGames(games);
+            console.log(`[FEATURES] Updated Quick Launch with ${games.length} games`);
         }
+    }
+
+    /**
+     * Refresh all features with new game data
+     */
+    refreshAllFeatures(games) {
+        this.updateQuickLaunchGames(games);
+        this.updateRecentlyLaunched();
+        console.log('[FEATURES] Refreshed all features');
     }
 
     /**
@@ -156,6 +193,66 @@ class FeaturesManager {
     }
 
     /**
+     * Setup tags button
+     */
+    setupTagsButton() {
+        // Find the setting group for game library
+        const gameLibrarySection = document.querySelector('.setting-section-title');
+        if (!gameLibrarySection || document.getElementById('tags-btn-inline')) return;
+
+        // Add button after the game library section
+        const tagsGroup = document.createElement('div');
+        tagsGroup.className = 'setting-group';
+        tagsGroup.innerHTML = `
+            <button id="tags-btn-inline" class="btn">🏷️ Manage Tags</button>
+            <small class="setting-info">Create custom tags to organize your games</small>
+        `;
+
+        // Insert after the media library divider
+        const mediaSection = Array.from(document.querySelectorAll('.setting-section-title'))
+            .find(el => el.textContent.includes('Media Library'));
+
+        if (mediaSection && mediaSection.previousElementSibling) {
+            mediaSection.previousElementSibling.after(tagsGroup);
+
+            document.getElementById('tags-btn-inline').addEventListener('click', () => {
+                if (this.gameTags) {
+                    this.gameTags.showTagsUI();
+                }
+            });
+        }
+    }
+
+    /**
+     * Setup library backup button
+     */
+    setupLibraryBackupButton() {
+        const gameLibrarySection = Array.from(document.querySelectorAll('.setting-section-title'))
+            .find(el => el.textContent.includes('Game Library'));
+
+        if (!gameLibrarySection || document.getElementById('library-backup-btn')) return;
+
+        const backupGroup = document.createElement('div');
+        backupGroup.className = 'setting-group';
+        backupGroup.innerHTML = `
+            <button id="library-backup-btn" class="btn">💾 Backup & Restore Library</button>
+            <small class="setting-info">Export/import your game library with all metadata</small>
+        `;
+
+        // Add after clear game data button
+        const clearDataBtn = document.getElementById('clear-game-data-btn');
+        if (clearDataBtn && clearDataBtn.parentElement) {
+            clearDataBtn.parentElement.after(backupGroup);
+
+            document.getElementById('library-backup-btn').addEventListener('click', () => {
+                if (this.libraryExport) {
+                    this.libraryExport.showExportImportUI();
+                }
+            });
+        }
+    }
+
+    /**
      * Setup recently launched sidebar
      */
     setupRecentlyLaunched() {
@@ -206,22 +303,31 @@ class FeaturesManager {
                 return;
             }
 
-            container.innerHTML = result.games.map(game => `
-                <div class="recent-game-item" style="
+            container.innerHTML = result.games.map((game, index) => `
+                <div class="recent-game-item" data-game-index="${index}" style="
                     padding: 8px;
                     margin: 4px 0;
                     background: #2a2a2a;
                     border-radius: 4px;
                     cursor: pointer;
                     transition: background 0.2s;
-                " onclick="window.featuresManager.launchGame(${game.id}, '${game.launch_command?.replace(/'/g, "\\'")}', '${game.title?.replace(/'/g, "\\'")}')">
-                    <div style="font-size: 12px; color: #fff; font-weight: bold; margin-bottom: 2px;">${game.title}</div>
-                    <div style="font-size: 10px; color: #888;">${game.platform || 'PC'} • ${this.formatPlayTime(game.total_play_time || 0)}</div>
+                ">
+                    <div style="font-size: 12px; color: #fff; font-weight: bold; margin-bottom: 2px;">${this.escapeHtml(game.title)}</div>
+                    <div style="font-size: 10px; color: #888;">${this.escapeHtml(game.platform || 'PC')} • ${this.formatPlayTime(game.total_play_time || 0)}</div>
                 </div>
             `).join('');
 
-            // Add hover effects
-            container.querySelectorAll('.recent-game-item').forEach(item => {
+            // Store games data for event handlers (prevents XSS)
+            this.recentGames = result.games;
+
+            // Add click and hover effects with proper event listeners
+            container.querySelectorAll('.recent-game-item').forEach((item, index) => {
+                item.addEventListener('click', () => {
+                    const game = this.recentGames[index];
+                    if (game) {
+                        this.launchGame(game.id, game.launch_command, game.title);
+                    }
+                });
                 item.addEventListener('mouseenter', () => item.style.background = '#3a3a3a');
                 item.addEventListener('mouseleave', () => item.style.background = '#2a2a2a');
             });
@@ -243,13 +349,30 @@ class FeaturesManager {
      * Launch game from recently played
      */
     async launchGame(gameId, launchCommand, title) {
-        if (!window.electronAPI || !launchCommand) return;
+        if (!window.electronAPI) {
+            console.error('[RECENT] Electron API not available');
+            return;
+        }
+
+        if (!launchCommand) {
+            if (this.coverflow && typeof this.coverflow.showToast === 'function') {
+                this.coverflow.showToast('Game has no launch command configured', 'error');
+            }
+            return;
+        }
+
+        if (!gameId) {
+            console.error('[RECENT] Invalid game ID');
+            return;
+        }
 
         try {
             await window.electronAPI.launchGame(launchCommand, gameId);
             if (this.coverflow && typeof this.coverflow.showToast === 'function') {
-                this.coverflow.showToast(`Launched ${title}`, 'success');
+                this.coverflow.showToast(`Launched ${this.escapeHtml(title)}`, 'success');
             }
+            // Update recently launched list after successful launch
+            setTimeout(() => this.updateRecentlyLaunched(), 1000);
         } catch (error) {
             console.error('[RECENT] Launch error:', error);
             if (this.coverflow && typeof this.coverflow.showToast === 'function') {
