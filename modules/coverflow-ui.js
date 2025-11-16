@@ -730,6 +730,9 @@ class CoverFlowUI {
         const closeBtn = document.getElementById('visualizer-close');
         const playPauseBtn = document.getElementById('visualizer-play-pause');
         const volumeSlider = document.getElementById('visualizer-volume');
+        const seekSlider = document.getElementById('visualizer-seek');
+        const currentTimeEl = document.getElementById('visualizer-current-time');
+        const durationEl = document.getElementById('visualizer-duration');
 
         // Close button
         if (closeBtn) {
@@ -760,6 +763,46 @@ class CoverFlowUI {
             };
         }
 
+        // Seek control
+        if (seekSlider) {
+            let isSeeking = false;
+
+            seekSlider.oninput = (e) => {
+                isSeeking = true;
+                const seekTime = (this.audioPlayer.duration / 100) * e.target.value;
+                if (currentTimeEl) {
+                    currentTimeEl.textContent = this.formatTime(seekTime);
+                }
+            };
+
+            seekSlider.onchange = (e) => {
+                const seekTime = (this.audioPlayer.duration / 100) * e.target.value;
+                this.audioPlayer.currentTime = seekTime;
+                isSeeking = false;
+            };
+
+            // Update progress bar as song plays
+            this.audioPlayer.addEventListener('timeupdate', () => {
+                if (!isSeeking && this.audioPlayer.duration) {
+                    const progress = (this.audioPlayer.currentTime / this.audioPlayer.duration) * 100;
+                    seekSlider.value = progress;
+                    if (currentTimeEl) {
+                        currentTimeEl.textContent = this.formatTime(this.audioPlayer.currentTime);
+                    }
+                }
+            });
+
+            // Update duration when metadata loads
+            this.audioPlayer.addEventListener('loadedmetadata', () => {
+                if (durationEl) {
+                    durationEl.textContent = this.formatTime(this.audioPlayer.duration);
+                }
+                if (seekSlider) {
+                    seekSlider.value = 0;
+                }
+            });
+        }
+
         // Update play/pause button based on playback state
         if (playPauseBtn) {
             this.audioPlayer.addEventListener('play', () => {
@@ -769,6 +812,16 @@ class CoverFlowUI {
                 playPauseBtn.textContent = '▶';
             });
         }
+    }
+
+    /**
+     * Format time in seconds to MM:SS
+     */
+    formatTime(seconds) {
+        if (isNaN(seconds)) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 }
 

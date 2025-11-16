@@ -64,6 +64,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Media folder selection
     selectMediaFolder: () => ipcRenderer.invoke('select-media-folder'),
     scanMediaFolder: (folderPath) => ipcRenderer.invoke('scan-media-folder', folderPath),
+    getMediaFolders: () => ipcRenderer.invoke('get-media-folders'),
+    loadAllMediaFolders: () => ipcRenderer.invoke('load-all-media-folders'),
 
     // Platform info
     platform: process.platform,

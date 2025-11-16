@@ -40,6 +40,7 @@ class CoverFlow {
         this.initializeVisualizer = coverFlowUI.initializeVisualizer.bind(this);
         this.startVisualizerAnimation = coverFlowUI.startVisualizerAnimation.bind(this);
         this.setupVisualizerControls = coverFlowUI.setupVisualizerControls.bind(this);
+        this.formatTime = coverFlowUI.formatTime.bind(this);
         this.createFileTypeThumbnail = coverFlowUI.createFileTypeThumbnail.bind(this);
         this.showToast = coverFlowUIUtils.showToast.bind(this);
         // ============================================================
@@ -381,6 +382,9 @@ class CoverFlow {
         if (this.isElectron) {
             // In Electron mode, load from database which has correct paths
             await this.reloadGamesFromServer();
+
+            // Load saved media folders
+            await this.loadSavedMediaFolders();
         } else {
             // In browser mode, load from JSON file
             await this.loadGamesFromJSON();
@@ -2819,6 +2823,41 @@ class CoverFlow {
         } catch (error) {
             console.error('Error selecting media folder:', error);
             this.showToast('Failed to add media folder', 'error');
+        }
+    }
+
+    async loadSavedMediaFolders() {
+        if (!this.isElectron) {
+            return;
+        }
+
+        try {
+            // Load all saved media folders
+            const result = await window.electronAPI.loadAllMediaFolders();
+
+            if (!result.success) {
+                console.error('Failed to load media folders:', result.error);
+                return;
+            }
+
+            if (result.count === 0) {
+                console.log('No saved media folders found');
+                return;
+            }
+
+            // Add media to library
+            this.allAlbums = [...this.allAlbums, ...result.media];
+            this.filteredAlbums = [...this.allAlbums];
+            document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+
+            // Recreate UI
+            this.createCovers();
+            this.createThumbnails();
+            this.updateInfo();
+
+            console.log(`Loaded ${result.count} media files from ${result.foldersScanned} folders`);
+        } catch (error) {
+            console.error('Error loading saved media folders:', error);
         }
     }
 
