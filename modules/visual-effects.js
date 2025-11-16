@@ -2136,7 +2136,6 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
-}
 
 // Export for global use
 if (typeof window !== 'undefined') {

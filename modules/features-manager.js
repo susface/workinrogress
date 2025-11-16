@@ -337,11 +337,11 @@ class FeaturesManager {
      * Setup Visual Effects button in settings
      */
     setupVisualEffectsButton() {
-        // Find the display settings section
-        const displaySection = Array.from(document.querySelectorAll('.setting-section-title'))
-            .find(el => el.textContent.includes('Display'));
+        // Find the Hardware Rendering section
+        const renderingSection = Array.from(document.querySelectorAll('.setting-section-title'))
+            .find(el => el.textContent.includes('Hardware Rendering'));
 
-        if (!displaySection || document.getElementById('visual-effects-btn')) return;
+        if (!renderingSection || document.getElementById('visual-effects-btn')) return;
 
         const vfxGroup = document.createElement('div');
         vfxGroup.className = 'setting-group';
@@ -350,13 +350,28 @@ class FeaturesManager {
             <small class="setting-info">Configure particles, shaders, lighting, and visual enhancements</small>
         `;
 
-        // Add after display section
-        if (displaySection.parentElement) {
-            const lastDisplayGroup = Array.from(displaySection.parentElement.querySelectorAll('.setting-group')).pop();
-            if (lastDisplayGroup) {
-                lastDisplayGroup.after(vfxGroup);
-            } else {
-                displaySection.after(vfxGroup);
+        // Add after the Hardware Rendering section's last setting group
+        if (renderingSection.parentElement) {
+            // Find all setting groups in the modal body
+            const modalBody = renderingSection.closest('.modal-body');
+            if (modalBody) {
+                // Find the next divider after Hardware Rendering section
+                let currentElement = renderingSection.nextElementSibling;
+                let lastGroupBeforeDivider = null;
+
+                while (currentElement && !currentElement.classList.contains('setting-divider')) {
+                    if (currentElement.classList.contains('setting-group')) {
+                        lastGroupBeforeDivider = currentElement;
+                    }
+                    currentElement = currentElement.nextElementSibling;
+                }
+
+                // Insert before the divider, after last group
+                if (lastGroupBeforeDivider) {
+                    lastGroupBeforeDivider.after(vfxGroup);
+                } else {
+                    renderingSection.after(vfxGroup);
+                }
             }
 
             document.getElementById('visual-effects-btn').addEventListener('click', () => {

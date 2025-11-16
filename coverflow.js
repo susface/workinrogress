@@ -519,6 +519,7 @@ class CoverFlow {
                 this.renderer,
                 this
             );
+            this.visualEffectsManager.init(); // Initialize all effects
             window.visualEffectsManager = this.visualEffectsManager; // Make globally accessible
             console.log('[COVERFLOW] Visual Effects Manager initialized');
         }
