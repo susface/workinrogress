@@ -182,13 +182,17 @@ class FeaturesManager {
      * Setup theme switcher UI
      */
     setupThemeSwitcher() {
+        console.log('[FEATURES] Setting up theme switcher...');
         const themeBtn = document.getElementById('themes-btn');
+        console.log('[FEATURES] Themes button element:', themeBtn);
+
         if (!themeBtn) {
             console.warn('[FEATURES] Themes button not found in top bar');
             return;
         }
 
         themeBtn.addEventListener('click', () => {
+            console.log('[FEATURES] Themes button clicked');
             this.showThemesModal();
         });
 
@@ -338,13 +342,17 @@ class FeaturesManager {
      * Setup Visual Effects button in top bar
      */
     setupVisualEffectsButton() {
+        console.log('[FEATURES] Setting up visual effects button...');
         const vfxBtn = document.getElementById('visual-effects-btn');
+        console.log('[FEATURES] Visual Effects button element:', vfxBtn);
+
         if (!vfxBtn) {
             console.warn('[FEATURES] Visual Effects button not found in top bar');
             return;
         }
 
         vfxBtn.addEventListener('click', () => {
+            console.log('[FEATURES] Visual Effects button clicked');
             if (window.visualEffectsManager) {
                 window.visualEffectsManager.showSettingsUI();
             } else {
