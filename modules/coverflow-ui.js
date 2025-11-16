@@ -106,7 +106,7 @@ class CoverFlowUI {
             playBtn.innerHTML = '▶ Play Game';
             // Set up click handler for launching game
             playBtn.onclick = async () => {
-                if (window.electronAPI && album.id && album.launch_command) {
+                if (window.electronAPI && album.id && album.launchCommand) {
                     console.log(`[PLAY] Launching game: ${album.title}`);
 
                     // Show loading state
@@ -115,7 +115,7 @@ class CoverFlowUI {
                     playBtn.disabled = true;
 
                     try {
-                        const result = await window.electronAPI.launchGame(album.launch_command, album.id);
+                        const result = await window.electronAPI.launchGame(album.launchCommand, album.id);
 
                         if (result.success) {
                             this.showToast(`Launched ${album.title}`, 'success');
@@ -549,16 +549,19 @@ class CoverFlowUI {
         if (!this.audioPlayer) {
             this.audioPlayer = new Audio();
             this.currentAudioFile = null;
+            this.currentAudioTitle = null;
 
             // Add event listeners for playback events
             this.audioPlayer.addEventListener('ended', () => {
                 this.showToast('Playback finished', 'info');
+                this.hideVisualizer();
                 this.updateInfo(); // Update button state
             });
 
             this.audioPlayer.addEventListener('error', (e) => {
                 console.error('[AUDIO] Playback error:', e);
                 this.showToast('Error playing audio file', 'error');
+                this.hideVisualizer();
             });
         }
 
@@ -567,9 +570,11 @@ class CoverFlowUI {
             this.audioPlayer.pause();
             this.audioPlayer.src = album.audio;
             this.currentAudioFile = album.audio;
+            this.currentAudioTitle = album.title;
 
             this.audioPlayer.play().then(() => {
                 this.showToast(`Playing: ${album.title}`, 'success');
+                this.showVisualizer(album.title);
                 this.updateInfo(); // Update button to show pause
             }).catch(error => {
                 console.error('[AUDIO] Play error:', error);
@@ -580,6 +585,7 @@ class CoverFlowUI {
             if (this.audioPlayer.paused) {
                 this.audioPlayer.play().then(() => {
                     this.showToast(`Playing: ${album.title}`, 'success');
+                    this.showVisualizer(album.title);
                     this.updateInfo(); // Update button to show pause
                 }).catch(error => {
                     console.error('[AUDIO] Play error:', error);
@@ -590,6 +596,178 @@ class CoverFlowUI {
                 this.showToast('Playback paused', 'info');
                 this.updateInfo(); // Update button to show play
             }
+        }
+    }
+
+    /**
+     * Show music visualizer
+     */
+    showVisualizer(title) {
+        const panel = document.getElementById('visualizer-panel');
+        const titleEl = document.getElementById('visualizer-title');
+        const canvas = document.getElementById('visualizer-canvas');
+
+        if (!panel || !canvas) return;
+
+        // Update title
+        if (titleEl) titleEl.textContent = title || 'Now Playing';
+
+        // Set canvas resolution to match display size
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+
+        // Scale context to match device pixel ratio
+        const ctx = canvas.getContext('2d');
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        // Show panel
+        panel.classList.remove('visualizer-hidden');
+
+        // Initialize Web Audio API visualizer
+        this.initializeVisualizer(canvas);
+
+        // Set up visualizer controls
+        this.setupVisualizerControls();
+    }
+
+    /**
+     * Hide music visualizer
+     */
+    hideVisualizer() {
+        const panel = document.getElementById('visualizer-panel');
+        if (panel) {
+            panel.classList.add('visualizer-hidden');
+        }
+
+        // Stop animation frame
+        if (this.visualizerAnimationId) {
+            cancelAnimationFrame(this.visualizerAnimationId);
+            this.visualizerAnimationId = null;
+        }
+    }
+
+    /**
+     * Initialize Web Audio API visualizer
+     */
+    initializeVisualizer(canvas) {
+        if (!this.audioPlayer) return;
+
+        // Only initialize once
+        if (this.audioContext && this.analyser) {
+            this.startVisualizerAnimation(canvas);
+            return;
+        }
+
+        try {
+            // Create audio context
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.analyser = this.audioContext.createAnalyser();
+            this.analyser.fftSize = 256;
+
+            // Create source from audio element
+            const source = this.audioContext.createMediaElementSource(this.audioPlayer);
+            source.connect(this.analyser);
+            this.analyser.connect(this.audioContext.destination);
+
+            // Start animation
+            this.startVisualizerAnimation(canvas);
+        } catch (error) {
+            console.error('[VISUALIZER] Failed to initialize:', error);
+        }
+    }
+
+    /**
+     * Start visualizer animation loop
+     */
+    startVisualizerAnimation(canvas) {
+        if (!this.analyser) return;
+
+        const ctx = canvas.getContext('2d');
+        const bufferLength = this.analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        // Get CSS dimensions for drawing
+        const rect = canvas.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+
+        const draw = () => {
+            this.visualizerAnimationId = requestAnimationFrame(draw);
+
+            this.analyser.getByteFrequencyData(dataArray);
+
+            // Clear canvas with trail effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw bars
+            const barWidth = (width / bufferLength) * 2.5;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = (dataArray[i] / 255) * height;
+
+                // Create gradient for each bar
+                const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
+                gradient.addColorStop(0, `hsl(${i * 2}, 100%, 60%)`);
+                gradient.addColorStop(1, `hsl(${i * 2}, 100%, 40%)`);
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+
+                x += barWidth + 1;
+            }
+        };
+
+        draw();
+    }
+
+    /**
+     * Set up visualizer controls
+     */
+    setupVisualizerControls() {
+        const closeBtn = document.getElementById('visualizer-close');
+        const playPauseBtn = document.getElementById('visualizer-play-pause');
+        const volumeSlider = document.getElementById('visualizer-volume');
+
+        // Close button
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                this.hideVisualizer();
+            };
+        }
+
+        // Play/pause button
+        if (playPauseBtn) {
+            playPauseBtn.onclick = () => {
+                if (this.audioPlayer.paused) {
+                    this.audioPlayer.play();
+                    playPauseBtn.textContent = '⏸';
+                } else {
+                    this.audioPlayer.pause();
+                    playPauseBtn.textContent = '▶';
+                }
+                this.updateInfo();
+            };
+        }
+
+        // Volume control
+        if (volumeSlider) {
+            volumeSlider.value = this.audioPlayer.volume * 100;
+            volumeSlider.oninput = (e) => {
+                this.audioPlayer.volume = e.target.value / 100;
+            };
+        }
+
+        // Update play/pause button based on playback state
+        if (playPauseBtn) {
+            this.audioPlayer.addEventListener('play', () => {
+                playPauseBtn.textContent = '⏸';
+            });
+            this.audioPlayer.addEventListener('pause', () => {
+                playPauseBtn.textContent = '▶';
+            });
         }
     }
 }

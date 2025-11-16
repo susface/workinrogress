@@ -77,6 +77,20 @@
         </div>
     </div>
 
+    <!-- Music Visualizer Panel -->
+    <div id="visualizer-panel" class="visualizer-hidden">
+        <div class="visualizer-header">
+            <h3>Now Playing</h3>
+            <button id="visualizer-close" title="Close Visualizer">×</button>
+        </div>
+        <div id="visualizer-title">Track Title</div>
+        <canvas id="visualizer-canvas"></canvas>
+        <div class="visualizer-controls">
+            <button id="visualizer-play-pause" class="visualizer-btn">⏸</button>
+            <input type="range" id="visualizer-volume" min="0" max="100" value="100" title="Volume">
+        </div>
+    </div>
+
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
