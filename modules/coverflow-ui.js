@@ -392,7 +392,7 @@ class CoverFlowUI {
             }
 
             // Add play button overlay for games
-            if (album.type === 'game' && album.launch_command) {
+            if (album.type === 'game' && album.launchCommand) {
                 const playBtn = document.createElement('button');
                 playBtn.className = 'thumbnail-play-btn';
                 playBtn.innerHTML = '▶';
@@ -440,13 +440,13 @@ class CoverFlowUI {
                 // Click handler - launch game directly
                 playBtn.addEventListener('click', async (e) => {
                     e.stopPropagation(); // Prevent thumbnail navigation
-                    if (window.electronAPI && album.id && album.launch_command) {
+                    if (window.electronAPI && album.id && album.launchCommand) {
                         const originalHTML = playBtn.innerHTML;
                         playBtn.innerHTML = '⏳';
                         playBtn.disabled = true;
 
                         try {
-                            const result = await window.electronAPI.launchGame(album.launch_command, album.id);
+                            const result = await window.electronAPI.launchGame(album.launchCommand, album.id);
 
                             if (result.success) {
                                 playBtn.innerHTML = '✓';

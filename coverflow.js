@@ -43,6 +43,18 @@ class CoverFlow {
         this.formatTime = coverFlowUI.formatTime.bind(this);
         this.createFileTypeThumbnail = coverFlowUI.createFileTypeThumbnail.bind(this);
         this.showToast = coverFlowUIUtils.showToast.bind(this);
+
+        // Bind main class methods that are called from module code
+        this.loadGames = this.loadGames.bind(this);
+        this.reloadGamesFromServer = this.reloadGamesFromServer.bind(this);
+        this.launchGame = this.launchGame.bind(this);
+        this.openMediaFile = this.openMediaFile.bind(this);
+        this.navigateTo = this.navigateTo.bind(this);
+        this.navigate = this.navigate.bind(this);
+        this.filterAlbums = this.filterAlbums.bind(this);
+        this.createCovers = this.createCovers.bind(this);
+        this.createThumbnails = this.createThumbnails.bind(this);
+        this.clearScene = this.clearScene.bind(this);
         // ============================================================
 
         this.container = document.getElementById('coverflow-container');
