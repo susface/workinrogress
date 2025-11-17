@@ -28,6 +28,7 @@ class CoverFlow {
         const soundEffects = new SoundEffects();
         const touchGestures = new TouchGestures();
         const platformAnimations = new PlatformAnimations();
+        const sessionInsights = new SessionInsights();
 
         // Copy instance properties from modules
         Object.assign(this, coverFlowSettings);
@@ -41,6 +42,7 @@ class CoverFlow {
         Object.assign(this, soundEffects);
         Object.assign(this, touchGestures);
         Object.assign(this, platformAnimations);
+        Object.assign(this, sessionInsights);
 
         // SURGICAL FIX: Override specific methods that need to come from modules
         // This is needed because Object.assign doesn't copy prototype methods
@@ -587,6 +589,9 @@ class CoverFlow {
         }
         if (typeof this.initializePlatformAnimations === 'function') {
             this.initializePlatformAnimations();
+        }
+        if (typeof this.initializeSessionInsights === 'function') {
+            this.initializeSessionInsights();
         }
     }
 
@@ -2681,6 +2686,12 @@ class CoverFlow {
         document.getElementById('settings-btn').addEventListener('click', () => this.openModal('settings-modal'));
         document.getElementById('shortcuts-btn').addEventListener('click', () => this.openModal('shortcuts-modal'));
         document.getElementById('fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
+
+        // Insights button
+        const insightsBtn = document.getElementById('insights-btn');
+        if (insightsBtn && typeof this.toggleInsights === 'function') {
+            insightsBtn.addEventListener('click', () => this.toggleInsights());
+        }
 
         // Modal close buttons
         document.querySelectorAll('.close-btn').forEach(btn => {
