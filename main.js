@@ -243,6 +243,18 @@ function initDatabase() {
     try {
         db.exec('ALTER TABLE games ADD COLUMN has_vr_support INTEGER DEFAULT 0');
     } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN dlc_count INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN has_dlc INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN last_update_check TIMESTAMP');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN update_available INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
 
     return db;
 }

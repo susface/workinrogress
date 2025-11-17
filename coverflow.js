@@ -23,12 +23,24 @@ class CoverFlow {
         const coverFlowNavigation = new CoverFlowNavigation();
         const coverFlowUI = new CoverFlowUI();
 
+        // Enhancement modules
+        const coverFlowEnhancements = new CoverFlowEnhancements();
+        const soundEffects = new SoundEffects();
+        const touchGestures = new TouchGestures();
+        const platformAnimations = new PlatformAnimations();
+
         // Copy instance properties from modules
         Object.assign(this, coverFlowSettings);
         Object.assign(this, coverFlowTextures);
         Object.assign(this, coverFlowUIUtils);
         Object.assign(this, coverFlowNavigation);
         Object.assign(this, coverFlowUI);
+
+        // Copy enhancement module properties
+        Object.assign(this, coverFlowEnhancements);
+        Object.assign(this, soundEffects);
+        Object.assign(this, touchGestures);
+        Object.assign(this, platformAnimations);
 
         // SURGICAL FIX: Override specific methods that need to come from modules
         // This is needed because Object.assign doesn't copy prototype methods
@@ -565,6 +577,17 @@ class CoverFlow {
                 console.log('[COVERFLOW] Tab visible - animation resumed');
             }
         });
+
+        // Initialize enhancement modules
+        if (typeof this.initializeSoundEffects === 'function') {
+            this.initializeSoundEffects();
+        }
+        if (typeof this.initializeTouchGestures === 'function') {
+            this.initializeTouchGestures();
+        }
+        if (typeof this.initializePlatformAnimations === 'function') {
+            this.initializePlatformAnimations();
+        }
     }
 
     createErrorPlaceholder(title = 'Image Not Found') {

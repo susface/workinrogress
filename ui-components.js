@@ -280,8 +280,10 @@ class UIComponents {
                     <img src="${imageSrc}"
                          alt="${safeTitle}"
                          onerror="this.src='placeholder.png'"/>
+                    ${game.update_available ? '<div class="update-badge">UPDATE</div>' : ''}
                     ${game.is_favorite ? '<div class="favorite-badge">⭐</div>' : ''}
                     ${game.has_vr_support ? '<div class="vr-badge">VR</div>' : ''}
+                    ${game.has_dlc ? `<div class="dlc-badge">DLC ${game.dlc_count || ''}</div>` : ''}
                 </div>
                 <div class="grid-item-info">
                     <h3>${safeTitle}</h3>

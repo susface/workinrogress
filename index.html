@@ -209,6 +209,52 @@
                 </div>
 
                 <div class="setting-divider"></div>
+                <h4 class="setting-section-title">✨ Enhanced Features</h4>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="sound-effects-toggle">
+                        Sound Effects
+                    </label>
+                    <small class="setting-info">Play sounds when navigating and launching games</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="touch-gestures-toggle">
+                        Touch Gestures
+                    </label>
+                    <small class="setting-info">Enable swipe and tap controls for touchscreens</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="platform-animations-toggle">
+                        Platform Animations
+                    </label>
+                    <small class="setting-info">Show platform-specific visual effects</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="dynamic-background-toggle">
+                        Dynamic Background
+                    </label>
+                    <small class="setting-info">Change background color based on platform</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="infinite-loop-toggle">
+                        Infinite Loop
+                    </label>
+                    <small class="setting-info">Wrap around to start/end when navigating</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="zoom-on-select-toggle">
+                        Zoom on Selection
+                    </label>
+                    <small class="setting-info">Scale up the selected cover</small>
+                </div>
+
+                <div class="setting-divider"></div>
                 <h4 class="setting-section-title">📊 Performance & Data</h4>
 
                 <div class="setting-group">
@@ -484,6 +530,13 @@
     <script src="modules/backlog-manager.js"></script>
     <script src="modules/screenshot-gallery.js"></script>
     <script src="modules/visual-effects.js"></script>
+
+    <!-- Coverflow enhancement modules -->
+    <script src="modules/coverflow-enhancements.js"></script>
+    <script src="modules/sound-effects.js"></script>
+    <script src="modules/touch-gestures.js"></script>
+    <script src="modules/platform-animations.js"></script>
+
     <script src="modules/features-manager.js"></script>
 
     <!-- Main coverflow (uses all modules via Object.assign in constructor) -->

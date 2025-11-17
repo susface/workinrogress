@@ -37,7 +37,14 @@ class CoverFlowSettings {
             fpsCounter: false,
             errorLogging: true,
             scrollSpeed: 1.0,
-            vrMode: false
+            vrMode: false,
+            // Enhancement features
+            soundEffects: true,
+            touchGestures: true,
+            platformAnimations: true,
+            dynamicBackground: true,
+            infiniteLoop: true,
+            zoomOnSelect: true
         };
     }
 
@@ -402,6 +409,70 @@ class CoverFlowSettings {
                 this.showToast(
                     this.settings.errorLogging ? 'Error logging enabled' : 'Error logging disabled',
                     'info'
+                );
+            });
+        }
+
+        // Enhancement feature toggles
+        const soundEffectsToggle = document.getElementById('sound-effects-toggle');
+        if (soundEffectsToggle) {
+            soundEffectsToggle.checked = this.settings.soundEffects;
+            soundEffectsToggle.addEventListener('change', () => {
+                this.toggleSoundEffects();
+            });
+        }
+
+        const touchGesturesToggle = document.getElementById('touch-gestures-toggle');
+        if (touchGesturesToggle) {
+            touchGesturesToggle.checked = this.settings.touchGestures;
+            touchGesturesToggle.addEventListener('change', () => {
+                this.toggleTouchGestures();
+            });
+        }
+
+        const platformAnimationsToggle = document.getElementById('platform-animations-toggle');
+        if (platformAnimationsToggle) {
+            platformAnimationsToggle.checked = this.settings.platformAnimations;
+            platformAnimationsToggle.addEventListener('change', () => {
+                this.togglePlatformAnimations();
+            });
+        }
+
+        const dynamicBackgroundToggle = document.getElementById('dynamic-background-toggle');
+        if (dynamicBackgroundToggle) {
+            dynamicBackgroundToggle.checked = this.settings.dynamicBackground;
+            dynamicBackgroundToggle.addEventListener('change', () => {
+                this.settings.dynamicBackground = !this.settings.dynamicBackground;
+                this.saveSettings();
+                this.showToast(
+                    this.settings.dynamicBackground ? 'Dynamic background enabled' : 'Dynamic background disabled',
+                    'success'
+                );
+            });
+        }
+
+        const infiniteLoopToggle = document.getElementById('infinite-loop-toggle');
+        if (infiniteLoopToggle) {
+            infiniteLoopToggle.checked = this.settings.infiniteLoop;
+            infiniteLoopToggle.addEventListener('change', () => {
+                this.settings.infiniteLoop = !this.settings.infiniteLoop;
+                this.saveSettings();
+                this.showToast(
+                    this.settings.infiniteLoop ? 'Infinite loop enabled' : 'Infinite loop disabled',
+                    'success'
+                );
+            });
+        }
+
+        const zoomOnSelectToggle = document.getElementById('zoom-on-select-toggle');
+        if (zoomOnSelectToggle) {
+            zoomOnSelectToggle.checked = this.settings.zoomOnSelect;
+            zoomOnSelectToggle.addEventListener('change', () => {
+                this.settings.zoomOnSelect = !this.settings.zoomOnSelect;
+                this.saveSettings();
+                this.showToast(
+                    this.settings.zoomOnSelect ? 'Zoom on selection enabled' : 'Zoom on selection disabled',
+                    'success'
                 );
             });
         }
