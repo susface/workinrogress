@@ -461,7 +461,9 @@ class CoverFlow {
                     header_path: game.header_path, // Store header art
                     launchCommand: game.launch_command,
                     installDir: game.install_directory,
-                    appId: game.app_id || game.package_name
+                    appId: game.app_id || game.package_name,
+                    has_vr_support: Boolean(game.has_vr_support),
+                    id: game.id
                 };
             });
 
@@ -1684,7 +1686,14 @@ class CoverFlow {
                         launchCommand: game.launch_command,
                         installDir: game.install_directory,
                         appId: game.app_id || game.package_name,
-                        id: game.id // Store database ID for favorites, etc.
+                        id: game.id, // Store database ID for favorites, etc.
+                        is_favorite: Boolean(game.is_favorite),
+                        is_hidden: Boolean(game.is_hidden),
+                        has_vr_support: Boolean(game.has_vr_support),
+                        total_play_time: game.total_play_time || 0,
+                        launch_count: game.launch_count || 0,
+                        last_played: game.last_played,
+                        user_rating: game.user_rating || 0
                     };
                 });
 
@@ -2269,6 +2278,7 @@ class CoverFlow {
                 appId: game.app_id || game.package_name,
                 is_favorite: Boolean(game.is_favorite),
                 is_hidden: Boolean(game.is_hidden),
+                has_vr_support: Boolean(game.has_vr_support),
                 total_play_time: game.total_play_time || 0,
                 launch_count: game.launch_count || 0,
                 last_played: game.last_played,
