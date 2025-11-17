@@ -176,8 +176,8 @@ class CoverFlowSettings {
         this.saveSettings();
 
         // Toggle the visual effects VR mode if available
-        if (window.visualEffects) {
-            window.visualEffects.toggleEffect('stereo3DEnabled', this.settings.vrMode);
+        if (window.visualEffectsManager) {
+            window.visualEffectsManager.toggleEffect('stereo3DEnabled', this.settings.vrMode);
         }
 
         this.showToast(
@@ -278,7 +278,7 @@ class CoverFlowSettings {
         }
 
         // Glass effect toggle
-        const glassToggle = document.getElementById('glass-toggle');
+        const glassToggle = document.getElementById('glass-effect');
         if (glassToggle) {
             glassToggle.checked = this.settings.glassEffect;
 
@@ -288,7 +288,7 @@ class CoverFlowSettings {
         }
 
         // Show reflections toggle
-        const reflectionsToggle = document.getElementById('reflections-toggle');
+        const reflectionsToggle = document.getElementById('reflection-toggle');
         if (reflectionsToggle) {
             reflectionsToggle.checked = this.settings.showReflections;
 
@@ -302,7 +302,7 @@ class CoverFlowSettings {
         }
 
         // Bloom effect toggle
-        const bloomToggle = document.getElementById('bloom-toggle');
+        const bloomToggle = document.getElementById('bloom-effect');
         if (bloomToggle) {
             bloomToggle.checked = this.settings.bloomEffect;
 
@@ -313,19 +313,19 @@ class CoverFlowSettings {
 
         // Bloom intensity slider
         const bloomIntensitySlider = document.getElementById('bloom-intensity');
-        const bloomIntensityValue = document.getElementById('bloom-intensity-value');
+        const bloomIntensityValue = document.getElementById('bloom-value');
         if (bloomIntensitySlider && bloomIntensityValue) {
-            bloomIntensitySlider.value = this.settings.bloomIntensity;
+            bloomIntensitySlider.value = this.settings.bloomIntensity * 10;
             bloomIntensityValue.textContent = this.settings.bloomIntensity;
 
             bloomIntensitySlider.addEventListener('input', (e) => {
-                this.updateBloomIntensity(e.target.value);
-                bloomIntensityValue.textContent = e.target.value;
+                this.updateBloomIntensity(e.target.value / 10);
+                bloomIntensityValue.textContent = (e.target.value / 10).toFixed(1);
             });
         }
 
         // SSAO effect toggle
-        const ssaoToggle = document.getElementById('ssao-toggle');
+        const ssaoToggle = document.getElementById('ssao-effect');
         if (ssaoToggle) {
             ssaoToggle.checked = this.settings.ssaoEffect;
 
@@ -345,7 +345,7 @@ class CoverFlowSettings {
         }
 
         // Hardware rendering toggle
-        const hwToggle = document.getElementById('hardware-rendering-toggle');
+        const hwToggle = document.getElementById('hardware-rendering');
         if (hwToggle) {
             hwToggle.checked = this.settings.hardwareRendering;
 
@@ -355,7 +355,7 @@ class CoverFlowSettings {
         }
 
         // Auto-rotate toggle
-        const autoRotateToggle = document.getElementById('auto-rotate-toggle');
+        const autoRotateToggle = document.getElementById('auto-rotate');
         if (autoRotateToggle) {
             autoRotateToggle.checked = this.settings.autoRotate;
 
