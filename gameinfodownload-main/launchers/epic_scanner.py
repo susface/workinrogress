@@ -318,7 +318,8 @@ class EpicScanner:
                         'icon_path': None,
                         'boxart_path': None,
                         'header_path': None,
-                        'exe_icon_path': None
+                        'exe_icon_path': None,
+                        'has_vr_support': 0
                     }
 
                     # Try to extract icon from executable
@@ -383,7 +384,8 @@ class EpicScanner:
                     'launch_command': f"com.epicgames.launcher://apps/{app_name}?action=launch&silent=true",
                     'launch_executable': launch_executable,
                     'namespace': catalog_namespace,
-                    'catalog_item_id': catalog_item_id
+                    'catalog_item_id': catalog_item_id,
+                    'has_vr_support': 0  # Epic doesn't provide VR metadata in their API
                 }
 
                 # Get metadata
@@ -475,7 +477,8 @@ class EpicScanner:
                     'namespace': install.get('NamespaceId', ''),
                     'icon_path': None,
                     'boxart_path': None,
-                    'description': ''
+                    'description': '',
+                    'has_vr_support': 0
                 }
 
                 # Try Windows icon extraction

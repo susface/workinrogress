@@ -240,6 +240,9 @@ function initDatabase() {
     try {
         db.exec('ALTER TABLE games ADD COLUMN user_notes TEXT');
     } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN has_vr_support INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
 
     return db;
 }
@@ -400,6 +403,7 @@ ipcMain.handle('get-games', async () => {
             // Convert SQLite boolean integers to JavaScript booleans
             parsed.is_favorite = Boolean(game.is_favorite);
             parsed.is_hidden = Boolean(game.is_hidden);
+            parsed.has_vr_support = Boolean(game.has_vr_support);
 
             if (game.genres) {
                 try {
@@ -677,13 +681,13 @@ async function loadGamesFromJSON() {
             launch_command, description, short_description, long_description,
             developer, publisher, release_date, icon_path, boxart_path,
             exe_icon_path, header_path,
-            size_on_disk, last_updated, genres, metadata, updated_at
+            size_on_disk, last_updated, genres, metadata, has_vr_support, updated_at
         ) VALUES (
             @platform, @title, @app_id, @package_name, @install_directory,
             @launch_command, @description, @short_description, @long_description,
             @developer, @publisher, @release_date, @icon_path, @boxart_path,
             @exe_icon_path, @header_path,
-            @size_on_disk, @last_updated, @genres, @metadata, datetime('now')
+            @size_on_disk, @last_updated, @genres, @metadata, @has_vr_support, datetime('now')
         )
     `);
 
@@ -1507,6 +1511,10 @@ ipcMain.handle('filter-games', async (event, filters) => {
             params.push(`%${filters.genre}%`);
         }
 
+        if (filters.vr_only) {
+            query += ' AND has_vr_support = 1';
+        }
+
         // Add sorting - use whitelist mapping to prevent SQL injection
         const sortFieldsMap = {
             'title': 'title',
@@ -1536,6 +1544,7 @@ ipcMain.handle('filter-games', async (event, filters) => {
             // Convert SQLite boolean integers to JavaScript booleans
             parsed.is_favorite = Boolean(game.is_favorite);
             parsed.is_hidden = Boolean(game.is_hidden);
+            parsed.has_vr_support = Boolean(game.has_vr_support);
 
             // Parse JSON fields
             if (game.genres) {
