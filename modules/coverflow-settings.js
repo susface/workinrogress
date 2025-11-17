@@ -213,12 +213,12 @@ class CoverFlowSettings {
         const spacingSlider = document.getElementById('cover-spacing');
         const spacingValue = document.getElementById('spacing-value');
         if (spacingSlider && spacingValue) {
-            spacingSlider.value = this.settings.coverSpacing;
+            spacingSlider.value = this.settings.coverSpacing * 10;
             spacingValue.textContent = this.settings.coverSpacing;
 
             spacingSlider.addEventListener('input', (e) => {
-                this.settings.coverSpacing = parseFloat(e.target.value);
-                spacingValue.textContent = e.target.value;
+                this.settings.coverSpacing = parseFloat(e.target.value) / 10;
+                spacingValue.textContent = (e.target.value / 10).toFixed(1);
                 this.updateCoverPositions();
                 this.saveSettings();
             });
@@ -228,12 +228,12 @@ class CoverFlowSettings {
         const angleSlider = document.getElementById('side-angle');
         const angleValue = document.getElementById('angle-value');
         if (angleSlider && angleValue) {
-            angleSlider.value = this.settings.sideAngle;
+            angleSlider.value = (this.settings.sideAngle * 180 / Math.PI);
             angleValue.textContent = (this.settings.sideAngle * (180 / Math.PI)).toFixed(0) + '°';
 
             angleSlider.addEventListener('input', (e) => {
-                this.settings.sideAngle = parseFloat(e.target.value);
-                angleValue.textContent = (parseFloat(e.target.value) * (180 / Math.PI)).toFixed(0) + '°';
+                this.settings.sideAngle = parseFloat(e.target.value) * (Math.PI / 180);
+                angleValue.textContent = parseFloat(e.target.value).toFixed(0) + '°';
                 this.updateCoverPositions();
                 this.saveSettings();
             });
@@ -243,12 +243,12 @@ class CoverFlowSettings {
         const speedSlider = document.getElementById('animation-speed');
         const speedValue = document.getElementById('speed-value');
         if (speedSlider && speedValue) {
-            speedSlider.value = this.settings.animationSpeed;
-            speedValue.textContent = this.settings.animationSpeed + 'x';
+            speedSlider.value = this.settings.animationSpeed * 10;
+            speedValue.textContent = (this.settings.animationSpeed * 10).toFixed(0);
 
             speedSlider.addEventListener('input', (e) => {
-                this.settings.animationSpeed = parseFloat(e.target.value);
-                speedValue.textContent = e.target.value + 'x';
+                this.settings.animationSpeed = parseFloat(e.target.value) / 10;
+                speedValue.textContent = e.target.value;
                 this.saveSettings();
             });
         }

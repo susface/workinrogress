@@ -723,7 +723,8 @@ async function loadGamesFromJSON() {
                 size_on_disk: game.size_on_disk || 0,
                 last_updated: game.last_updated || 0,
                 genres: JSON.stringify(game.genres || []),
-                metadata: JSON.stringify({})
+                metadata: JSON.stringify({}),
+                has_vr_support: game.has_vr_support || 0
             });
         }
     });
