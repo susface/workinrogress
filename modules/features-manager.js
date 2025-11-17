@@ -834,6 +834,16 @@ class FeaturesManager {
             console.error('[STATS] Error showing modal:', error);
         }
     }
+
+    /**
+     * Cleanup on destroy
+     */
+    cleanup() {
+        if (this.recentLaunchedInterval) {
+            clearInterval(this.recentLaunchedInterval);
+            this.recentLaunchedInterval = null;
+        }
+    }
 }
 
 // Export for global use
