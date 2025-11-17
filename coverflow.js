@@ -66,6 +66,10 @@ class CoverFlow {
         this.filteredAlbums = [];
         this.isAnimating = false;
         this.autoRotateInterval = null;
+        this.animationFrameId = null;
+
+        // Track base Y position for floating animation
+        this.centerCoverBaseY = 0;
 
         // Gamepad/Controller support - SIMPLIFIED
         this.gamepadIndex = -1;
@@ -548,6 +552,17 @@ class CoverFlow {
 
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
+
+        // Pause rendering when tab is hidden to save resources
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.pauseAnimation();
+                console.log('[COVERFLOW] Tab hidden - animation paused');
+            } else {
+                this.resumeAnimation();
+                console.log('[COVERFLOW] Tab visible - animation resumed');
+            }
+        });
     }
 
     createErrorPlaceholder(title = 'Image Not Found') {
@@ -610,6 +625,10 @@ class CoverFlow {
                         // Success
                         console.log(`[TEXTURE] ✓ Successfully loaded texture for "${album.title}"`);
                         if (material) {
+                            // Dispose old texture if it exists to prevent memory leak
+                            if (material.map && material.map !== texture) {
+                                material.map.dispose();
+                            }
                             material.map = texture;
                             material.needsUpdate = true;
                         }
@@ -626,6 +645,10 @@ class CoverFlow {
                             console.warn(`[TEXTURE] Using error placeholder for "${album.title}"`);
                             const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
                             if (material) {
+                                // Dispose old texture if it exists
+                                if (material.map && material.map !== errorTexture) {
+                                    material.map.dispose();
+                                }
                                 material.map = errorTexture;
                                 material.needsUpdate = true;
                             }
@@ -648,6 +671,10 @@ class CoverFlow {
                         // No exe icon - use error placeholder
                         const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
                         if (material) {
+                            // Dispose old texture if it exists
+                            if (material.map && material.map !== errorTexture) {
+                                material.map.dispose();
+                            }
                             material.map = errorTexture;
                             material.needsUpdate = true;
                         }
@@ -954,6 +981,9 @@ class CoverFlow {
         const depthOffset = 1.5;
         const speed = this.settings.animationSpeed;
 
+        let isStillAnimating = false;
+        const threshold = 0.001; // Distance threshold to consider animation complete
+
         this.covers.forEach((cover, index) => {
             const diff = index - this.targetIndex;
             const parent = cover.parent;
@@ -981,36 +1011,53 @@ class CoverFlow {
             }
 
             if (immediate) {
-                parent.position.x = targetX;
-                parent.position.y = targetY;
-                parent.position.z = targetZ;
+                parent.position.set(targetX, targetY, targetZ);
                 parent.rotation.y = targetRotY;
                 parent.scale.set(targetScale, targetScale, 1);
             } else {
-                parent.position.x += (targetX - parent.position.x) * speed;
-                parent.position.y += (targetY - parent.position.y) * speed;
-                parent.position.z += (targetZ - parent.position.z) * speed;
-                parent.rotation.y += (targetRotY - parent.rotation.y) * speed;
+                // Check if position needs updating
+                const deltaX = targetX - parent.position.x;
+                const deltaY = targetY - parent.position.y;
+                const deltaZ = targetZ - parent.position.z;
+                const deltaRot = targetRotY - parent.rotation.y;
+                const deltaScale = targetScale - parent.scale.x;
 
-                const currentScale = parent.scale.x;
-                const newScale = currentScale + (targetScale - currentScale) * speed;
-                parent.scale.set(newScale, newScale, 1);
+                // Only update if deltas are above threshold
+                if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold ||
+                    Math.abs(deltaZ) > threshold || Math.abs(deltaRot) > threshold ||
+                    Math.abs(deltaScale) > threshold) {
+
+                    isStillAnimating = true;
+
+                    parent.position.x += deltaX * speed;
+                    parent.position.y += deltaY * speed;
+                    parent.position.z += deltaZ * speed;
+                    parent.rotation.y += deltaRot * speed;
+
+                    const newScale = parent.scale.x + deltaScale * speed;
+                    parent.scale.set(newScale, newScale, 1);
+                }
             }
 
-            const opacity = 1 - Math.min(Math.abs(diff) * 0.12, 0.6);
-            if (cover.material) {
-                cover.material.opacity = opacity;
+            // Calculate and set opacity (only if changed)
+            const targetOpacity = 1 - Math.min(Math.abs(diff) * 0.12, 0.6);
+            if (cover.material && Math.abs(cover.material.opacity - targetOpacity) > 0.01) {
+                cover.material.opacity = targetOpacity;
                 cover.material.transparent = true;
             }
 
+            // Update reflection
             const reflection = parent.children && parent.children[1];
             if (reflection && reflection.userData && reflection.userData.isReflection) {
                 reflection.visible = this.settings.showReflections;
-                if (reflection.material) {
-                    reflection.material.opacity = opacity * 0.3;
+                const reflectionOpacity = targetOpacity * 0.3;
+                if (reflection.material && Math.abs(reflection.material.opacity - reflectionOpacity) > 0.01) {
+                    reflection.material.opacity = reflectionOpacity;
                 }
             }
         });
+
+        return isStillAnimating;
     }
 
     // Controller/Gamepad Support
@@ -3113,7 +3160,7 @@ class CoverFlow {
     }
 
     animate() {
-        requestAnimationFrame(() => this.animate());
+        this.animationFrameId = requestAnimationFrame(() => this.animate());
 
         // Update FPS counter
         this.updateFPS();
@@ -3124,14 +3171,19 @@ class CoverFlow {
         // Update controller cursor
         this.updateControllerCursor();
 
-        // Update cover positions
-        this.updateCoverPositions(false);
+        // Update cover positions (returns true if still animating)
+        const isAnimating = this.updateCoverPositions(false);
 
-        // Floating animation for center cover
+        // Floating animation for center cover - use fixed base Y position
         const centerCover = this.covers[this.currentIndex];
         if (centerCover && centerCover.parent) {
-            const baseY = centerCover.parent.position.y;
-            centerCover.parent.position.y = baseY + Math.sin(Date.now() * 0.001) * 0.03;
+            // Update base Y when current index changes or on first run
+            if (this.lastFloatingIndex !== this.currentIndex) {
+                this.centerCoverBaseY = isAnimating ? 0 : centerCover.parent.position.y;
+                this.lastFloatingIndex = this.currentIndex;
+            }
+            // Apply floating offset from fixed base
+            centerCover.parent.position.y = this.centerCoverBaseY + Math.sin(Date.now() * 0.001) * 0.03;
         }
 
         // Update visual effects
@@ -3144,6 +3196,19 @@ class CoverFlow {
             this.composer.render();
         } else {
             this.renderer.render(this.scene, this.camera);
+        }
+    }
+
+    pauseAnimation() {
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+    }
+
+    resumeAnimation() {
+        if (!this.animationFrameId) {
+            this.animate();
         }
     }
 }
