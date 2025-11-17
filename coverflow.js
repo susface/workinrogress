@@ -2001,6 +2001,15 @@ class CoverFlow {
         }
 
         document.getElementById('current-position').textContent = this.currentIndex + 1;
+
+        // Update VR UI overlay if visual effects manager is available
+        if (this.visualEffects && typeof this.visualEffects.updateVRUI === 'function') {
+            const title = item.title || 'Unknown';
+            const subtitle = isGame ? (item.developer || 'Unknown Developer') :
+                            isImage ? (item.category || 'Image') :
+                            (item.artist || 'Unknown Artist');
+            this.visualEffects.updateVRUI(title, subtitle);
+        }
     }
 
     createThumbnails() {
