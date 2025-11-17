@@ -1646,3 +1646,94 @@
 .updates-actions .btn.primary:hover {
     background: linear-gradient(135deg, #7daeff 0%, #5b8be9 100%);
 }
+
+/* ============================================
+   RESTART PROMPT
+   ============================================ */
+.restart-prompt {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 420px;
+    background: linear-gradient(135deg, rgba(108, 158, 255, 0.98) 0%, rgba(74, 122, 217, 0.98) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.restart-prompt.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.restart-prompt-content {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    color: #fff;
+}
+
+.restart-icon {
+    font-size: 48px;
+    text-align: center;
+    animation: rotateRestart 2s linear infinite;
+}
+
+@keyframes rotateRestart {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.restart-message strong {
+    display: block;
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+.restart-message p {
+    margin: 0;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.restart-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.restart-actions .btn {
+    flex: 1;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.restart-actions .btn.primary {
+    background: #fff;
+    color: #4a7ad9;
+}
+
+.restart-actions .btn.primary:hover {
+    background: #f0f0f0;
+    transform: translateY(-1px);
+}
+
+.restart-actions .btn:not(.primary) {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.restart-actions .btn:not(.primary):hover {
+    background: rgba(255, 255, 255, 0.3);
+}

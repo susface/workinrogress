@@ -39,13 +39,27 @@ let scanStatus = {
     error: null
 };
 
+// Portable mode support
+const portableFlagPath = path.join(__dirname, 'portable.txt');
+const isPortableMode = fs.existsSync(portableFlagPath);
+
 // Paths
 const isDev = !app.isPackaged;
 const appPath = isDev ? __dirname : process.resourcesPath;
-const gameDataPath = path.join(app.getPath('userData'), 'game_data');
+
+// Use portable mode paths if enabled (store in app directory)
+const gameDataPath = isPortableMode
+    ? path.join(appPath, 'game_data')
+    : path.join(app.getPath('userData'), 'game_data');
+
 const dbPath = path.join(gameDataPath, 'games.db');
 const iconsPath = path.join(gameDataPath, 'icons');
 const boxartPath = path.join(gameDataPath, 'boxart');
+
+console.log('[PORTABLE] Portable mode:', isPortableMode ? 'ENABLED' : 'DISABLED');
+if (isPortableMode) {
+    console.log('[PORTABLE] Data path:', gameDataPath);
+}
 
 // Ensure directories exist
 function ensureDirectories() {
@@ -2372,6 +2386,42 @@ ipcMain.handle('update-game', async (event, gameId) => {
         console.error('Error updating game:', error);
         return { success: false, error: error.message };
     }
+});
+
+// Check if portable mode is enabled
+ipcMain.handle('is-portable-mode', async () => {
+    return {
+        isPortable: isPortableMode,
+        dataPath: gameDataPath
+    };
+});
+
+// Set portable mode (create or remove portable.txt flag)
+ipcMain.handle('set-portable-mode', async (event, enable) => {
+    try {
+        if (enable) {
+            // Create portable.txt flag file
+            fs.writeFileSync(portableFlagPath, 'This file enables portable mode');
+            console.log('[PORTABLE] Portable mode enabled');
+        } else {
+            // Remove portable.txt flag file
+            if (fs.existsSync(portableFlagPath)) {
+                fs.unlinkSync(portableFlagPath);
+                console.log('[PORTABLE] Portable mode disabled');
+            }
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error('[PORTABLE] Failed to set portable mode:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Restart application
+ipcMain.handle('restart-app', async () => {
+    app.relaunch();
+    app.quit();
 });
 
 console.log('CoverFlow Game Launcher - Electron app starting...');

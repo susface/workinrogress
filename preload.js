@@ -109,7 +109,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Updates
     checkGameUpdates: () => ipcRenderer.invoke('check-game-updates'),
-    updateGame: (gameId) => ipcRenderer.invoke('update-game', gameId)
+    updateGame: (gameId) => ipcRenderer.invoke('update-game', gameId),
+
+    // Portable mode
+    isPortableMode: () => ipcRenderer.invoke('is-portable-mode'),
+    setPortableMode: (enable) => ipcRenderer.invoke('set-portable-mode', enable),
+    restartApp: () => ipcRenderer.invoke('restart-app')
 });
 
 console.log('Preload script loaded - Electron API exposed');
