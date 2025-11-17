@@ -77,7 +77,11 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "CoverFlow Game Launcher",
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "installerHeaderIcon": "icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "perMachineAccess": false
     },
     "mac": {
       "target": [

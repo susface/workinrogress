@@ -38,6 +38,10 @@ class VisualEffectsManager {
         this.lastMouseX = 0;
         this.lastMouseY = 0;
 
+        // Event handlers (store references for cleanup)
+        this.mouseMoveHandler = null;
+        this.clickHandler = null;
+
         // Settings with defaults (all OFF for performance)
         this.settings = {
             // Particle systems
@@ -245,7 +249,7 @@ class VisualEffectsManager {
      * Setup mouse tracking for effects
      */
     setupMouseTracking() {
-        document.addEventListener('mousemove', (e) => {
+        this.mouseMoveHandler = (e) => {
             const prevX = this.mouseX;
             const prevY = this.mouseY;
 
@@ -257,9 +261,9 @@ class VisualEffectsManager {
 
             this.lastMouseX = prevX;
             this.lastMouseY = prevY;
-        });
+        };
 
-        document.addEventListener('click', (e) => {
+        this.clickHandler = (e) => {
             if (this.settings.rippleOnClick) {
                 this.createRipple(e.clientX, e.clientY);
             }
@@ -267,7 +271,10 @@ class VisualEffectsManager {
             if (this.settings.screenShakeEnabled) {
                 this.screenShake(0.02, 200);
             }
-        });
+        };
+
+        document.addEventListener('mousemove', this.mouseMoveHandler);
+        document.addEventListener('click', this.clickHandler);
     }
 
     // ==================== PARTICLE SYSTEMS ====================
@@ -2282,6 +2289,16 @@ class VisualEffectsManager {
 
             // Loading animations
             document.getElementById('visual-fx-loader')?.remove();
+
+            // Event listeners
+            if (this.mouseMoveHandler) {
+                document.removeEventListener('mousemove', this.mouseMoveHandler);
+                this.mouseMoveHandler = null;
+            }
+            if (this.clickHandler) {
+                document.removeEventListener('click', this.clickHandler);
+                this.clickHandler = null;
+            }
 
             console.log('[VISUAL_FX] Disposed');
         } catch (error) {
