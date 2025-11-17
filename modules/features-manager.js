@@ -403,24 +403,39 @@ class FeaturesManager {
 
         // Watch for search input focus to move sidebar down
         const searchInput = document.getElementById('search-input');
+        const clearSearchBtn = document.getElementById('clear-search');
+
+        const moveSidebarDown = () => {
+            sidebar.style.top = '180px'; // Move down further to avoid overlap
+        };
+
+        const moveSidebarUp = () => {
+            if (!searchInput || !searchInput.value.trim()) {
+                sidebar.style.top = '80px';
+            }
+        };
+
         if (searchInput) {
-            searchInput.addEventListener('focus', () => {
-                sidebar.style.top = '140px'; // Move down when search is active
-            });
+            searchInput.addEventListener('focus', moveSidebarDown);
             searchInput.addEventListener('blur', () => {
-                // Only move back up if search is empty
-                if (!searchInput.value.trim()) {
-                    sidebar.style.top = '80px';
-                }
+                // Delay to allow click on clear button
+                setTimeout(moveSidebarUp, 200);
             });
 
             // Also watch for typing
             searchInput.addEventListener('input', () => {
                 if (searchInput.value.trim()) {
-                    sidebar.style.top = '140px';
+                    moveSidebarDown();
                 } else {
-                    sidebar.style.top = '80px';
+                    moveSidebarUp();
                 }
+            });
+        }
+
+        // Also watch for clear button
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                setTimeout(moveSidebarUp, 100);
             });
         }
 
