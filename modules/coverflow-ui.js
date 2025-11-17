@@ -4,6 +4,40 @@
  */
 
 class CoverFlowUI {
+    constructor() {
+        // Cache DOM elements for performance
+        this.cachedElements = null;
+    }
+
+    /**
+     * Cache frequently accessed DOM elements
+     */
+    cacheElements() {
+        if (this.cachedElements) return this.cachedElements;
+
+        this.cachedElements = {
+            title: document.getElementById('album-title'),
+            artist: document.getElementById('album-artist'),
+            year: document.getElementById('album-year'),
+            genre: document.getElementById('album-genre'),
+            description: document.getElementById('album-description'),
+            playtime: document.getElementById('playtime-display'),
+            lastPlayed: document.getElementById('last-played-display'),
+            developer: document.getElementById('game-developer'),
+            publisher: document.getElementById('game-publisher'),
+            playBtn: document.getElementById('play-btn'),
+            favoriteBtn: document.getElementById('favorite-btn'),
+            position: document.getElementById('current-position'),
+            thumbnailContainer: document.getElementById('thumbnail-container'),
+            fpsCounter: document.getElementById('fps-counter'),
+            visualizerPanel: document.getElementById('visualizer-panel'),
+            visualizerTitle: document.getElementById('visualizer-title'),
+            visualizerCanvas: document.getElementById('visualizer-canvas')
+        };
+
+        return this.cachedElements;
+    }
+
     /**
      * Update info panel with current album/game details
      */
@@ -11,13 +45,13 @@ class CoverFlowUI {
         if (this.filteredAlbums.length === 0) return;
 
         const album = this.filteredAlbums[this.currentIndex];
+        const el = this.cacheElements(); // Get cached elements
 
         // Update title
-        const titleEl = document.getElementById('album-title');
-        if (titleEl) titleEl.textContent = album.title || 'Unknown';
+        if (el.title) el.title.textContent = album.title || 'Unknown';
 
         // Update artist/platform
-        const artistEl = document.getElementById('album-artist');
+        const artistEl = el.artist;
         if (artistEl) {
             if (album.type === 'game') {
                 artistEl.textContent = album.developer || 'Unknown Developer';

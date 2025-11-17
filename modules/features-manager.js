@@ -10,6 +10,7 @@ class FeaturesManager {
         this.collections = [];
         this.recentGames = []; // Store recent games for safe event handling
         this.gameTags = null;
+        this.recentLaunchedInterval = null; // Store interval ID for cleanup
         this.libraryExport = null;
         this.backlogManager = null;
         this.screenshotGallery = null;
@@ -382,6 +383,7 @@ class FeaturesManager {
             padding: 16px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             z-index: 100;
+            transition: all 0.3s ease;
         `;
 
         sidebar.innerHTML = `
@@ -392,8 +394,93 @@ class FeaturesManager {
         document.body.appendChild(sidebar);
         this.updateRecentlyLaunched();
 
-        // Update every 30 seconds
-        setInterval(() => this.updateRecentlyLaunched(), 30000);
+        // Update every 30 seconds (only when tab is visible to save resources)
+        this.recentLaunchedInterval = setInterval(() => {
+            if (!document.hidden) {
+                this.updateRecentlyLaunched();
+            }
+        }, 30000);
+
+        // Watch for search input focus to move sidebar down
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('focus', () => {
+                sidebar.style.top = '140px'; // Move down when search is active
+            });
+            searchInput.addEventListener('blur', () => {
+                // Only move back up if search is empty
+                if (!searchInput.value.trim()) {
+                    sidebar.style.top = '80px';
+                }
+            });
+
+            // Also watch for typing
+            searchInput.addEventListener('input', () => {
+                if (searchInput.value.trim()) {
+                    sidebar.style.top = '140px';
+                } else {
+                    sidebar.style.top = '80px';
+                }
+            });
+        }
+
+        // Dynamic viewport repositioning
+        const repositionSidebar = () => {
+            const rect = sidebar.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const sidebarWidth = rect.width;
+
+            // Handle very small screens first
+            if (viewportWidth < 480) {
+                sidebar.style.display = 'none';
+                return;
+            } else {
+                sidebar.style.display = 'block';
+            }
+
+            // Check if sidebar is outside viewport horizontally
+            // Determine current side based on which positioning property is set
+            const isOnRight = sidebar.style.right && sidebar.style.right !== 'auto';
+            const fitsOnRight = viewportWidth >= sidebarWidth + 40; // sidebar width + margins
+
+            if (isOnRight && rect.right > viewportWidth) {
+                // Move to left side if doesn't fit on right
+                sidebar.style.right = 'auto';
+                sidebar.style.left = '20px';
+                console.log('[FEATURES] Sidebar repositioned to left (viewport width:', viewportWidth, 'px)');
+            } else if (!isOnRight && fitsOnRight && rect.left > 40) {
+                // Move back to right if there's now room and we're on the left
+                sidebar.style.left = 'auto';
+                sidebar.style.right = '20px';
+                console.log('[FEATURES] Sidebar repositioned back to right');
+            } else if (!isOnRight && rect.left < 0) {
+                // If on left and going off screen, adjust position
+                sidebar.style.left = '10px';
+                console.log('[FEATURES] Sidebar adjusted to stay visible on left');
+            }
+
+            // Check vertical position
+            if (rect.bottom > viewportHeight) {
+                // Move up if going off bottom
+                const newTop = viewportHeight - rect.height - 20;
+                sidebar.style.top = `${Math.max(80, newTop)}px`;
+                console.log('[FEATURES] Sidebar repositioned vertically (viewport height:', viewportHeight, 'px)');
+            }
+        };
+
+        // Check on resize and scroll - throttled to prevent performance issues
+        let resizeTimeout;
+        const throttledReposition = () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(repositionSidebar, 100);
+        };
+
+        window.addEventListener('resize', throttledReposition);
+        window.addEventListener('scroll', throttledReposition);
+
+        // Initial check
+        setTimeout(repositionSidebar, 100);
     }
 
     /**

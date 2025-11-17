@@ -66,6 +66,10 @@ class CoverFlow {
         this.filteredAlbums = [];
         this.isAnimating = false;
         this.autoRotateInterval = null;
+        this.animationFrameId = null;
+
+        // Track base Y position for floating animation
+        this.centerCoverBaseY = 0;
 
         // Gamepad/Controller support - SIMPLIFIED
         this.gamepadIndex = -1;
@@ -548,6 +552,17 @@ class CoverFlow {
 
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
+
+        // Pause rendering when tab is hidden to save resources
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.pauseAnimation();
+                console.log('[COVERFLOW] Tab hidden - animation paused');
+            } else {
+                this.resumeAnimation();
+                console.log('[COVERFLOW] Tab visible - animation resumed');
+            }
+        });
     }
 
     createErrorPlaceholder(title = 'Image Not Found') {
@@ -610,6 +625,10 @@ class CoverFlow {
                         // Success
                         console.log(`[TEXTURE] ✓ Successfully loaded texture for "${album.title}"`);
                         if (material) {
+                            // Dispose old texture if it exists to prevent memory leak
+                            if (material.map && material.map !== texture) {
+                                material.map.dispose();
+                            }
                             material.map = texture;
                             material.needsUpdate = true;
                         }
@@ -626,6 +645,10 @@ class CoverFlow {
                             console.warn(`[TEXTURE] Using error placeholder for "${album.title}"`);
                             const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
                             if (material) {
+                                // Dispose old texture if it exists
+                                if (material.map && material.map !== errorTexture) {
+                                    material.map.dispose();
+                                }
                                 material.map = errorTexture;
                                 material.needsUpdate = true;
                             }
@@ -648,6 +671,10 @@ class CoverFlow {
                         // No exe icon - use error placeholder
                         const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
                         if (material) {
+                            // Dispose old texture if it exists
+                            if (material.map && material.map !== errorTexture) {
+                                material.map.dispose();
+                            }
                             material.map = errorTexture;
                             material.needsUpdate = true;
                         }
@@ -747,10 +774,18 @@ class CoverFlow {
         const coverWidth = 2;
         const coverHeight = 2;
 
+        // Create shared geometries and materials once - reused by all covers for memory efficiency
+        const sharedGeometry = new THREE.PlaneGeometry(coverWidth, coverHeight);
+        const sharedBorderGeometry = new THREE.EdgesGeometry(sharedGeometry);
+        const sharedBorderMaterial = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            linewidth: 1
+        });
+
         this.filteredAlbums.forEach((album, index) => {
             const coverGroup = new THREE.Group();
 
-            const geometry = new THREE.PlaneGeometry(coverWidth, coverHeight);
+            const geometry = sharedGeometry;
 
             // Material selection based on settings
             let material;
@@ -901,13 +936,8 @@ class CoverFlow {
             cover.castShadow = true;
             cover.receiveShadow = true;
 
-            // Border
-            const borderGeometry = new THREE.EdgesGeometry(geometry);
-            const borderMaterial = new THREE.LineBasicMaterial({
-                color: 0xffffff,
-                linewidth: 1
-            });
-            const border = new THREE.LineSegments(borderGeometry, borderMaterial);
+            // Border (using shared geometry and material for efficiency)
+            const border = new THREE.LineSegments(sharedBorderGeometry, sharedBorderMaterial);
             cover.add(border);
 
             coverGroup.add(cover);
@@ -951,6 +981,9 @@ class CoverFlow {
         const depthOffset = 1.5;
         const speed = this.settings.animationSpeed;
 
+        let isStillAnimating = false;
+        const threshold = 0.001; // Distance threshold to consider animation complete
+
         this.covers.forEach((cover, index) => {
             const diff = index - this.targetIndex;
             const parent = cover.parent;
@@ -978,36 +1011,53 @@ class CoverFlow {
             }
 
             if (immediate) {
-                parent.position.x = targetX;
-                parent.position.y = targetY;
-                parent.position.z = targetZ;
+                parent.position.set(targetX, targetY, targetZ);
                 parent.rotation.y = targetRotY;
                 parent.scale.set(targetScale, targetScale, 1);
             } else {
-                parent.position.x += (targetX - parent.position.x) * speed;
-                parent.position.y += (targetY - parent.position.y) * speed;
-                parent.position.z += (targetZ - parent.position.z) * speed;
-                parent.rotation.y += (targetRotY - parent.rotation.y) * speed;
+                // Check if position needs updating
+                const deltaX = targetX - parent.position.x;
+                const deltaY = targetY - parent.position.y;
+                const deltaZ = targetZ - parent.position.z;
+                const deltaRot = targetRotY - parent.rotation.y;
+                const deltaScale = targetScale - parent.scale.x;
 
-                const currentScale = parent.scale.x;
-                const newScale = currentScale + (targetScale - currentScale) * speed;
-                parent.scale.set(newScale, newScale, 1);
+                // Only update if deltas are above threshold
+                if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold ||
+                    Math.abs(deltaZ) > threshold || Math.abs(deltaRot) > threshold ||
+                    Math.abs(deltaScale) > threshold) {
+
+                    isStillAnimating = true;
+
+                    parent.position.x += deltaX * speed;
+                    parent.position.y += deltaY * speed;
+                    parent.position.z += deltaZ * speed;
+                    parent.rotation.y += deltaRot * speed;
+
+                    const newScale = parent.scale.x + deltaScale * speed;
+                    parent.scale.set(newScale, newScale, 1);
+                }
             }
 
-            const opacity = 1 - Math.min(Math.abs(diff) * 0.12, 0.6);
-            if (cover.material) {
-                cover.material.opacity = opacity;
+            // Calculate and set opacity (only if changed)
+            const targetOpacity = 1 - Math.min(Math.abs(diff) * 0.12, 0.6);
+            if (cover.material && Math.abs(cover.material.opacity - targetOpacity) > 0.01) {
+                cover.material.opacity = targetOpacity;
                 cover.material.transparent = true;
             }
 
+            // Update reflection
             const reflection = parent.children && parent.children[1];
             if (reflection && reflection.userData && reflection.userData.isReflection) {
                 reflection.visible = this.settings.showReflections;
-                if (reflection.material) {
-                    reflection.material.opacity = opacity * 0.3;
+                const reflectionOpacity = targetOpacity * 0.3;
+                if (reflection.material && Math.abs(reflection.material.opacity - reflectionOpacity) > 0.01) {
+                    reflection.material.opacity = reflectionOpacity;
                 }
             }
         });
+
+        return isStillAnimating;
     }
 
     // Controller/Gamepad Support
@@ -1154,137 +1204,165 @@ class CoverFlow {
         const isImage = item.type === 'image';
         const isGame = item.type === 'game';
 
-        // Update modal title and details based on type
-        document.getElementById('info-modal-title').textContent = item.title;
+        try {
+            // Update modal title and details based on type
+            const titleEl = document.getElementById('info-modal-title');
+            if (titleEl) titleEl.textContent = item.title;
 
-        if (isGame) {
-            // For games, show platform and developer
-            document.getElementById('info-modal-artist').textContent = item.developer || 'Unknown';
-            document.getElementById('info-modal-year').textContent = item.year || '-';
-            document.getElementById('info-modal-genre').textContent = item.genre || '-';
-            // Update labels
-            const artistLabel = document.querySelector('#info-modal-artist').previousElementSibling;
-            const genreLabel = document.querySelector('#info-modal-genre').previousElementSibling;
-            artistLabel.textContent = 'Developer:';
-            genreLabel.textContent = 'Genre:';
-        } else if (isImage) {
-            // For images, show category and tags
-            document.getElementById('info-modal-artist').textContent = item.category || 'Image';
-            document.getElementById('info-modal-year').textContent = item.year || '-';
-            document.getElementById('info-modal-genre').textContent = item.tags || '-';
-            // Update labels
-            const genreLabel = document.querySelector('#info-modal-genre').previousElementSibling;
-            genreLabel.textContent = 'Tags:';
-        } else {
-            // For albums, show artist and genre
-            document.getElementById('info-modal-artist').textContent = item.artist;
-            document.getElementById('info-modal-year').textContent = item.year;
-            document.getElementById('info-modal-genre').textContent = item.genre;
-            // Update labels
-            const artistLabel = document.querySelector('#info-modal-artist').previousElementSibling;
-            const genreLabel = document.querySelector('#info-modal-genre').previousElementSibling;
-            artistLabel.textContent = 'Artist:';
-            genreLabel.textContent = 'Genre:';
-        }
+            if (isGame) {
+                // For games, show platform and developer
+                const artistEl = document.getElementById('info-modal-artist');
+                const yearEl = document.getElementById('info-modal-year');
+                const genreEl = document.getElementById('info-modal-genre');
 
-        // Safe color conversion
-        const colorHex = typeof item.color === 'number' && !isNaN(item.color)
-            ? '#' + item.color.toString(16).padStart(6, '0').toUpperCase()
-            : '#808080';
-        document.getElementById('info-modal-color').textContent = colorHex;
-        document.getElementById('info-description-text').textContent = item.description || 'No description available.';
+                if (artistEl) artistEl.textContent = item.developer || 'Unknown';
+                if (yearEl) yearEl.textContent = item.year || '-';
+                if (genreEl) genreEl.textContent = item.genre || '-';
 
-        // Handle media (image or video)
-        const coverContainer = document.getElementById('info-cover-container');
-        const videoContainer = document.getElementById('info-video-container');
-        const video = document.getElementById('info-video');
+                // Update labels
+                const artistLabel = artistEl?.previousElementSibling;
+                const genreLabel = genreEl?.previousElementSibling;
+                if (artistLabel) artistLabel.textContent = 'Developer:';
+                if (genreLabel) genreLabel.textContent = 'Genre:';
+            } else if (isImage) {
+                // For images, show category and tags
+                const artistEl = document.getElementById('info-modal-artist');
+                const yearEl = document.getElementById('info-modal-year');
+                const genreEl = document.getElementById('info-modal-genre');
 
-        // Clear previous content
-        coverContainer.innerHTML = '';
-        videoContainer.style.display = 'none';
-        video.src = '';
+                if (artistEl) artistEl.textContent = item.category || 'Image';
+                if (yearEl) yearEl.textContent = item.year || '-';
+                if (genreEl) genreEl.textContent = item.tags || '-';
 
-        if (item.video) {
-            // Show video
-            video.src = item.video;
-            videoContainer.style.display = 'block';
-        } else if (item.image) {
-            // Show image
-            const imgWrapper = document.createElement('div');
-            imgWrapper.style.display = 'flex';
-            imgWrapper.style.flexDirection = 'column';
-            imgWrapper.style.gap = '10px';
-            imgWrapper.style.width = '100%';
-            imgWrapper.style.height = '100%';
-
-            const img = document.createElement('img');
-            img.src = item.image;
-            img.alt = item.title;
-            img.style.cursor = 'pointer';
-            img.style.flex = '1';
-            img.style.objectFit = 'cover';
-            img.style.width = '100%';
-            img.style.borderRadius = '5px';
-
-            // Fallback to icon if boxart fails to load (for games)
-            img.addEventListener('error', () => {
-                if (item.type === 'game' && item.icon_path && img.src !== item.icon_path) {
-                    console.log('Boxart failed in modal, trying icon:', item.icon_path);
-                    img.src = item.icon_path;
-                }
-            });
-
-            // Click to view full size in new tab
-            img.addEventListener('click', () => {
-                window.open(item.image, '_blank');
-            });
-
-            imgWrapper.appendChild(img);
-
-            // Add click hint for images
-            if (isImage) {
-                const hint = document.createElement('div');
-                hint.style.textAlign = 'center';
-                hint.style.fontSize = '12px';
-                hint.style.color = '#888';
-                hint.style.padding = '5px';
-                hint.style.width = '100%';
-                hint.textContent = '(Click image to view full size)';
-                imgWrapper.appendChild(hint);
-            }
-
-            coverContainer.appendChild(imgWrapper);
-        } else {
-            // Show colored placeholder
-            const placeholder = document.createElement('div');
-            placeholder.style.width = '100%';
-            placeholder.style.height = '100%';
-            const bgColor = typeof item.color === 'number' && !isNaN(item.color)
-                ? '#' + item.color.toString(16).padStart(6, '0')
-                : '#808080';
-            placeholder.style.background = bgColor;
-            placeholder.style.display = 'flex';
-            placeholder.style.alignItems = 'center';
-            placeholder.style.justifyContent = 'center';
-            placeholder.style.fontSize = '48px';
-            placeholder.style.color = 'rgba(255,255,255,0.5)';
-            placeholder.textContent = isGame ? '🎮' : (isImage ? '🖼️' : '♪');
-            coverContainer.appendChild(placeholder);
-        }
-
-        // Add launch button for games
-        const launchBtn = document.getElementById('launch-game-btn');
-        if (launchBtn) {
-            if (isGame && item.launchCommand) {
-                launchBtn.style.display = 'block';
-                launchBtn.onclick = () => this.launchGame(item);
+                // Update labels
+                const genreLabel = genreEl?.previousElementSibling;
+                if (genreLabel) genreLabel.textContent = 'Tags:';
             } else {
-                launchBtn.style.display = 'none';
-            }
-        }
+                // For albums, show artist and genre
+                const artistEl = document.getElementById('info-modal-artist');
+                const yearEl = document.getElementById('info-modal-year');
+                const genreEl = document.getElementById('info-modal-genre');
 
-        this.openModal('info-modal');
-        this.vibrateController(100, 0.2);
+                if (artistEl) artistEl.textContent = item.artist;
+                if (yearEl) yearEl.textContent = item.year;
+                if (genreEl) genreEl.textContent = item.genre;
+
+                // Update labels
+                const artistLabel = artistEl?.previousElementSibling;
+                const genreLabel = genreEl?.previousElementSibling;
+                if (artistLabel) artistLabel.textContent = 'Artist:';
+                if (genreLabel) genreLabel.textContent = 'Genre:';
+            }
+
+            // Safe color conversion
+            const colorHex = typeof item.color === 'number' && !isNaN(item.color)
+                ? '#' + item.color.toString(16).padStart(6, '0').toUpperCase()
+                : '#808080';
+            const colorEl = document.getElementById('info-modal-color');
+            const descEl = document.getElementById('info-description-text');
+            if (colorEl) colorEl.textContent = colorHex;
+            if (descEl) descEl.textContent = item.description || 'No description available.';
+
+            // Handle media (image or video)
+            const coverContainer = document.getElementById('info-cover-container');
+            const videoContainer = document.getElementById('info-video-container');
+            const video = document.getElementById('info-video');
+
+            if (!coverContainer || !videoContainer || !video) {
+                console.warn('[COVERFLOW] Info modal elements not found');
+                return;
+            }
+
+            // Clear previous content
+            coverContainer.innerHTML = '';
+            videoContainer.style.display = 'none';
+            video.src = '';
+
+            if (item.video) {
+                // Show video
+                video.src = item.video;
+                videoContainer.style.display = 'block';
+            } else if (item.image) {
+                // Show image
+                const imgWrapper = document.createElement('div');
+                imgWrapper.style.display = 'flex';
+                imgWrapper.style.flexDirection = 'column';
+                imgWrapper.style.gap = '10px';
+                imgWrapper.style.width = '100%';
+                imgWrapper.style.height = '100%';
+
+                const img = document.createElement('img');
+                img.src = item.image;
+                img.alt = item.title;
+                img.style.cursor = 'pointer';
+                img.style.flex = '1';
+                img.style.objectFit = 'cover';
+                img.style.width = '100%';
+                img.style.borderRadius = '5px';
+
+                // Fallback to icon if boxart fails to load (for games)
+                img.addEventListener('error', () => {
+                    if (item.type === 'game' && item.icon_path && img.src !== item.icon_path) {
+                        console.log('Boxart failed in modal, trying icon:', item.icon_path);
+                        img.src = item.icon_path;
+                    }
+                });
+
+                // Click to view full size in new tab
+                img.addEventListener('click', () => {
+                    window.open(item.image, '_blank');
+                });
+
+                imgWrapper.appendChild(img);
+
+                // Add click hint for images
+                if (isImage) {
+                    const hint = document.createElement('div');
+                    hint.style.textAlign = 'center';
+                    hint.style.fontSize = '12px';
+                    hint.style.color = '#888';
+                    hint.style.padding = '5px';
+                    hint.style.width = '100%';
+                    hint.textContent = '(Click image to view full size)';
+                    imgWrapper.appendChild(hint);
+                }
+
+                coverContainer.appendChild(imgWrapper);
+            } else {
+                // Show colored placeholder
+                const placeholder = document.createElement('div');
+                placeholder.style.width = '100%';
+                placeholder.style.height = '100%';
+                const bgColor = typeof item.color === 'number' && !isNaN(item.color)
+                    ? '#' + item.color.toString(16).padStart(6, '0')
+                    : '#808080';
+                placeholder.style.background = bgColor;
+                placeholder.style.display = 'flex';
+                placeholder.style.alignItems = 'center';
+                placeholder.style.justifyContent = 'center';
+                placeholder.style.fontSize = '48px';
+                placeholder.style.color = 'rgba(255,255,255,0.5)';
+                placeholder.textContent = isGame ? '🎮' : (isImage ? '🖼️' : '♪');
+                coverContainer.appendChild(placeholder);
+            }
+
+            // Add launch button for games
+            const launchBtn = document.getElementById('launch-game-btn');
+            if (launchBtn) {
+                if (isGame && item.launchCommand) {
+                    launchBtn.style.display = 'block';
+                    launchBtn.onclick = () => this.launchGame(item);
+                } else {
+                    launchBtn.style.display = 'none';
+                }
+            }
+
+            this.openModal('info-modal');
+            this.vibrateController(100, 0.2);
+        } catch (error) {
+            console.error('[COVERFLOW] Error in showInfoModal:', error);
+            this.showToast('Error displaying info modal', 'error');
+        }
     }
 
     // Launch a game using its launch command
@@ -2107,7 +2185,7 @@ class CoverFlow {
         } else {
             this.filteredAlbums = this.allAlbums.filter(item => {
                 // Search in title (common to all)
-                if (item.title.toLowerCase().includes(lowerQuery)) return true;
+                if (item.title && item.title.toLowerCase().includes(lowerQuery)) return true;
 
                 // For albums, search in artist and genre
                 if (item.type === 'album' || !item.type) {
@@ -2205,13 +2283,58 @@ class CoverFlow {
     }
 
     clearScene() {
-        this.covers.forEach(cover => {
-            if (cover.parent) {
-                this.scene.remove(cover.parent);
-            }
-        });
-        this.covers = [];
-        this.reflections = [];
+        try {
+            // Track already-disposed resources to prevent double-disposal
+            const disposedGeometries = new Set();
+            const disposedTextures = new Set();
+
+            this.covers.forEach(cover => {
+                if (cover.parent) {
+                    // Dispose of all children in the cover group
+                    cover.parent.traverse((child) => {
+                        if (child.isMesh || child.isLineSegments) {
+                            // Dispose geometry (only once per unique geometry)
+                            if (child.geometry && !disposedGeometries.has(child.geometry.uuid)) {
+                                child.geometry.dispose();
+                                disposedGeometries.add(child.geometry.uuid);
+                            }
+
+                            // Dispose material(s)
+                            if (child.material) {
+                                const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+                                materials.forEach(mat => {
+                                    // Dispose textures (only once per unique texture)
+                                    const textureProps = ['map', 'lightMap', 'bumpMap', 'normalMap', 'specularMap', 'envMap', 'aoMap', 'emissiveMap', 'metalnessMap', 'roughnessMap'];
+
+                                    textureProps.forEach(prop => {
+                                        if (mat[prop] && !disposedTextures.has(mat[prop].uuid)) {
+                                            mat[prop].dispose();
+                                            disposedTextures.add(mat[prop].uuid);
+                                        }
+                                    });
+
+                                    mat.dispose();
+                                });
+                            }
+                        }
+                    });
+
+                    // Remove from scene
+                    this.scene.remove(cover.parent);
+                }
+            });
+
+            this.covers = [];
+            this.reflections = [];
+
+            console.log('[COVERFLOW] Scene cleared - disposed', disposedGeometries.size, 'geometries and', disposedTextures.size, 'textures');
+        } catch (error) {
+            console.error('[COVERFLOW] Error during clearScene:', error);
+            // Still clear the arrays even if disposal fails
+            this.covers = [];
+            this.reflections = [];
+        }
     }
 
     loadFromJSON(jsonData) {
@@ -3037,7 +3160,7 @@ class CoverFlow {
     }
 
     animate() {
-        requestAnimationFrame(() => this.animate());
+        this.animationFrameId = requestAnimationFrame(() => this.animate());
 
         // Update FPS counter
         this.updateFPS();
@@ -3048,14 +3171,19 @@ class CoverFlow {
         // Update controller cursor
         this.updateControllerCursor();
 
-        // Update cover positions
-        this.updateCoverPositions(false);
+        // Update cover positions (returns true if still animating)
+        const isAnimating = this.updateCoverPositions(false);
 
-        // Floating animation for center cover
+        // Floating animation for center cover - use fixed base Y position
         const centerCover = this.covers[this.currentIndex];
         if (centerCover && centerCover.parent) {
-            const baseY = centerCover.parent.position.y;
-            centerCover.parent.position.y = baseY + Math.sin(Date.now() * 0.001) * 0.03;
+            // Update base Y when current index changes or on first run
+            if (this.lastFloatingIndex !== this.currentIndex) {
+                this.centerCoverBaseY = isAnimating ? 0 : centerCover.parent.position.y;
+                this.lastFloatingIndex = this.currentIndex;
+            }
+            // Apply floating offset from fixed base
+            centerCover.parent.position.y = this.centerCoverBaseY + Math.sin(Date.now() * 0.001) * 0.03;
         }
 
         // Update visual effects
@@ -3068,6 +3196,19 @@ class CoverFlow {
             this.composer.render();
         } else {
             this.renderer.render(this.scene, this.camera);
+        }
+    }
+
+    pauseAnimation() {
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+    }
+
+    resumeAnimation() {
+        if (!this.animationFrameId) {
+            this.animate();
         }
     }
 }
