@@ -255,6 +255,9 @@ function initDatabase() {
     try {
         db.exec('ALTER TABLE games ADD COLUMN update_available INTEGER DEFAULT 0');
     } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN custom_launch_options TEXT');
+    } catch (e) { /* Column already exists */ }
 
     return db;
 }
@@ -1363,6 +1366,28 @@ ipcMain.handle('set-notes', async (event, gameId, notes) => {
         return { success: true };
     } catch (error) {
         console.error('Error setting notes:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Set custom launch options
+ipcMain.handle('set-custom-launch-options', async (event, gameId, options) => {
+    try {
+        // Validate launch options
+        if (options !== null && options !== undefined && typeof options !== 'string') {
+            return { success: false, error: 'Launch options must be a string' };
+        }
+
+        // Limit options length
+        const MAX_OPTIONS_LENGTH = 500;
+        const validatedOptions = options ? options.substring(0, MAX_OPTIONS_LENGTH) : '';
+
+        const db = initDatabase();
+        db.prepare('UPDATE games SET custom_launch_options = ? WHERE id = ?').run(validatedOptions, gameId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error setting custom launch options:', error);
         return { success: false, error: error.message };
     }
 });

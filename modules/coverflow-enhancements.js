@@ -130,6 +130,11 @@ class CoverFlowEnhancements {
             }
         }
 
+        // Play navigation sound effect
+        if (typeof this.playNavigateSound === 'function') {
+            this.playNavigateSound();
+        }
+
         this.navigateTo(newIndex);
         this.updateDynamicBackground();
     }

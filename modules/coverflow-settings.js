@@ -44,7 +44,10 @@ class CoverFlowSettings {
             platformAnimations: true,
             dynamicBackground: true,
             infiniteLoop: true,
-            zoomOnSelect: true
+            zoomOnSelect: true,
+            depthOfField: false,
+            dofFocus: 9.0,
+            dofAperture: 0.025
         };
     }
 
@@ -171,6 +174,23 @@ class CoverFlowSettings {
 
         this.showToast(
             this.settings.ssaoEffect ? 'SSAO enabled (reload required)' : 'SSAO disabled (reload required)',
+            'success'
+        );
+    }
+
+    /**
+     * Toggle Depth of Field effect
+     */
+    toggleDepthOfField() {
+        this.settings.depthOfField = !this.settings.depthOfField;
+        this.saveSettings();
+
+        if (this.bokehPass) {
+            this.bokehPass.enabled = this.settings.depthOfField;
+        }
+
+        this.showToast(
+            this.settings.depthOfField ? 'Depth of Field enabled' : 'Depth of Field disabled',
             'success'
         );
     }
@@ -338,6 +358,16 @@ class CoverFlowSettings {
 
             ssaoToggle.addEventListener('change', () => {
                 this.toggleSSAOEffect();
+            });
+        }
+
+        // Depth of Field toggle
+        const dofToggle = document.getElementById('depth-of-field-toggle');
+        if (dofToggle) {
+            dofToggle.checked = this.settings.depthOfField;
+
+            dofToggle.addEventListener('change', () => {
+                this.toggleDepthOfField();
             });
         }
 

@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Ratings and notes
     setRating: (gameId, rating) => ipcRenderer.invoke('set-rating', gameId, rating),
     setNotes: (gameId, notes) => ipcRenderer.invoke('set-notes', gameId, notes),
+    setCustomLaunchOptions: (gameId, options) => ipcRenderer.invoke('set-custom-launch-options', gameId, options),
 
     // Special lists
     getRecentlyPlayed: (limit) => ipcRenderer.invoke('get-recently-played', limit),

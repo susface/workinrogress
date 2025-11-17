@@ -793,6 +793,28 @@ class CoverFlow {
                 }
             }
         }
+
+        // Depth of Field effect (Bokeh)
+        if (typeof THREE.BokehPass !== 'undefined') {
+            try {
+                this.bokehPass = new THREE.BokehPass(
+                    this.scene,
+                    this.camera,
+                    {
+                        focus: this.settings.dofFocus,
+                        aperture: this.settings.dofAperture,
+                        maxblur: 0.01
+                    }
+                );
+                this.bokehPass.enabled = this.settings.depthOfField;
+                this.composer.addPass(this.bokehPass);
+                console.log('[COVERFLOW] Depth of Field effect initialized');
+            } catch (error) {
+                console.warn('Depth of Field effect not available:', error.message);
+                this.bokehPass = null;
+                this.settings.depthOfField = false;
+            }
+        }
     }
 
     createCovers() {
@@ -1399,9 +1421,29 @@ class CoverFlow {
 
         console.log('Launching game:', game.title, 'with command:', game.launchCommand);
 
+        // Append custom launch options if they exist
+        let finalLaunchCommand = game.launchCommand;
+        if (game.custom_launch_options && game.custom_launch_options.trim()) {
+            // For Steam URLs, append options after the app ID
+            if (finalLaunchCommand.startsWith('steam://')) {
+                finalLaunchCommand += `//${game.custom_launch_options}`;
+            } else {
+                finalLaunchCommand += ` ${game.custom_launch_options}`;
+            }
+            console.log('Using custom launch options:', game.custom_launch_options);
+        }
+
+        // Play launch animations and sound effects
+        if (typeof this.playPlatformLaunchAnimation === 'function') {
+            this.playPlatformLaunchAnimation(game, this.targetIndex);
+        }
+        if (typeof this.playLaunchSound === 'function') {
+            this.playLaunchSound();
+        }
+
         if (this.isElectron) {
             // Use Electron shell API
-            window.electronAPI.launchGame(game.launchCommand).then(result => {
+            window.electronAPI.launchGame(finalLaunchCommand).then(result => {
                 if (result.success) {
                     this.showToast(`Launching ${game.title}...`, 'success');
                 } else {
