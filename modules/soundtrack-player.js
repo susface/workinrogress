@@ -204,7 +204,11 @@ class SoundtrackPlayer {
             this.audio.src = `file://${this.currentTrack.path}`;
         }
 
-        this.audio.play();
+        this.audio.play().catch(error => {
+            console.error('[SOUNDTRACK] Playback failed:', error);
+            this.isPlaying = false;
+            this.updatePlayerUI();
+        });
         this.isPlaying = true;
         this.updatePlayerUI();
         this.highlightCurrentTrack();
@@ -225,7 +229,11 @@ class SoundtrackPlayer {
             this.audio.pause();
             this.isPlaying = false;
         } else {
-            this.audio.play();
+            this.audio.play().catch(error => {
+                console.error('[SOUNDTRACK] Playback failed:', error);
+                this.isPlaying = false;
+                this.updatePlayerUI();
+            });
             this.isPlaying = true;
         }
 
@@ -271,7 +279,9 @@ class SoundtrackPlayer {
     onTrackEnded() {
         if (this.repeat) {
             this.audio.currentTime = 0;
-            this.audio.play();
+            this.audio.play().catch(error => {
+                console.error('[SOUNDTRACK] Repeat playback failed:', error);
+            });
         } else {
             this.nextTrack();
         }
@@ -479,6 +489,21 @@ class SoundtrackPlayer {
         if (player) {
             player.classList.toggle('minimized');
         }
+    }
+
+    /**
+     * Cleanup on destroy
+     */
+    cleanup() {
+        if (this.audio) {
+            this.audio.pause();
+            this.audio.src = '';
+            // Event listeners will be removed when audio element is disposed
+            this.audio = null;
+        }
+        this.playlist = [];
+        this.currentTrack = null;
+        this.isPlaying = false;
     }
 
     /**

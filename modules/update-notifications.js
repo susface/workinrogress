@@ -291,6 +291,16 @@ class UpdateNotifications {
     }
 
     /**
+     * Cleanup on destroy
+     */
+    cleanup() {
+        if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+            this.checkInterval = null;
+        }
+    }
+
+    /**
      * Show toast notification
      */
     showToast(message, type = 'info') {
