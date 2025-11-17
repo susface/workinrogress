@@ -1919,11 +1919,28 @@ class VisualEffectsManager {
 
             window.addEventListener('resize', resizeHandler);
 
-            // Clean up resize listener when modal is closed
+            // Clean up resize listener when modal is closed (any method)
+            const cleanup = () => {
+                window.removeEventListener('resize', resizeHandler);
+                console.log('[VISUAL_FX] Modal closed, resize listener removed');
+            };
+
+            // Remove on background click
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
-                    window.removeEventListener('resize', resizeHandler);
+                    cleanup();
+                    modal.remove();
                 }
+            });
+
+            // Also setup cleanup for close buttons
+            const closeButtons = modal.querySelectorAll('.close, .primary-button');
+            closeButtons.forEach(btn => {
+                const originalOnClick = btn.onclick;
+                btn.onclick = function(e) {
+                    cleanup();
+                    if (originalOnClick) originalOnClick.call(this, e);
+                };
             });
 
             console.log('[VISUAL_FX] Settings UI opened (viewport:', viewportWidth, 'x', viewportHeight, ')');
@@ -2187,6 +2204,33 @@ class VisualEffectsManager {
                 const shaderSelect = document.getElementById('shaderPreset');
                 if (shaderSelect) shaderSelect.disabled = !e.target.checked;
             });
+
+            // Enable/disable slider containers based on their parent checkboxes
+            const toggleSliderContainer = (checkboxId, sliderId) => {
+                const checkbox = document.getElementById(checkboxId);
+                const slider = document.getElementById(sliderId);
+                if (checkbox && slider) {
+                    const container = slider.closest('div[style*="margin-left"]');
+                    checkbox.addEventListener('change', (e) => {
+                        if (container) {
+                            if (e.target.checked) {
+                                container.style.opacity = '1';
+                                container.style.pointerEvents = 'auto';
+                            } else {
+                                container.style.opacity = '0.5';
+                                container.style.pointerEvents = 'none';
+                            }
+                        }
+                    });
+                }
+            };
+
+            toggleSliderContainer('magneticCovers', 'magneticIntensity');
+            toggleSliderContainer('tiltWithMouse', 'tiltIntensity');
+            toggleSliderContainer('idleFloating', 'floatingIntensity');
+            toggleSliderContainer('screenShakeEnabled', 'shakeIntensity');
+            toggleSliderContainer('enhancedReflectionsEnabled', 'reflectionOpacity');
+            toggleSliderContainer('stereo3DEnabled', 'stereoSeparation');
 
             // Intensity sliders
             const sliders = [

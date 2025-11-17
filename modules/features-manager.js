@@ -424,18 +424,34 @@ class FeaturesManager {
             const rect = sidebar.getBoundingClientRect();
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
+            const sidebarWidth = rect.width;
+
+            // Handle very small screens first
+            if (viewportWidth < 480) {
+                sidebar.style.display = 'none';
+                return;
+            } else {
+                sidebar.style.display = 'block';
+            }
 
             // Check if sidebar is outside viewport horizontally
-            if (rect.right > viewportWidth) {
+            const isOnRight = sidebar.style.left === 'auto' || sidebar.style.left === '';
+            const fitsOnRight = viewportWidth >= sidebarWidth + 40; // sidebar width + margins
+
+            if (isOnRight && rect.right > viewportWidth) {
                 // Move to left side if doesn't fit on right
                 sidebar.style.right = 'auto';
                 sidebar.style.left = '20px';
                 console.log('[FEATURES] Sidebar repositioned to left (viewport width:', viewportWidth, 'px)');
-            } else if (rect.left < 0 && sidebar.style.left !== 'auto') {
-                // Move back to right if went too far left
+            } else if (!isOnRight && fitsOnRight && rect.right < viewportWidth - 20) {
+                // Move back to right if there's now room and we're on the left
                 sidebar.style.left = 'auto';
                 sidebar.style.right = '20px';
-                console.log('[FEATURES] Sidebar repositioned to right');
+                console.log('[FEATURES] Sidebar repositioned back to right');
+            } else if (!isOnRight && rect.left < 0) {
+                // If on left and going off screen, adjust position
+                sidebar.style.left = '10px';
+                console.log('[FEATURES] Sidebar adjusted to stay visible on left');
             }
 
             // Check vertical position
@@ -444,13 +460,6 @@ class FeaturesManager {
                 const newTop = viewportHeight - rect.height - 20;
                 sidebar.style.top = `${Math.max(80, newTop)}px`;
                 console.log('[FEATURES] Sidebar repositioned vertically (viewport height:', viewportHeight, 'px)');
-            }
-
-            // Handle very small screens
-            if (viewportWidth < 480) {
-                sidebar.style.display = 'none';
-            } else {
-                sidebar.style.display = 'block';
             }
         };
 
