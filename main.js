@@ -2298,6 +2298,82 @@ ipcMain.handle('get-playtime-stats', async (event, period = 'week') => {
     }
 });
 
+// Scan game soundtrack files
+ipcMain.handle('scan-game-soundtrack', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // For now, return empty array (would scan game install directory for music files)
+        // This is a placeholder for actual soundtrack scanning logic
+        const tracks = [];
+
+        // TODO: Implement actual soundtrack scanning
+        // Could scan game install directory for common music file formats:
+        // .mp3, .ogg, .wav, .flac, .m4a
+        // Common locations: <game_dir>/music/, <game_dir>/soundtrack/, <game_dir>/audio/
+
+        return { success: true, tracks };
+    } catch (error) {
+        console.error('Error scanning game soundtrack:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Check for game updates
+ipcMain.handle('check-game-updates', async () => {
+    try {
+        const db = initDatabase();
+        const games = db.prepare('SELECT * FROM games').all();
+
+        // Update last check time
+        const now = new Date().toISOString();
+        db.prepare('UPDATE games SET last_update_check = ?').run(now);
+
+        db.close();
+
+        // TODO: Implement actual update checking logic
+        // This would query each platform's API (Steam, Epic, Xbox) for available updates
+        // For now, return empty array
+        const updates = [];
+
+        return { success: true, updates };
+    } catch (error) {
+        console.error('Error checking game updates:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Update a game
+ipcMain.handle('update-game', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+
+        if (!game) {
+            db.close();
+            return { success: false, error: 'Game not found' };
+        }
+
+        // TODO: Implement actual game update logic
+        // This would trigger the platform's update mechanism (Steam, Epic, Xbox)
+        // For now, just mark as updated
+        db.prepare('UPDATE games SET update_available = 0 WHERE id = ?').run(gameId);
+
+        db.close();
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating game:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 console.log('CoverFlow Game Launcher - Electron app starting...');
 // Redacted sensitive paths for security
 if (isDev) {

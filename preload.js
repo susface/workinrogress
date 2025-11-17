@@ -102,7 +102,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteTheme: (themeId) => ipcRenderer.invoke('delete-theme', themeId),
 
     // Statistics
-    getPlaytimeStats: (period) => ipcRenderer.invoke('get-playtime-stats', period)
+    getPlaytimeStats: (period) => ipcRenderer.invoke('get-playtime-stats', period),
+
+    // Soundtrack
+    scanGameSoundtrack: (gameId) => ipcRenderer.invoke('scan-game-soundtrack', gameId),
+
+    // Updates
+    checkGameUpdates: () => ipcRenderer.invoke('check-game-updates'),
+    updateGame: (gameId) => ipcRenderer.invoke('update-game', gameId)
 });
 
 console.log('Preload script loaded - Electron API exposed');

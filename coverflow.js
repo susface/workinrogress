@@ -29,6 +29,8 @@ class CoverFlow {
         const touchGestures = new TouchGestures();
         const platformAnimations = new PlatformAnimations();
         const sessionInsights = new SessionInsights();
+        const soundtrackPlayer = new SoundtrackPlayer();
+        const updateNotifications = new UpdateNotifications();
 
         // Copy instance properties from modules
         Object.assign(this, coverFlowSettings);
@@ -43,6 +45,8 @@ class CoverFlow {
         Object.assign(this, touchGestures);
         Object.assign(this, platformAnimations);
         Object.assign(this, sessionInsights);
+        Object.assign(this, soundtrackPlayer);
+        Object.assign(this, updateNotifications);
 
         // SURGICAL FIX: Override specific methods that need to come from modules
         // This is needed because Object.assign doesn't copy prototype methods
@@ -592,6 +596,12 @@ class CoverFlow {
         }
         if (typeof this.initializeSessionInsights === 'function') {
             this.initializeSessionInsights();
+        }
+        if (typeof this.initializeSoundtrackPlayer === 'function') {
+            this.initializeSoundtrackPlayer();
+        }
+        if (typeof this.initializeUpdateNotifications === 'function') {
+            this.initializeUpdateNotifications();
         }
     }
 
