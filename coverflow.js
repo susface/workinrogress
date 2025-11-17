@@ -23,12 +23,34 @@ class CoverFlow {
         const coverFlowNavigation = new CoverFlowNavigation();
         const coverFlowUI = new CoverFlowUI();
 
+        // Enhancement modules
+        const coverFlowEnhancements = new CoverFlowEnhancements();
+        const soundEffects = new SoundEffects();
+        const touchGestures = new TouchGestures();
+        const platformAnimations = new PlatformAnimations();
+        const sessionInsights = new SessionInsights();
+        const soundtrackPlayer = new SoundtrackPlayer();
+        const updateNotifications = new UpdateNotifications();
+        const portableMode = new PortableMode();
+        const modManager = new ModManager();
+
         // Copy instance properties from modules
         Object.assign(this, coverFlowSettings);
         Object.assign(this, coverFlowTextures);
         Object.assign(this, coverFlowUIUtils);
         Object.assign(this, coverFlowNavigation);
         Object.assign(this, coverFlowUI);
+
+        // Copy enhancement module properties
+        Object.assign(this, coverFlowEnhancements);
+        Object.assign(this, soundEffects);
+        Object.assign(this, touchGestures);
+        Object.assign(this, platformAnimations);
+        Object.assign(this, sessionInsights);
+        Object.assign(this, soundtrackPlayer);
+        Object.assign(this, updateNotifications);
+        Object.assign(this, portableMode);
+        Object.assign(this, modManager);
 
         // SURGICAL FIX: Override specific methods that need to come from modules
         // This is needed because Object.assign doesn't copy prototype methods
@@ -565,6 +587,32 @@ class CoverFlow {
                 console.log('[COVERFLOW] Tab visible - animation resumed');
             }
         });
+
+        // Initialize enhancement modules
+        if (typeof this.initializeSoundEffects === 'function') {
+            this.initializeSoundEffects();
+        }
+        if (typeof this.initializeTouchGestures === 'function') {
+            this.initializeTouchGestures();
+        }
+        if (typeof this.initializePlatformAnimations === 'function') {
+            this.initializePlatformAnimations();
+        }
+        if (typeof this.initializeSessionInsights === 'function') {
+            this.initializeSessionInsights();
+        }
+        if (typeof this.initializeSoundtrackPlayer === 'function') {
+            this.initializeSoundtrackPlayer();
+        }
+        if (typeof this.initializeUpdateNotifications === 'function') {
+            this.initializeUpdateNotifications();
+        }
+        if (typeof this.initializePortableMode === 'function') {
+            this.initializePortableMode();
+        }
+        if (typeof this.initializeModManager === 'function') {
+            this.initializeModManager();
+        }
     }
 
     createErrorPlaceholder(title = 'Image Not Found') {
@@ -768,6 +816,28 @@ class CoverFlow {
                         if (info) info.textContent = 'Not available (missing dependencies)';
                     }
                 }
+            }
+        }
+
+        // Depth of Field effect (Bokeh)
+        if (typeof THREE.BokehPass !== 'undefined') {
+            try {
+                this.bokehPass = new THREE.BokehPass(
+                    this.scene,
+                    this.camera,
+                    {
+                        focus: this.settings.dofFocus,
+                        aperture: this.settings.dofAperture,
+                        maxblur: 0.01
+                    }
+                );
+                this.bokehPass.enabled = this.settings.depthOfField;
+                this.composer.addPass(this.bokehPass);
+                console.log('[COVERFLOW] Depth of Field effect initialized');
+            } catch (error) {
+                console.warn('Depth of Field effect not available:', error.message);
+                this.bokehPass = null;
+                this.settings.depthOfField = false;
             }
         }
     }
@@ -1376,9 +1446,29 @@ class CoverFlow {
 
         console.log('Launching game:', game.title, 'with command:', game.launchCommand);
 
+        // Append custom launch options if they exist
+        let finalLaunchCommand = game.launchCommand;
+        if (game.custom_launch_options && game.custom_launch_options.trim()) {
+            // For Steam URLs, append options after the app ID
+            if (finalLaunchCommand.startsWith('steam://')) {
+                finalLaunchCommand += `//${game.custom_launch_options}`;
+            } else {
+                finalLaunchCommand += ` ${game.custom_launch_options}`;
+            }
+            console.log('Using custom launch options:', game.custom_launch_options);
+        }
+
+        // Play launch animations and sound effects
+        if (typeof this.playPlatformLaunchAnimation === 'function') {
+            this.playPlatformLaunchAnimation(game, this.targetIndex);
+        }
+        if (typeof this.playLaunchSound === 'function') {
+            this.playLaunchSound();
+        }
+
         if (this.isElectron) {
             // Use Electron shell API
-            window.electronAPI.launchGame(game.launchCommand).then(result => {
+            window.electronAPI.launchGame(finalLaunchCommand).then(result => {
                 if (result.success) {
                     this.showToast(`Launching ${game.title}...`, 'success');
                 } else {
@@ -2625,6 +2715,12 @@ class CoverFlow {
         document.getElementById('settings-btn').addEventListener('click', () => this.openModal('settings-modal'));
         document.getElementById('shortcuts-btn').addEventListener('click', () => this.openModal('shortcuts-modal'));
         document.getElementById('fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
+
+        // Insights button
+        const insightsBtn = document.getElementById('insights-btn');
+        if (insightsBtn && typeof this.toggleInsights === 'function') {
+            insightsBtn.addEventListener('click', () => this.toggleInsights());
+        }
 
         // Modal close buttons
         document.querySelectorAll('.close-btn').forEach(btn => {

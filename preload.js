@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Ratings and notes
     setRating: (gameId, rating) => ipcRenderer.invoke('set-rating', gameId, rating),
     setNotes: (gameId, notes) => ipcRenderer.invoke('set-notes', gameId, notes),
+    setCustomLaunchOptions: (gameId, options) => ipcRenderer.invoke('set-custom-launch-options', gameId, options),
 
     // Special lists
     getRecentlyPlayed: (limit) => ipcRenderer.invoke('get-recently-played', limit),
@@ -101,7 +102,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteTheme: (themeId) => ipcRenderer.invoke('delete-theme', themeId),
 
     // Statistics
-    getPlaytimeStats: (period) => ipcRenderer.invoke('get-playtime-stats', period)
+    getPlaytimeStats: (period) => ipcRenderer.invoke('get-playtime-stats', period),
+
+    // Soundtrack
+    scanGameSoundtrack: (gameId) => ipcRenderer.invoke('scan-game-soundtrack', gameId),
+
+    // Updates
+    checkGameUpdates: () => ipcRenderer.invoke('check-game-updates'),
+    updateGame: (gameId) => ipcRenderer.invoke('update-game', gameId),
+
+    // Portable mode
+    isPortableMode: () => ipcRenderer.invoke('is-portable-mode'),
+    setPortableMode: (enable) => ipcRenderer.invoke('set-portable-mode', enable),
+    restartApp: () => ipcRenderer.invoke('restart-app'),
+
+    // Mod Manager
+    getGameMods: (gameId) => ipcRenderer.invoke('get-game-mods', gameId),
+    scanGameMods: (gameId) => ipcRenderer.invoke('scan-game-mods', gameId),
+    applyModChanges: (gameId, mods) => ipcRenderer.invoke('apply-mod-changes', gameId, mods),
+    openModFolder: (gameId) => ipcRenderer.invoke('open-mod-folder', gameId),
+    deleteMod: (gameId, modId) => ipcRenderer.invoke('delete-mod', gameId, modId)
 });
 
 console.log('Preload script loaded - Electron API exposed');

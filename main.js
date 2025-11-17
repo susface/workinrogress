@@ -39,13 +39,27 @@ let scanStatus = {
     error: null
 };
 
+// Portable mode support
+const portableFlagPath = path.join(__dirname, 'portable.txt');
+const isPortableMode = fs.existsSync(portableFlagPath);
+
 // Paths
 const isDev = !app.isPackaged;
 const appPath = isDev ? __dirname : process.resourcesPath;
-const gameDataPath = path.join(app.getPath('userData'), 'game_data');
+
+// Use portable mode paths if enabled (store in app directory)
+const gameDataPath = isPortableMode
+    ? path.join(appPath, 'game_data')
+    : path.join(app.getPath('userData'), 'game_data');
+
 const dbPath = path.join(gameDataPath, 'games.db');
 const iconsPath = path.join(gameDataPath, 'icons');
 const boxartPath = path.join(gameDataPath, 'boxart');
+
+console.log('[PORTABLE] Portable mode:', isPortableMode ? 'ENABLED' : 'DISABLED');
+if (isPortableMode) {
+    console.log('[PORTABLE] Data path:', gameDataPath);
+}
 
 // Ensure directories exist
 function ensureDirectories() {
@@ -242,6 +256,21 @@ function initDatabase() {
     } catch (e) { /* Column already exists */ }
     try {
         db.exec('ALTER TABLE games ADD COLUMN has_vr_support INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN dlc_count INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN has_dlc INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN last_update_check TIMESTAMP');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN update_available INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN custom_launch_options TEXT');
     } catch (e) { /* Column already exists */ }
 
     return db;
@@ -1355,6 +1384,28 @@ ipcMain.handle('set-notes', async (event, gameId, notes) => {
     }
 });
 
+// Set custom launch options
+ipcMain.handle('set-custom-launch-options', async (event, gameId, options) => {
+    try {
+        // Validate launch options
+        if (options !== null && options !== undefined && typeof options !== 'string') {
+            return { success: false, error: 'Launch options must be a string' };
+        }
+
+        // Limit options length
+        const MAX_OPTIONS_LENGTH = 500;
+        const validatedOptions = options ? options.substring(0, MAX_OPTIONS_LENGTH) : '';
+
+        const db = initDatabase();
+        db.prepare('UPDATE games SET custom_launch_options = ? WHERE id = ?').run(validatedOptions, gameId);
+        db.close();
+        return { success: true };
+    } catch (error) {
+        console.error('Error setting custom launch options:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // Get favorites
 ipcMain.handle('get-favorites', async () => {
     try {
@@ -2258,6 +2309,199 @@ ipcMain.handle('get-playtime-stats', async (event, period = 'week') => {
     } catch (error) {
         console.error('Error getting playtime stats:', error);
         return { success: false, error: error.message, stats: null };
+    }
+});
+
+// Scan game soundtrack files
+ipcMain.handle('scan-game-soundtrack', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // For now, return empty array (would scan game install directory for music files)
+        // This is a placeholder for actual soundtrack scanning logic
+        const tracks = [];
+
+        // TODO: Implement actual soundtrack scanning
+        // Could scan game install directory for common music file formats:
+        // .mp3, .ogg, .wav, .flac, .m4a
+        // Common locations: <game_dir>/music/, <game_dir>/soundtrack/, <game_dir>/audio/
+
+        return { success: true, tracks };
+    } catch (error) {
+        console.error('Error scanning game soundtrack:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Check for game updates
+ipcMain.handle('check-game-updates', async () => {
+    try {
+        const db = initDatabase();
+        const games = db.prepare('SELECT * FROM games').all();
+
+        // Update last check time
+        const now = new Date().toISOString();
+        db.prepare('UPDATE games SET last_update_check = ?').run(now);
+
+        db.close();
+
+        // TODO: Implement actual update checking logic
+        // This would query each platform's API (Steam, Epic, Xbox) for available updates
+        // For now, return empty array
+        const updates = [];
+
+        return { success: true, updates };
+    } catch (error) {
+        console.error('Error checking game updates:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Update a game
+ipcMain.handle('update-game', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+
+        if (!game) {
+            db.close();
+            return { success: false, error: 'Game not found' };
+        }
+
+        // TODO: Implement actual game update logic
+        // This would trigger the platform's update mechanism (Steam, Epic, Xbox)
+        // For now, just mark as updated
+        db.prepare('UPDATE games SET update_available = 0 WHERE id = ?').run(gameId);
+
+        db.close();
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating game:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Check if portable mode is enabled
+ipcMain.handle('is-portable-mode', async () => {
+    return {
+        isPortable: isPortableMode,
+        dataPath: gameDataPath
+    };
+});
+
+// Set portable mode (create or remove portable.txt flag)
+ipcMain.handle('set-portable-mode', async (event, enable) => {
+    try {
+        if (enable) {
+            // Create portable.txt flag file
+            fs.writeFileSync(portableFlagPath, 'This file enables portable mode');
+            console.log('[PORTABLE] Portable mode enabled');
+        } else {
+            // Remove portable.txt flag file
+            if (fs.existsSync(portableFlagPath)) {
+                fs.unlinkSync(portableFlagPath);
+                console.log('[PORTABLE] Portable mode disabled');
+            }
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error('[PORTABLE] Failed to set portable mode:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Restart application
+ipcMain.handle('restart-app', async () => {
+    app.relaunch();
+    app.quit();
+});
+
+// ============================================
+// MOD MANAGER API
+// ============================================
+
+// Get mods for a game
+ipcMain.handle('get-game-mods', async (event, gameId) => {
+    try {
+        // TODO: Implement actual mod detection logic
+        // Would scan game's mod directory for installed mods
+        // Common locations: <game_dir>/mods/, <game_dir>/data/mods/
+        const mods = [];
+
+        return { success: true, mods };
+    } catch (error) {
+        console.error('Error getting game mods:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Scan for new mods
+ipcMain.handle('scan-game-mods', async (event, gameId) => {
+    try {
+        // TODO: Implement mod scanning logic
+        // Would detect new mod files in the game's mod directory
+        const newMods = 0;
+
+        return { success: true, newMods };
+    } catch (error) {
+        console.error('Error scanning game mods:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Apply mod changes (enable/disable, load order)
+ipcMain.handle('apply-mod-changes', async (event, gameId, mods) => {
+    try {
+        // TODO: Implement mod configuration logic
+        // Would write mod configuration files (load order, enabled mods)
+        // Common files: mods.txt, loadorder.txt, plugins.txt
+        return { success: true };
+    } catch (error) {
+        console.error('Error applying mod changes:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Open mod folder
+ipcMain.handle('open-mod-folder', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // TODO: Determine mod folder path for the game
+        // For now, just open the game directory if available
+        // const modFolderPath = path.join(game.install_path, 'mods');
+        // shell.openPath(modFolderPath);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error opening mod folder:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Delete a mod
+ipcMain.handle('delete-mod', async (event, gameId, modId) => {
+    try {
+        // TODO: Implement mod deletion logic
+        // Would delete mod files from the game's mod directory
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting mod:', error);
+        return { success: false, error: error.message };
     }
 });
 

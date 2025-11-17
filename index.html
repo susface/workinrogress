@@ -26,6 +26,7 @@
                 <div id="controller-status" title="Controller Status">🎮 <span id="controller-name">No Controller</span></div>
                 <button id="themes-btn" title="Themes">🎨</button>
                 <button id="visual-effects-btn" title="Visual Effects">✨</button>
+                <button id="insights-btn" title="Gaming Insights">📊</button>
                 <button id="settings-btn" title="Settings">⚙️</button>
                 <button id="shortcuts-btn" title="Keyboard Shortcuts">⌨️</button>
                 <button id="fullscreen-btn" title="Fullscreen (F)">⛶</button>
@@ -171,6 +172,13 @@
                     <small class="setting-info">Enhanced depth and shadows</small>
                 </div>
                 <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="depth-of-field-toggle">
+                        Depth of Field (DOF)
+                    </label>
+                    <small class="setting-info">Cinematic blur effect on non-focused covers</small>
+                </div>
+                <div class="setting-group">
                     <label>Bloom Intensity</label>
                     <input type="range" id="bloom-intensity" min="0" max="30" value="15">
                     <span id="bloom-value">1.5</span>
@@ -206,6 +214,52 @@
                     <input type="range" id="scroll-speed" min="0.5" max="5" step="0.1" value="1.0">
                     <span id="scroll-speed-value">1.0x</span>
                     <small class="setting-info">Adjust mouse wheel scroll sensitivity</small>
+                </div>
+
+                <div class="setting-divider"></div>
+                <h4 class="setting-section-title">✨ Enhanced Features</h4>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="sound-effects-toggle">
+                        Sound Effects
+                    </label>
+                    <small class="setting-info">Play sounds when navigating and launching games</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="touch-gestures-toggle">
+                        Touch Gestures
+                    </label>
+                    <small class="setting-info">Enable swipe and tap controls for touchscreens</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="platform-animations-toggle">
+                        Platform Animations
+                    </label>
+                    <small class="setting-info">Show platform-specific visual effects</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="dynamic-background-toggle">
+                        Dynamic Background
+                    </label>
+                    <small class="setting-info">Change background color based on platform</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="infinite-loop-toggle">
+                        Infinite Loop
+                    </label>
+                    <small class="setting-info">Wrap around to start/end when navigating</small>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="zoom-on-select-toggle">
+                        Zoom on Selection
+                    </label>
+                    <small class="setting-info">Scale up the selected cover</small>
                 </div>
 
                 <div class="setting-divider"></div>
@@ -466,6 +520,7 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 
     <!-- CoverFlow Modular Architecture -->
     <!-- Core utilities (no dependencies) -->
@@ -484,6 +539,18 @@
     <script src="modules/backlog-manager.js"></script>
     <script src="modules/screenshot-gallery.js"></script>
     <script src="modules/visual-effects.js"></script>
+
+    <!-- Coverflow enhancement modules -->
+    <script src="modules/coverflow-enhancements.js"></script>
+    <script src="modules/sound-effects.js"></script>
+    <script src="modules/touch-gestures.js"></script>
+    <script src="modules/platform-animations.js"></script>
+    <script src="modules/session-insights.js"></script>
+    <script src="modules/soundtrack-player.js"></script>
+    <script src="modules/update-notifications.js"></script>
+    <script src="modules/portable-mode.js"></script>
+    <script src="modules/mod-manager.js"></script>
+
     <script src="modules/features-manager.js"></script>
 
     <!-- Main coverflow (uses all modules via Object.assign in constructor) -->
