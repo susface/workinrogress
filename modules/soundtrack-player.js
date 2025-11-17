@@ -485,7 +485,7 @@ class SoundtrackPlayer {
      * Show toast notification
      */
     showToast(message, type = 'info') {
-        if (typeof this.showToast === 'undefined' && window.coverflow) {
+        if (window.coverflow && typeof window.coverflow.showToast === 'function') {
             window.coverflow.showToast(message, type);
         }
     }

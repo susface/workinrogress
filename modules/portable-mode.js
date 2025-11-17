@@ -12,9 +12,9 @@ class PortableMode {
     /**
      * Initialize portable mode
      */
-    initializePortableMode() {
+    async initializePortableMode() {
         // Check if portable mode is enabled
-        this.checkPortableMode();
+        await this.checkPortableMode();
 
         // Add UI toggle in settings
         this.addPortableModeToggle();
@@ -204,7 +204,7 @@ class PortableMode {
      * Show toast notification
      */
     showToast(message, type = 'info') {
-        if (typeof this.showToast !== 'function' && window.coverflow) {
+        if (window.coverflow && typeof window.coverflow.showToast === 'function') {
             window.coverflow.showToast(message, type);
         }
     }

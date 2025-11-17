@@ -472,7 +472,7 @@ Description: ${mod.description || 'No description available'}
 
         items.forEach((item, index) => {
             const modId = item.dataset.modId;
-            const mod = this.mods.find(m => m.id === modId);
+            const mod = this.mods.find(m => String(m.id) === String(modId));
             if (mod) {
                 mod.loadOrder = index;
                 newOrder.push(mod);
@@ -487,7 +487,7 @@ Description: ${mod.description || 'No description available'}
      * Show toast notification
      */
     showToast(message, type = 'info') {
-        if (typeof this.showToast !== 'function' && window.coverflow) {
+        if (window.coverflow && typeof window.coverflow.showToast === 'function') {
             window.coverflow.showToast(message, type);
         }
     }
