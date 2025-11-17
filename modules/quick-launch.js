@@ -14,6 +14,7 @@ class QuickLaunch {
         this.isOpen = false;
         this.platformFilter = 'all';
         this.sortBy = 'relevance'; // 'relevance', 'playtime', 'alphabetical'
+        this.keydownHandler = null; // Store handler reference for cleanup
     }
 
     /**
@@ -195,7 +196,7 @@ class QuickLaunch {
      * Setup keyboard shortcuts
      */
     setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
+        this.keydownHandler = (e) => {
             // Ctrl+P or Cmd+P to open
             if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
                 e.preventDefault();
@@ -205,7 +206,8 @@ class QuickLaunch {
             if (e.key === 'Escape' && this.isOpen) {
                 this.close();
             }
-        });
+        };
+        document.addEventListener('keydown', this.keydownHandler);
     }
 
     /**
@@ -530,6 +532,16 @@ class QuickLaunch {
             this.close();
         } else {
             this.open();
+        }
+    }
+
+    /**
+     * Cleanup event listeners
+     */
+    cleanup() {
+        if (this.keydownHandler) {
+            document.removeEventListener('keydown', this.keydownHandler);
+            this.keydownHandler = null;
         }
     }
 }

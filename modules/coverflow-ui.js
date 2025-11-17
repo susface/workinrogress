@@ -1060,6 +1060,19 @@ class CoverFlowUI {
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
+
+    /**
+     * Cleanup audio player resources
+     */
+    cleanup() {
+        if (this.audioPlayer) {
+            this.audioPlayer.pause();
+            this.audioPlayer.src = '';
+            this.audioPlayer = null;
+        }
+        this.currentAudioFile = null;
+        this.currentAudioTitle = null;
+    }
 }
 
 // Export for module systems
