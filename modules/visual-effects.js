@@ -112,7 +112,15 @@ class VisualEffectsManager {
             vrModeEnabled: false,
             stereo3DEnabled: false,
             stereoSeparation: 0.064, // Eye separation in meters (default 64mm)
-            convergence: 1.0 // Focal distance multiplier
+            convergence: 1.0, // Focal distance multiplier
+
+            // WebXR VR Settings
+            webXREnabled: false,
+            vrControllerSupport: true,
+            vrHandTracking: false,
+            vrTeleportation: true,
+            vrUIOverlay: true,
+            vrControllerVibration: true
         };
 
         this.loadSettings();
@@ -203,7 +211,7 @@ class VisualEffectsManager {
                 }
             }
 
-            if (this.settings.vrModeEnabled || this.settings.stereo3DEnabled) {
+            if (this.settings.vrModeEnabled || this.settings.stereo3DEnabled || this.settings.webXREnabled) {
                 try {
                     this.initVRMode();
                 } catch (error) {
@@ -1036,13 +1044,426 @@ class VisualEffectsManager {
      * Initialize VR/3D stereoscopic mode
      */
     initVRMode() {
-        if (!this.settings.vrModeEnabled && !this.settings.stereo3DEnabled) return;
+        if (!this.settings.vrModeEnabled && !this.settings.stereo3DEnabled && !this.settings.webXREnabled) return;
 
-        // Create second camera for right eye
+        // Create second camera for right eye (for stereo 3D)
         this.rightCamera = this.camera.clone();
         this.eyeSeparation = 0.064; // Average human eye separation in meters
 
+        // Initialize WebXR VR support
+        if (this.settings.webXREnabled) {
+            this.initWebXR();
+        }
+
         console.log('[VISUAL_FX] VR/3D mode initialized');
+    }
+
+    /**
+     * Initialize WebXR for Steam VR and other VR headsets
+     */
+    async initWebXR() {
+        try {
+            // Check if WebXR is supported
+            if (!navigator.xr) {
+                console.warn('[VISUAL_FX] WebXR not supported in this browser');
+                return;
+            }
+
+            // Check if VR is supported
+            const isVRSupported = await navigator.xr.isSessionSupported('immersive-vr');
+            if (!isVRSupported) {
+                console.warn('[VISUAL_FX] VR not supported on this device');
+                return;
+            }
+
+            // Enable XR on the renderer
+            this.renderer.xr.enabled = true;
+
+            // VR Session state
+            this.vrSession = null;
+            this.vrControllers = [];
+            this.vrControllerGrips = [];
+            this.vrRaySpaces = [];
+
+            // Create VR button
+            this.createVRButton();
+
+            // Initialize VR controllers
+            if (this.settings.vrControllerSupport) {
+                this.initVRControllers();
+            }
+
+            // Initialize VR UI overlay
+            if (this.settings.vrUIOverlay) {
+                this.initVRUIOverlay();
+            }
+
+            console.log('[VISUAL_FX] WebXR initialized successfully - Steam VR compatible');
+        } catch (error) {
+            console.error('[VISUAL_FX] Error initializing WebXR:', error);
+        }
+    }
+
+    /**
+     * Create VR button to enter VR mode
+     */
+    createVRButton() {
+        const button = document.createElement('button');
+        button.id = 'vr-button';
+        button.textContent = 'Enter VR';
+        button.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10000;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        `;
+
+        button.addEventListener('mouseenter', () => {
+            button.style.transform = 'translateY(-2px)';
+            button.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+        });
+
+        button.addEventListener('mouseleave', () => {
+            button.style.transform = 'translateY(0)';
+            button.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+        });
+
+        button.addEventListener('click', async () => {
+            if (!this.vrSession) {
+                await this.enterVR();
+            } else {
+                await this.exitVR();
+            }
+        });
+
+        document.body.appendChild(button);
+        this.vrButton = button;
+    }
+
+    /**
+     * Enter VR mode
+     */
+    async enterVR() {
+        try {
+            const sessionInit = {
+                optionalFeatures: [
+                    'local-floor',
+                    'bounded-floor',
+                    'hand-tracking',
+                    'layers'
+                ]
+            };
+
+            this.vrSession = await navigator.xr.requestSession('immersive-vr', sessionInit);
+
+            // Set up the session
+            await this.renderer.xr.setSession(this.vrSession);
+
+            // Update button
+            this.vrButton.textContent = 'Exit VR';
+            this.vrButton.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+
+            // Handle session end
+            this.vrSession.addEventListener('end', () => {
+                this.onVRSessionEnded();
+            });
+
+            // Set up VR controllers
+            if (this.settings.vrControllerSupport) {
+                this.setupVRControllers();
+            }
+
+            // Set up hand tracking if available
+            if (this.settings.vrHandTracking) {
+                this.setupHandTracking();
+            }
+
+            console.log('[VISUAL_FX] Entered VR mode');
+        } catch (error) {
+            console.error('[VISUAL_FX] Failed to enter VR:', error);
+            alert('Failed to enter VR mode. Make sure your VR headset is connected and Steam VR is running.');
+        }
+    }
+
+    /**
+     * Exit VR mode
+     */
+    async exitVR() {
+        if (this.vrSession) {
+            await this.vrSession.end();
+        }
+    }
+
+    /**
+     * Handle VR session ended
+     */
+    onVRSessionEnded() {
+        this.vrSession = null;
+
+        // Update button
+        if (this.vrButton) {
+            this.vrButton.textContent = 'Enter VR';
+            this.vrButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        }
+
+        console.log('[VISUAL_FX] Exited VR mode');
+    }
+
+    /**
+     * Initialize VR controllers
+     */
+    initVRControllers() {
+        // Controller 0 (left hand)
+        const controller0 = this.renderer.xr.getController(0);
+        controller0.addEventListener('selectstart', () => this.onVRSelect(0, true));
+        controller0.addEventListener('selectend', () => this.onVRSelect(0, false));
+        controller0.addEventListener('squeezestart', () => this.onVRSqueeze(0, true));
+        controller0.addEventListener('squeezeend', () => this.onVRSqueeze(0, false));
+        this.scene.add(controller0);
+        this.vrControllers[0] = controller0;
+
+        // Controller 1 (right hand)
+        const controller1 = this.renderer.xr.getController(1);
+        controller1.addEventListener('selectstart', () => this.onVRSelect(1, true));
+        controller1.addEventListener('selectend', () => this.onVRSelect(1, false));
+        controller1.addEventListener('squeezestart', () => this.onVRSqueeze(1, true));
+        controller1.addEventListener('squeezeend', () => this.onVRSqueeze(1, false));
+        this.scene.add(controller1);
+        this.vrControllers[1] = controller1;
+
+        // Controller grips (for showing controller models)
+        const controllerGrip0 = this.renderer.xr.getControllerGrip(0);
+        this.scene.add(controllerGrip0);
+        this.vrControllerGrips[0] = controllerGrip0;
+
+        const controllerGrip1 = this.renderer.xr.getControllerGrip(1);
+        this.scene.add(controllerGrip1);
+        this.vrControllerGrips[1] = controllerGrip1;
+
+        // Add visual ray casters for controllers
+        this.addControllerRays();
+
+        console.log('[VISUAL_FX] VR controllers initialized');
+    }
+
+    /**
+     * Add visual rays to controllers
+     */
+    addControllerRays() {
+        const geometry = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, -1)
+        ]);
+
+        const material = new THREE.LineBasicMaterial({
+            color: 0x00ffff,
+            linewidth: 2,
+            transparent: true,
+            opacity: 0.7
+        });
+
+        for (let i = 0; i < 2; i++) {
+            const line = new THREE.Line(geometry, material);
+            line.name = 'ray';
+            line.scale.z = 5; // Ray length
+            this.vrControllers[i].add(line);
+        }
+    }
+
+    /**
+     * Setup VR controllers after session started
+     */
+    setupVRControllers() {
+        // Controllers are already initialized in initVRControllers
+        // This method can be used for session-specific setup
+        console.log('[VISUAL_FX] VR controllers set up for session');
+    }
+
+    /**
+     * Setup hand tracking
+     */
+    setupHandTracking() {
+        // Hand tracking requires XRHand feature
+        if (this.vrSession && this.vrSession.inputSources) {
+            this.vrSession.addEventListener('inputsourceschange', (event) => {
+                event.added.forEach((inputSource) => {
+                    if (inputSource.hand) {
+                        console.log('[VISUAL_FX] Hand tracking available');
+                        // Create hand visualization
+                        this.createHandModel(inputSource);
+                    }
+                });
+            });
+        }
+    }
+
+    /**
+     * Create hand model for hand tracking
+     */
+    createHandModel(inputSource) {
+        // Create simple sphere visualization for hand joints
+        const handGroup = new THREE.Group();
+
+        // Add sphere for each joint
+        const geometry = new THREE.SphereGeometry(0.01, 8, 8);
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+
+        for (let i = 0; i < 25; i++) { // XRHand has 25 joints
+            const sphere = new THREE.Mesh(geometry, material);
+            handGroup.add(sphere);
+        }
+
+        this.scene.add(handGroup);
+        console.log('[VISUAL_FX] Hand model created');
+    }
+
+    /**
+     * Handle VR controller select (trigger)
+     */
+    onVRSelect(controllerIndex, pressed) {
+        if (pressed) {
+            console.log(`[VISUAL_FX] Controller ${controllerIndex} trigger pressed`);
+
+            // Navigate through covers
+            if (controllerIndex === 1) { // Right controller = next
+                if (this.coverflow && typeof this.coverflow.nextCover === 'function') {
+                    this.coverflow.nextCover();
+                }
+            } else { // Left controller = previous
+                if (this.coverflow && typeof this.coverflow.prevCover === 'function') {
+                    this.coverflow.prevCover();
+                }
+            }
+
+            // Vibrate controller
+            if (this.settings.vrControllerVibration) {
+                this.vibrateController(controllerIndex, 0.3, 100);
+            }
+        }
+    }
+
+    /**
+     * Handle VR controller squeeze (grip)
+     */
+    onVRSqueeze(controllerIndex, pressed) {
+        if (pressed) {
+            console.log(`[VISUAL_FX] Controller ${controllerIndex} grip pressed`);
+
+            // Launch game on grip
+            if (this.coverflow && typeof this.coverflow.launchSelectedGame === 'function') {
+                this.coverflow.launchSelectedGame();
+
+                // Strong vibration for launch
+                if (this.settings.vrControllerVibration) {
+                    this.vibrateController(controllerIndex, 0.7, 200);
+                }
+            }
+        }
+    }
+
+    /**
+     * Vibrate VR controller
+     */
+    vibrateController(controllerIndex, intensity, duration) {
+        if (this.vrSession && this.vrSession.inputSources[controllerIndex]) {
+            const inputSource = this.vrSession.inputSources[controllerIndex];
+            if (inputSource.gamepad && inputSource.gamepad.hapticActuators && inputSource.gamepad.hapticActuators[0]) {
+                inputSource.gamepad.hapticActuators[0].pulse(intensity, duration);
+            }
+        }
+    }
+
+    /**
+     * Initialize VR UI overlay
+     */
+    initVRUIOverlay() {
+        // Create a canvas for UI
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 512;
+        const context = canvas.getContext('2d');
+
+        // Draw UI
+        context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        context.fillStyle = 'white';
+        context.font = 'bold 48px Arial';
+        context.textAlign = 'center';
+        context.fillText('VR Mode Active', canvas.width / 2, 100);
+
+        context.font = '32px Arial';
+        context.fillText('Right Trigger: Next Cover', canvas.width / 2, 200);
+        context.fillText('Left Trigger: Previous Cover', canvas.width / 2, 250);
+        context.fillText('Grip Button: Launch Game', canvas.width / 2, 300);
+        context.fillText('Menu Button: Exit VR', canvas.width / 2, 350);
+
+        // Create texture from canvas
+        const texture = new THREE.CanvasTexture(canvas);
+
+        // Create UI plane
+        const geometry = new THREE.PlaneGeometry(2, 1);
+        const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide
+        });
+
+        this.vrUIPanel = new THREE.Mesh(geometry, material);
+        this.vrUIPanel.position.set(0, 1.6, -2); // Position in front of user
+        this.scene.add(this.vrUIPanel);
+
+        // Make it face the camera
+        this.vrUIPanel.lookAt(this.camera.position);
+
+        console.log('[VISUAL_FX] VR UI overlay created');
+    }
+
+    /**
+     * Update VR UI overlay with current game info
+     */
+    updateVRUI(albumTitle, albumArtist) {
+        if (!this.vrUIPanel) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 512;
+        const context = canvas.getContext('2d');
+
+        // Draw background
+        context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw game info
+        context.fillStyle = 'white';
+        context.font = 'bold 56px Arial';
+        context.textAlign = 'center';
+        context.fillText(albumTitle || 'No Game Selected', canvas.width / 2, 150);
+
+        context.font = '36px Arial';
+        context.fillStyle = '#4fc3f7';
+        context.fillText(albumArtist || '', canvas.width / 2, 210);
+
+        // Draw controls
+        context.font = '28px Arial';
+        context.fillStyle = '#888';
+        context.fillText('Right Trigger: Next | Left Trigger: Previous | Grip: Launch', canvas.width / 2, 350);
+
+        // Update texture
+        const texture = new THREE.CanvasTexture(canvas);
+        this.vrUIPanel.material.map = texture;
+        this.vrUIPanel.material.needsUpdate = true;
     }
 
     /**
@@ -1743,9 +2164,18 @@ class VisualEffectsManager {
 
             case 'vrModeEnabled':
             case 'stereo3DEnabled':
+            case 'webXREnabled':
                 if (enabled) {
                     this.initVRMode();
                 }
+                break;
+
+            case 'vrControllerSupport':
+            case 'vrControllerVibration':
+            case 'vrUIOverlay':
+            case 'vrHandTracking':
+                // These settings are applied when VR session starts
+                // Just save the setting
                 break;
 
             case 'audioReactiveEnabled':
@@ -2150,6 +2580,64 @@ class VisualEffectsManager {
                     ℹ️ Use with VR headset or red-cyan 3D glasses
                 </small>
             </div>
+
+            <div class="settings-section">
+                <h3>🥽 WebXR VR Mode (Steam VR Compatible)</h3>
+                <label>
+                    <input type="checkbox" id="webXREnabled" ${this.settings.webXREnabled ? 'checked' : ''}>
+                    Enable WebXR VR Support
+                </label>
+                <small style="display: block; margin-top: 8px; font-size: 0.85em; opacity: 0.7;">
+                    ✨ Full immersive VR support for Steam VR, Oculus, Vive, and other WebXR-compatible headsets
+                </small>
+
+                <div style="margin-left: 20px; margin-top: 15px; ${!this.settings.webXREnabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
+                    <label>
+                        <input type="checkbox" id="vrControllerSupport" ${this.settings.vrControllerSupport ? 'checked' : ''}>
+                        VR Controller Support
+                    </label>
+                    <small style="display: block; margin-left: 24px; font-size: 0.8em; opacity: 0.7;">
+                        Navigate with VR controllers (trigger to navigate, grip to launch)
+                    </small>
+
+                    <label style="margin-top: 10px;">
+                        <input type="checkbox" id="vrControllerVibration" ${this.settings.vrControllerVibration ? 'checked' : ''}>
+                        Controller Haptic Feedback
+                    </label>
+
+                    <label style="margin-top: 10px;">
+                        <input type="checkbox" id="vrUIOverlay" ${this.settings.vrUIOverlay ? 'checked' : ''}>
+                        VR UI Overlay
+                    </label>
+                    <small style="display: block; margin-left: 24px; font-size: 0.8em; opacity: 0.7;">
+                        Display game info and controls in VR space
+                    </small>
+
+                    <label style="margin-top: 10px;">
+                        <input type="checkbox" id="vrHandTracking" ${this.settings.vrHandTracking ? 'checked' : ''}>
+                        Hand Tracking (Experimental)
+                    </label>
+                    <small style="display: block; margin-left: 24px; font-size: 0.8em; opacity: 0.7;">
+                        Track hand positions (if supported by your headset)
+                    </small>
+                </div>
+
+                <div style="margin-top: 15px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-left: 3px solid #667eea; border-radius: 4px;">
+                    <strong style="font-size: 0.9em;">🎮 VR Controls:</strong>
+                    <ul style="margin: 8px 0 0 20px; font-size: 0.85em; line-height: 1.6;">
+                        <li><strong>Left Trigger:</strong> Previous Game</li>
+                        <li><strong>Right Trigger:</strong> Next Game</li>
+                        <li><strong>Grip Button:</strong> Launch Game</li>
+                        <li><strong>Menu Button:</strong> Exit VR</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: 10px; padding: 10px; background: rgba(76, 175, 80, 0.1); border-left: 3px solid #4caf50; border-radius: 4px;">
+                    <small style="font-size: 0.85em;">
+                        ✅ <strong>Supported Headsets:</strong> Steam VR (Valve Index, HTC Vive), Meta Quest (with Link/Air Link), Windows Mixed Reality, and any WebXR-compatible VR device
+                    </small>
+                </div>
+            </div>
         `;
     }
 
@@ -2203,6 +2691,23 @@ class VisualEffectsManager {
             document.getElementById('customShadersEnabled')?.addEventListener('change', (e) => {
                 const shaderSelect = document.getElementById('shaderPreset');
                 if (shaderSelect) shaderSelect.disabled = !e.target.checked;
+            });
+
+            // Enable/disable WebXR VR sub-options
+            document.getElementById('webXREnabled')?.addEventListener('change', (e) => {
+                const vrControllerSupport = document.getElementById('vrControllerSupport');
+                if (vrControllerSupport) {
+                    const container = vrControllerSupport.closest('div[style*="margin-left"]');
+                    if (container) {
+                        if (e.target.checked) {
+                            container.style.opacity = '1';
+                            container.style.pointerEvents = 'auto';
+                        } else {
+                            container.style.opacity = '0.5';
+                            container.style.pointerEvents = 'none';
+                        }
+                    }
+                }
             });
 
             // Enable/disable slider containers based on their parent checkboxes
