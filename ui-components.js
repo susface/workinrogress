@@ -14,6 +14,7 @@ class UIComponents {
             search_query: null,
             favorites_only: false,
             show_hidden: false,
+            vr_only: false,
             sort_by: 'title',
             sort_order: 'ASC'
         };
@@ -280,6 +281,7 @@ class UIComponents {
                          alt="${safeTitle}"
                          onerror="this.src='placeholder.png'"/>
                     ${game.is_favorite ? '<div class="favorite-badge">⭐</div>' : ''}
+                    ${game.has_vr_support ? '<div class="vr-badge">VR</div>' : ''}
                 </div>
                 <div class="grid-item-info">
                     <h3>${safeTitle}</h3>
@@ -341,6 +343,7 @@ class UIComponents {
                             <td>
                                 <strong>${safeTitle}</strong>
                                 ${game.is_favorite ? ' ⭐' : ''}
+                                ${game.has_vr_support ? ' <span class="vr-badge-inline">VR</span>' : ''}
                             </td>
                             <td><span class="platform-badge ${safePlatform}">${safePlatform.toUpperCase()}</span></td>
                             <td>${this.formatPlayTime(game.total_play_time || 0)}</td>
@@ -537,6 +540,13 @@ class UIComponents {
                     <label class="checkbox-label">
                         <input type="checkbox" id="filter-hidden"/>
                         <span>Show Hidden</span>
+                    </label>
+                </div>
+
+                <div class="filter-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="filter-vr"/>
+                        <span>VR Only</span>
                     </label>
                 </div>
 
@@ -835,6 +845,7 @@ class UIComponents {
                 search_query: document.getElementById('filter-search').value || null,
                 favorites_only: document.getElementById('filter-favorites').checked,
                 show_hidden: document.getElementById('filter-hidden').checked,
+                vr_only: document.getElementById('filter-vr').checked,
                 sort_by: document.getElementById('filter-sort').value,
                 sort_order: document.getElementById('filter-order').value
             };
@@ -850,6 +861,7 @@ class UIComponents {
                 search_query: null,
                 favorites_only: false,
                 show_hidden: false,
+                vr_only: false,
                 sort_by: 'title',
                 sort_order: 'ASC'
             };
@@ -859,6 +871,7 @@ class UIComponents {
             document.getElementById('filter-search').value = '';
             document.getElementById('filter-favorites').checked = false;
             document.getElementById('filter-hidden').checked = false;
+            document.getElementById('filter-vr').checked = false;
             document.getElementById('filter-sort').value = 'title';
             document.getElementById('filter-order').value = 'ASC';
 

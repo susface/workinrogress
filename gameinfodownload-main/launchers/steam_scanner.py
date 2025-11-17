@@ -117,7 +117,8 @@ class SteamScanner:
             'developers': [],
             'publishers': [],
             'release_date': '',
-            'genres': []
+            'genres': [],
+            'has_vr_support': 0
         }
 
         try:
@@ -150,6 +151,20 @@ class SteamScanner:
 
                     genres = game_data.get('genres', [])
                     metadata['genres'] = [g.get('description', '') for g in genres]
+
+                    # Check for VR support
+                    # Steam API provides categories that include VR-related info
+                    categories = game_data.get('categories', [])
+                    vr_categories = [28, 29, 30, 31]  # VR Supported, VR Only, VR - Tracked Motion Controllers, VR - Gamepad
+                    has_vr = any(cat.get('id') in vr_categories for cat in categories)
+
+                    # Also check platforms for vr_support field
+                    platforms = game_data.get('platforms', {})
+                    vr_support_info = game_data.get('vr_support', {})
+
+                    # Mark as VR if any VR-related data is present
+                    if has_vr or vr_support_info or platforms.get('vr_support'):
+                        metadata['has_vr_support'] = 1
 
         except Exception as e:
             print(f"Error fetching metadata for app {app_id}: {e}")

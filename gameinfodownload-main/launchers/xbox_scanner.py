@@ -311,7 +311,8 @@ class XboxScanner:
                 'install_directory': install_location,
                 'launch_command': f"shell:AppsFolder\\{package_name}!App",
                 'publisher': manifest_info.get('publisher', ''),
-                'description': manifest_info.get('description', '')
+                'description': manifest_info.get('description', ''),
+                'has_vr_support': 0  # Xbox doesn't provide VR metadata in their API
             }
 
             # Get online metadata

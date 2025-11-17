@@ -36,7 +36,8 @@ class CoverFlowSettings {
             showReflections: true,
             fpsCounter: false,
             errorLogging: true,
-            scrollSpeed: 1.0
+            scrollSpeed: 1.0,
+            vrMode: false
         };
     }
 
@@ -163,6 +164,24 @@ class CoverFlowSettings {
 
         this.showToast(
             this.settings.ssaoEffect ? 'SSAO enabled (reload required)' : 'SSAO disabled (reload required)',
+            'success'
+        );
+    }
+
+    /**
+     * Toggle VR/Stereo 3D mode
+     */
+    toggleVRMode() {
+        this.settings.vrMode = !this.settings.vrMode;
+        this.saveSettings();
+
+        // Toggle the visual effects VR mode if available
+        if (window.visualEffects) {
+            window.visualEffects.toggleEffect('stereo3DEnabled', this.settings.vrMode);
+        }
+
+        this.showToast(
+            this.settings.vrMode ? 'VR mode enabled' : 'VR mode disabled',
             'success'
         );
     }
@@ -312,6 +331,16 @@ class CoverFlowSettings {
 
             ssaoToggle.addEventListener('change', () => {
                 this.toggleSSAOEffect();
+            });
+        }
+
+        // VR mode toggle
+        const vrToggle = document.getElementById('vr-mode-toggle');
+        if (vrToggle) {
+            vrToggle.checked = this.settings.vrMode;
+
+            vrToggle.addEventListener('change', () => {
+                this.toggleVRMode();
             });
         }
 
