@@ -747,10 +747,18 @@ class CoverFlow {
         const coverWidth = 2;
         const coverHeight = 2;
 
+        // Create shared geometries and materials once - reused by all covers for memory efficiency
+        const sharedGeometry = new THREE.PlaneGeometry(coverWidth, coverHeight);
+        const sharedBorderGeometry = new THREE.EdgesGeometry(sharedGeometry);
+        const sharedBorderMaterial = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            linewidth: 1
+        });
+
         this.filteredAlbums.forEach((album, index) => {
             const coverGroup = new THREE.Group();
 
-            const geometry = new THREE.PlaneGeometry(coverWidth, coverHeight);
+            const geometry = sharedGeometry;
 
             // Material selection based on settings
             let material;
@@ -901,13 +909,8 @@ class CoverFlow {
             cover.castShadow = true;
             cover.receiveShadow = true;
 
-            // Border
-            const borderGeometry = new THREE.EdgesGeometry(geometry);
-            const borderMaterial = new THREE.LineBasicMaterial({
-                color: 0xffffff,
-                linewidth: 1
-            });
-            const border = new THREE.LineSegments(borderGeometry, borderMaterial);
+            // Border (using shared geometry and material for efficiency)
+            const border = new THREE.LineSegments(sharedBorderGeometry, sharedBorderMaterial);
             cover.add(border);
 
             coverGroup.add(cover);
@@ -2234,38 +2237,38 @@ class CoverFlow {
 
     clearScene() {
         try {
+            // Track already-disposed resources to prevent double-disposal
+            const disposedGeometries = new Set();
+            const disposedTextures = new Set();
+
             this.covers.forEach(cover => {
                 if (cover.parent) {
                     // Dispose of all children in the cover group
                     cover.parent.traverse((child) => {
                         if (child.isMesh || child.isLineSegments) {
-                            // Dispose geometry
-                            if (child.geometry) {
+                            // Dispose geometry (only once per unique geometry)
+                            if (child.geometry && !disposedGeometries.has(child.geometry.uuid)) {
                                 child.geometry.dispose();
+                                disposedGeometries.add(child.geometry.uuid);
                             }
+
                             // Dispose material(s)
                             if (child.material) {
-                                if (Array.isArray(child.material)) {
-                                    child.material.forEach(mat => {
-                                        // Dispose textures
-                                        if (mat.map) mat.map.dispose();
-                                        if (mat.lightMap) mat.lightMap.dispose();
-                                        if (mat.bumpMap) mat.bumpMap.dispose();
-                                        if (mat.normalMap) mat.normalMap.dispose();
-                                        if (mat.specularMap) mat.specularMap.dispose();
-                                        if (mat.envMap) mat.envMap.dispose();
-                                        mat.dispose();
+                                const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+                                materials.forEach(mat => {
+                                    // Dispose textures (only once per unique texture)
+                                    const textureProps = ['map', 'lightMap', 'bumpMap', 'normalMap', 'specularMap', 'envMap', 'aoMap', 'emissiveMap', 'metalnessMap', 'roughnessMap'];
+
+                                    textureProps.forEach(prop => {
+                                        if (mat[prop] && !disposedTextures.has(mat[prop].uuid)) {
+                                            mat[prop].dispose();
+                                            disposedTextures.add(mat[prop].uuid);
+                                        }
                                     });
-                                } else {
-                                    // Dispose textures
-                                    if (child.material.map) child.material.map.dispose();
-                                    if (child.material.lightMap) child.material.lightMap.dispose();
-                                    if (child.material.bumpMap) child.material.bumpMap.dispose();
-                                    if (child.material.normalMap) child.material.normalMap.dispose();
-                                    if (child.material.specularMap) child.material.specularMap.dispose();
-                                    if (child.material.envMap) child.material.envMap.dispose();
-                                    child.material.dispose();
-                                }
+
+                                    mat.dispose();
+                                });
                             }
                         }
                     });
@@ -2277,7 +2280,8 @@ class CoverFlow {
 
             this.covers = [];
             this.reflections = [];
-            console.log('[COVERFLOW] Scene cleared and GPU resources disposed');
+
+            console.log('[COVERFLOW] Scene cleared - disposed', disposedGeometries.size, 'geometries and', disposedTextures.size, 'textures');
         } catch (error) {
             console.error('[COVERFLOW] Error during clearScene:', error);
             // Still clear the arrays even if disposal fails

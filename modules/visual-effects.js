@@ -2232,7 +2232,7 @@ class VisualEffectsManager {
             toggleSliderContainer('enhancedReflectionsEnabled', 'reflectionOpacity');
             toggleSliderContainer('stereo3DEnabled', 'stereoSeparation');
 
-            // Intensity sliders
+            // Intensity sliders with debounced save
             const sliders = [
                 { id: 'magneticIntensity', valueId: 'magneticIntensityValue', suffix: '%' },
                 { id: 'tiltIntensity', valueId: 'tiltIntensityValue', suffix: '%' },
@@ -2243,8 +2243,17 @@ class VisualEffectsManager {
                 { id: 'convergence', valueId: 'convergenceValue', suffix: '', scale: 1, decimals: 2 }
             ];
 
+            // Debounced save function to prevent excessive localStorage writes
+            let saveTimeout;
+            const debouncedSave = () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => this.saveSettings(), 500);
+            };
+
             sliders.forEach(slider => {
                 const element = document.getElementById(slider.id);
+                const valueDisplay = document.getElementById(slider.valueId);
+
                 if (element) {
                     element.addEventListener('input', (e) => {
                         try {
@@ -2254,15 +2263,16 @@ class VisualEffectsManager {
                                 (slider.decimals ? value.toFixed(slider.decimals) : Math.round(value));
 
                             // Update display
-                            const valueDisplay = document.getElementById(slider.valueId);
                             if (valueDisplay) {
                                 valueDisplay.textContent = `${displayValue}${slider.suffix}`;
                             }
 
-                            // Update setting
+                            // Update setting in memory
                             const settingValue = slider.id === 'stereoSeparation' ? value / 1000 : value;
                             this.settings[slider.id] = settingValue;
-                            this.saveSettings();
+
+                            // Debounced save to localStorage
+                            debouncedSave();
                         } catch (error) {
                             console.error(`[VISUAL_FX] Error updating ${slider.id}:`, error);
                         }

@@ -435,7 +435,8 @@ class FeaturesManager {
             }
 
             // Check if sidebar is outside viewport horizontally
-            const isOnRight = sidebar.style.left === 'auto' || sidebar.style.left === '';
+            // Determine current side based on which positioning property is set
+            const isOnRight = sidebar.style.right && sidebar.style.right !== 'auto';
             const fitsOnRight = viewportWidth >= sidebarWidth + 40; // sidebar width + margins
 
             if (isOnRight && rect.right > viewportWidth) {
@@ -443,7 +444,7 @@ class FeaturesManager {
                 sidebar.style.right = 'auto';
                 sidebar.style.left = '20px';
                 console.log('[FEATURES] Sidebar repositioned to left (viewport width:', viewportWidth, 'px)');
-            } else if (!isOnRight && fitsOnRight && rect.right < viewportWidth - 20) {
+            } else if (!isOnRight && fitsOnRight && rect.left > 40) {
                 // Move back to right if there's now room and we're on the left
                 sidebar.style.left = 'auto';
                 sidebar.style.right = '20px';
