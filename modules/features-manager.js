@@ -10,6 +10,7 @@ class FeaturesManager {
         this.collections = [];
         this.recentGames = []; // Store recent games for safe event handling
         this.gameTags = null;
+        this.recentLaunchedInterval = null; // Store interval ID for cleanup
         this.libraryExport = null;
         this.backlogManager = null;
         this.screenshotGallery = null;
@@ -393,8 +394,12 @@ class FeaturesManager {
         document.body.appendChild(sidebar);
         this.updateRecentlyLaunched();
 
-        // Update every 30 seconds
-        setInterval(() => this.updateRecentlyLaunched(), 30000);
+        // Update every 30 seconds (only when tab is visible to save resources)
+        this.recentLaunchedInterval = setInterval(() => {
+            if (!document.hidden) {
+                this.updateRecentlyLaunched();
+            }
+        }, 30000);
 
         // Watch for search input focus to move sidebar down
         const searchInput = document.getElementById('search-input');
@@ -464,9 +469,15 @@ class FeaturesManager {
             }
         };
 
-        // Check on resize and scroll
-        window.addEventListener('resize', repositionSidebar);
-        window.addEventListener('scroll', repositionSidebar);
+        // Check on resize and scroll - throttled to prevent performance issues
+        let resizeTimeout;
+        const throttledReposition = () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(repositionSidebar, 100);
+        };
+
+        window.addEventListener('resize', throttledReposition);
+        window.addEventListener('scroll', throttledReposition);
 
         // Initial check
         setTimeout(repositionSidebar, 100);
