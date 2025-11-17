@@ -114,7 +114,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Portable mode
     isPortableMode: () => ipcRenderer.invoke('is-portable-mode'),
     setPortableMode: (enable) => ipcRenderer.invoke('set-portable-mode', enable),
-    restartApp: () => ipcRenderer.invoke('restart-app')
+    restartApp: () => ipcRenderer.invoke('restart-app'),
+
+    // Mod Manager
+    getGameMods: (gameId) => ipcRenderer.invoke('get-game-mods', gameId),
+    scanGameMods: (gameId) => ipcRenderer.invoke('scan-game-mods', gameId),
+    applyModChanges: (gameId, mods) => ipcRenderer.invoke('apply-mod-changes', gameId, mods),
+    openModFolder: (gameId) => ipcRenderer.invoke('open-mod-folder', gameId),
+    deleteMod: (gameId, modId) => ipcRenderer.invoke('delete-mod', gameId, modId)
 });
 
 console.log('Preload script loaded - Electron API exposed');

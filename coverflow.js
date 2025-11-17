@@ -32,6 +32,7 @@ class CoverFlow {
         const soundtrackPlayer = new SoundtrackPlayer();
         const updateNotifications = new UpdateNotifications();
         const portableMode = new PortableMode();
+        const modManager = new ModManager();
 
         // Copy instance properties from modules
         Object.assign(this, coverFlowSettings);
@@ -49,6 +50,7 @@ class CoverFlow {
         Object.assign(this, soundtrackPlayer);
         Object.assign(this, updateNotifications);
         Object.assign(this, portableMode);
+        Object.assign(this, modManager);
 
         // SURGICAL FIX: Override specific methods that need to come from modules
         // This is needed because Object.assign doesn't copy prototype methods
@@ -607,6 +609,9 @@ class CoverFlow {
         }
         if (typeof this.initializePortableMode === 'function') {
             this.initializePortableMode();
+        }
+        if (typeof this.initializeModManager === 'function') {
+            this.initializeModManager();
         }
     }
 

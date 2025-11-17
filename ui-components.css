@@ -1737,3 +1737,220 @@
 .restart-actions .btn:not(.primary):hover {
     background: rgba(255, 255, 255, 0.3);
 }
+
+/* ============================================
+   MOD MANAGER
+   ============================================ */
+.mod-manager .modal-content {
+    max-width: 900px;
+    max-height: 90vh;
+}
+
+.mod-manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.current-game-info .game-title {
+    display: block;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.current-game-info .mod-count {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.mod-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.mod-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, #6c9eff 0%, #4a7ad9 100%);
+    border-color: transparent;
+    color: #fff;
+}
+
+.mod-list {
+    max-height: 500px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.mod-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    cursor: move;
+}
+
+.mod-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(108, 158, 255, 0.3);
+}
+
+.mod-item.enabled {
+    border-left: 3px solid #4caf50;
+}
+
+.mod-item.disabled {
+    opacity: 0.6;
+    border-left: 3px solid #999;
+}
+
+.mod-item.conflict {
+    border-left: 3px solid #ff6b6b;
+}
+
+.mod-item.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+}
+
+.mod-drag-handle {
+    color: rgba(255, 255, 255, 0.3);
+    cursor: grab;
+    font-size: 16px;
+    user-select: none;
+}
+
+.mod-drag-handle:active {
+    cursor: grabbing;
+}
+
+.mod-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.mod-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mod-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.mod-details {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.mod-version,
+.mod-author {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.conflict-badge {
+    padding: 2px 8px;
+    background: rgba(255, 107, 107, 0.2);
+    border: 1px solid rgba(255, 107, 107, 0.4);
+    border-radius: 4px;
+    font-size: 11px;
+    color: #ff6b6b;
+    font-weight: 600;
+}
+
+.mod-description {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+.mod-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.mod-config-btn,
+.mod-info-btn,
+.mod-delete-btn {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.mod-config-btn:hover {
+    background: rgba(108, 158, 255, 0.2);
+    border-color: rgba(108, 158, 255, 0.4);
+}
+
+.mod-info-btn:hover {
+    background: rgba(100, 200, 100, 0.2);
+    border-color: rgba(100, 200, 100, 0.4);
+}
+
+.mod-delete-btn:hover {
+    background: rgba(255, 107, 107, 0.2);
+    border-color: rgba(255, 107, 107, 0.4);
+}
+
+.mod-manager-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mod-manager-footer .btn {
+    padding: 10px 24px;
+    font-size: 14px;
+}
+
+.mod-manager-footer .btn.primary {
+    background: linear-gradient(135deg, #6c9eff 0%, #4a7ad9 100%);
+    color: #fff;
+}
+
+.mod-manager-footer .btn.primary:hover {
+    background: linear-gradient(135deg, #7daeff 0%, #5b8be9 100%);
+}

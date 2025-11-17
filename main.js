@@ -2424,6 +2424,87 @@ ipcMain.handle('restart-app', async () => {
     app.quit();
 });
 
+// ============================================
+// MOD MANAGER API
+// ============================================
+
+// Get mods for a game
+ipcMain.handle('get-game-mods', async (event, gameId) => {
+    try {
+        // TODO: Implement actual mod detection logic
+        // Would scan game's mod directory for installed mods
+        // Common locations: <game_dir>/mods/, <game_dir>/data/mods/
+        const mods = [];
+
+        return { success: true, mods };
+    } catch (error) {
+        console.error('Error getting game mods:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Scan for new mods
+ipcMain.handle('scan-game-mods', async (event, gameId) => {
+    try {
+        // TODO: Implement mod scanning logic
+        // Would detect new mod files in the game's mod directory
+        const newMods = 0;
+
+        return { success: true, newMods };
+    } catch (error) {
+        console.error('Error scanning game mods:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Apply mod changes (enable/disable, load order)
+ipcMain.handle('apply-mod-changes', async (event, gameId, mods) => {
+    try {
+        // TODO: Implement mod configuration logic
+        // Would write mod configuration files (load order, enabled mods)
+        // Common files: mods.txt, loadorder.txt, plugins.txt
+        return { success: true };
+    } catch (error) {
+        console.error('Error applying mod changes:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Open mod folder
+ipcMain.handle('open-mod-folder', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // TODO: Determine mod folder path for the game
+        // For now, just open the game directory if available
+        // const modFolderPath = path.join(game.install_path, 'mods');
+        // shell.openPath(modFolderPath);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error opening mod folder:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Delete a mod
+ipcMain.handle('delete-mod', async (event, gameId, modId) => {
+    try {
+        // TODO: Implement mod deletion logic
+        // Would delete mod files from the game's mod directory
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting mod:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 console.log('CoverFlow Game Launcher - Electron app starting...');
 // Redacted sensitive paths for security
 if (isDev) {
