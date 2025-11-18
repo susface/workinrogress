@@ -2762,13 +2762,24 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
         // Use thunderstore_community if set, otherwise try to normalize title
         // Thunderstore community slugs are lowercase with hyphens (e.g., "lethal-company", "peak")
         let communitySlug = game.thunderstore_community;
-        if (!communitySlug) {
+
+        // Handle null/undefined/empty/"null" string cases
+        if (!communitySlug || communitySlug === 'null' || communitySlug.trim() === '') {
             // Auto-generate from title: "Lethal Company" → "lethal-company"
             communitySlug = game.title.toLowerCase()
                 .replace(/\s+/g, '-')      // Replace spaces with hyphens
                 .replace(/[^a-z0-9-]/g, '') // Remove non-alphanumeric except hyphens
                 .replace(/-+/g, '-')       // Collapse multiple hyphens
                 .replace(/^-|-$/g, '');    // Remove leading/trailing hyphens
+        }
+
+        // Validate that we have a valid slug
+        if (!communitySlug || communitySlug.trim() === '') {
+            console.error(`[THUNDERSTORE] Could not generate valid community slug from title: "${game.title}"`);
+            return {
+                success: false,
+                error: `Could not determine Thunderstore community for "${game.title}". Please set it manually via console: await window.electronAPI.setThunderstoreCommunity(${gameId}, 'community-name')`
+            };
         }
 
         console.log(`[THUNDERSTORE] Game lookup: title="${game.title}", thunderstore_community="${game.thunderstore_community}", using slug="${communitySlug}"`);
@@ -2782,7 +2793,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
 
         // Make HTTPS request
         const response = await new Promise((resolve, reject) => {
-            https.get(apiUrl, { timeout: 10000 }, (res) => {
+            const request = https.get(apiUrl, { timeout: 10000 }, (res) => {
                 let data = '';
 
                 res.on('data', (chunk) => {
@@ -2791,25 +2802,46 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
 
                 res.on('end', () => {
                     try {
+                        // Even if status is not 200, still try to parse JSON for error messages
+                        const parsedData = data ? JSON.parse(data) : null;
                         resolve({
                             status: res.statusCode,
-                            data: JSON.parse(data)
+                            data: parsedData
                         });
                     } catch (e) {
-                        reject(e);
+                        console.error('[THUNDERSTORE] Failed to parse JSON response:', e.message);
+                        reject(new Error(`Invalid JSON response from Thunderstore API: ${e.message}`));
                     }
                 });
-            }).on('error', (err) => {
-                reject(err);
+            });
+
+            request.on('error', (err) => {
+                console.error('[THUNDERSTORE] HTTP request error:', err.message);
+                reject(new Error(`Network error: ${err.message}`));
+            });
+
+            request.on('timeout', () => {
+                request.destroy();
+                reject(new Error('Request timed out after 10 seconds'));
             });
         });
 
         if (response.status === 200 && response.data) {
+            // Validate that response.data is an array
+            if (!Array.isArray(response.data)) {
+                console.error('[THUNDERSTORE] API returned non-array data:', typeof response.data);
+                return {
+                    success: false,
+                    error: 'Invalid response format from Thunderstore API'
+                };
+            }
+
             console.log(`[THUNDERSTORE] Fetched ${response.data.length} packages for community "${communitySlug}"`);
 
             // Debug: Log first non-excluded package
             if (response.data.length > 0) {
                 const samplePackage = response.data.find(pkg =>
+                    pkg && pkg.name && pkg.full_name &&
                     !LOG_EXCLUDE_PACKAGES.some(excluded =>
                         pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
                         pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
@@ -2834,13 +2866,14 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
                 console.log(`[THUNDERSTORE] Sample packages:`, examplePackages.map(p => p.full_name));
             }
 
-            return {
-                success: true,
-                mods: packages.map(pkg => ({
+            // Map packages to our format, filtering out any invalid entries
+            const validPackages = packages
+                .filter(pkg => pkg && pkg.name && pkg.full_name && pkg.owner)
+                .map(pkg => ({
                     name: pkg.name,
                     fullName: pkg.full_name,
                     owner: pkg.owner,
-                    packageUrl: pkg.package_url,
+                    packageUrl: pkg.package_url || '',
                     description: pkg.description || '',
                     version: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].version_number : '1.0.0',
                     downloads: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].downloads : 0,
@@ -2857,7 +2890,11 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
                         cat.toLowerCase().includes('modpack') ||
                         cat.toLowerCase().includes('pack')
                     )) || pkg.name.toLowerCase().includes('pack')
-                }))
+                }));
+
+            return {
+                success: true,
+                mods: validPackages
             };
         }
 
@@ -2890,7 +2927,15 @@ ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName
         }
 
         // Update thunderstore_community field
-        const normalizedCommunity = communityName ? communityName.trim().toLowerCase() : null;
+        // Normalize: trim, lowercase, treat empty/null/"null" as null
+        let normalizedCommunity = null;
+        if (communityName && typeof communityName === 'string') {
+            const trimmed = communityName.trim().toLowerCase();
+            if (trimmed && trimmed !== 'null') {
+                normalizedCommunity = trimmed;
+            }
+        }
+
         db.prepare('UPDATE games SET thunderstore_community = ? WHERE id = ?').run(normalizedCommunity, gameId);
         db.close();
 
