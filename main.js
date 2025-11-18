@@ -2341,28 +2341,100 @@ ipcMain.handle('get-playtime-stats', async (event, period = 'week') => {
 
 // Scan game soundtrack files
 ipcMain.handle('scan-game-soundtrack', async (event, gameId) => {
+    const db = initDatabase();
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        db.close();
 
         if (!game) {
             return { success: false, error: 'Game not found' };
         }
 
-        // For now, return empty array (would scan game install directory for music files)
-        // This is a placeholder for actual soundtrack scanning logic
+        if (!game.install_dir || !fs.existsSync(game.install_dir)) {
+            return { success: false, error: 'Game installation directory not found' };
+        }
+
         const tracks = [];
+        const audioExtensions = ['.mp3', '.ogg', '.wav', '.flac', '.m4a', '.wma', '.aac'];
+        const musicFolders = ['music', 'soundtrack', 'audio', 'sound', 'bgm', 'ost', 'songs'];
 
-        // TODO: Implement actual soundtrack scanning
-        // Could scan game install directory for common music file formats:
-        // .mp3, .ogg, .wav, .flac, .m4a
-        // Common locations: <game_dir>/music/, <game_dir>/soundtrack/, <game_dir>/audio/
+        // Helper function to scan directory recursively (max depth 3)
+        const scanDirectory = (dir, depth = 0) => {
+            if (depth > 3 || !fs.existsSync(dir)) return;
 
+            try {
+                const items = fs.readdirSync(dir);
+
+                for (const item of items) {
+                    const fullPath = path.join(dir, item);
+
+                    try {
+                        const stat = fs.statSync(fullPath);
+
+                        if (stat.isDirectory()) {
+                            scanDirectory(fullPath, depth + 1);
+                        } else if (stat.isFile()) {
+                            const ext = path.extname(item).toLowerCase();
+                            if (audioExtensions.includes(ext)) {
+                                const filename = path.basename(item, ext);
+                                tracks.push({
+                                    path: fullPath,
+                                    title: filename.replace(/_/g, ' ').replace(/-/g, ' '),
+                                    filename: item,
+                                    duration: 0 // Would need audio library to get actual duration
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        // Skip files/folders we can't access
+                        continue;
+                    }
+                }
+            } catch (err) {
+                // Skip directories we can't read
+                return;
+            }
+        };
+
+        // First, check if there are dedicated music folders
+        let foundMusicFolder = false;
+        try {
+            const rootItems = fs.readdirSync(game.install_dir);
+            for (const item of rootItems) {
+                const itemLower = item.toLowerCase();
+                if (musicFolders.some(folder => itemLower.includes(folder))) {
+                    const fullPath = path.join(game.install_dir, item);
+                    try {
+                        const stat = fs.statSync(fullPath);
+                        if (stat.isDirectory()) {
+                            scanDirectory(fullPath, 0);
+                            foundMusicFolder = true;
+                        }
+                    } catch (err) {
+                        continue;
+                    }
+                }
+            }
+        } catch (err) {
+            return { success: false, error: 'Cannot read game directory' };
+        }
+
+        // If no dedicated music folder found, scan root directory (max depth 2)
+        if (!foundMusicFolder) {
+            scanDirectory(game.install_dir, 0);
+        }
+
+        // Limit to 500 tracks to prevent performance issues
+        if (tracks.length > 500) {
+            tracks.length = 500;
+        }
+
+        console.log(`[SOUNDTRACK] Found ${tracks.length} audio files for ${game.title}`);
         return { success: true, tracks };
     } catch (error) {
-        console.error('Error scanning game soundtrack:', error);
+        console.error('[SOUNDTRACK] Error scanning game soundtrack:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 

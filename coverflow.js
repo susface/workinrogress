@@ -2774,6 +2774,19 @@ class CoverFlow {
             });
         }
 
+        const soundtrackBtnMenu = document.getElementById('soundtrack-btn-menu');
+        if (soundtrackBtnMenu && typeof this.loadGameSoundtrack === 'function') {
+            soundtrackBtnMenu.addEventListener('click', () => {
+                const currentGame = this.filteredAlbums[this.currentIndex];
+                if (currentGame && currentGame.type === 'game') {
+                    this.loadGameSoundtrack(currentGame);
+                } else {
+                    this.showToast('Please select a game first', 'info');
+                }
+                moreDropdown.style.display = 'none';
+            });
+        }
+
         const insightsBtnMenu = document.getElementById('insights-btn-menu');
         if (insightsBtnMenu && typeof this.toggleInsights === 'function') {
             insightsBtnMenu.addEventListener('click', () => {

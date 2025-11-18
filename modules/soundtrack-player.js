@@ -179,8 +179,11 @@ class SoundtrackPlayer {
                     this.showPlayer();
                     this.playTrack(0);
                 } else {
-                    this.showToast('No soundtrack files found for this game', 'info');
+                    this.showToast(result.error || 'No soundtrack files found for this game', 'info');
                 }
+            }).catch(error => {
+                console.error('[SOUNDTRACK] Failed to scan soundtrack:', error);
+                this.showToast('Failed to scan game soundtrack', 'error');
             });
         } else {
             this.showToast('Soundtrack player requires Electron mode', 'info');
@@ -200,12 +203,14 @@ class SoundtrackPlayer {
         if (this.currentTrack.path.startsWith('http')) {
             this.audio.src = this.currentTrack.path;
         } else {
-            // Convert file path to file:// URL for Electron
-            this.audio.src = `file://${this.currentTrack.path}`;
+            // Convert file path to file:// URL for Electron (normalize Windows paths)
+            const normalizedPath = this.currentTrack.path.replace(/\\/g, '/');
+            this.audio.src = `file:///${normalizedPath}`;
         }
 
         this.audio.play().catch(error => {
             console.error('[SOUNDTRACK] Playback failed:', error);
+            this.showToast(`Failed to play: ${this.currentTrack.title}`, 'error');
             this.isPlaying = false;
             this.updatePlayerUI();
         });
@@ -231,6 +236,7 @@ class SoundtrackPlayer {
         } else {
             this.audio.play().catch(error => {
                 console.error('[SOUNDTRACK] Playback failed:', error);
+                this.showToast('Failed to resume playback', 'error');
                 this.isPlaying = false;
                 this.updatePlayerUI();
             });
@@ -416,7 +422,7 @@ class SoundtrackPlayer {
             <div class="playlist-item" data-index="${index}">
                 <div class="track-number">${index + 1}</div>
                 <div class="track-info">
-                    <div class="track-name">${track.title}</div>
+                    <div class="track-name">${this.escapeHtml(track.title)}</div>
                 </div>
                 <div class="track-duration">${this.formatTime(track.duration)}</div>
             </div>
@@ -513,5 +519,15 @@ class SoundtrackPlayer {
         if (window.coverflow && typeof window.coverflow.showToast === 'function') {
             window.coverflow.showToast(message, type);
         }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
