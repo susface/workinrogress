@@ -2271,3 +2271,69 @@
 .thunderstore-mod-card .mod-description em {
     color: #aaa;
 }
+
+/* Pagination Controls */
+.pagination-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+    background: rgba(30, 30, 30, 0.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pagination-info {
+    font-size: 14px;
+    color: #ccc;
+}
+
+.pagination-buttons {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.page-btn {
+    min-width: 40px;
+    height: 36px;
+    padding: 0 12px;
+    background: rgba(50, 50, 50, 0.8);
+    border: 1px solid rgba(79, 195, 247, 0.3);
+    border-radius: 4px;
+    color: #ccc;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.page-btn:hover:not(.disabled) {
+    background: rgba(79, 195, 247, 0.2);
+    border-color: #4fc3f7;
+    color: #4fc3f7;
+}
+
+.page-btn.active {
+    background: #4fc3f7;
+    border-color: #4fc3f7;
+    color: #1a1a1a;
+    font-weight: bold;
+}
+
+.page-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.page-ellipsis {
+    padding: 0 8px;
+    color: #666;
+    font-size: 14px;
+    user-select: none;
+}
+
+.page-number {
+    min-width: 36px;
+}
