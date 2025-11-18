@@ -137,7 +137,20 @@ class ModManager {
         // Update UI
         const gameTitle = document.querySelector('.mod-manager .game-title');
         if (gameTitle) {
-            gameTitle.textContent = game.title;
+            let titleText = game.title;
+
+            // Add badges for mod support
+            if (game.has_workshop_support) {
+                titleText += ' 🛠️ Workshop';
+            }
+            if (game.engine === 'Unity') {
+                titleText += ' 🎮 Unity';
+            }
+            if (game.engine === 'Unreal') {
+                titleText += ' 🎮 Unreal';
+            }
+
+            gameTitle.textContent = titleText;
         }
 
         // Load mods for this game
@@ -176,13 +189,88 @@ class ModManager {
             const result = await window.electronAPI.getGameMods(gameId);
             if (result.success && result.mods) {
                 this.mods = result.mods;
+                this.modSupport = result.modSupport || {};
                 this.renderModList();
                 this.updateModCount();
+                this.updateModSupportInfo();
             }
         } catch (error) {
             console.error('[MOD_MANAGER] Failed to load mods:', error);
             this.showToast('Failed to load mods', 'error');
         }
+    }
+
+    /**
+     * Update mod support info
+     */
+    updateModSupportInfo() {
+        const headerEl = document.querySelector('.mod-manager-header');
+        if (!headerEl || !this.modSupport) return;
+
+        // Remove existing info if present
+        let infoEl = headerEl.querySelector('.mod-support-info');
+        if (!infoEl) {
+            infoEl = document.createElement('div');
+            infoEl.className = 'mod-support-info';
+            headerEl.insertBefore(infoEl, headerEl.firstChild);
+        }
+
+        let infoHtml = '<div class="support-badges">';
+
+        if (this.modSupport.hasWorkshop) {
+            infoHtml += '<span class="badge workshop">Steam Workshop Supported</span>';
+        }
+
+        if (this.modSupport.isUnity) {
+            infoHtml += '<span class="badge unity">Unity Engine - Thunderstore Compatible</span>';
+            infoHtml += '<button id="browse-thunderstore-btn" class="btn">Browse Thunderstore</button>';
+        }
+
+        if (this.modSupport.engine) {
+            infoHtml += `<span class="badge engine">${this.modSupport.engine} Engine</span>`;
+        }
+
+        infoHtml += '</div>';
+        infoEl.innerHTML = infoHtml;
+
+        // Add event listener for Thunderstore browser
+        const thunderstoreBtn = document.getElementById('browse-thunderstore-btn');
+        if (thunderstoreBtn) {
+            thunderstoreBtn.addEventListener('click', () => {
+                this.browseThunderstore();
+            });
+        }
+    }
+
+    /**
+     * Browse Thunderstore for mods
+     */
+    async browseThunderstore() {
+        if (!this.currentGame || !window.electronAPI) return;
+
+        this.showToast('Searching Thunderstore...', 'info');
+
+        try {
+            const result = await window.electronAPI.searchThunderstoreMods(this.currentGame.title);
+            if (result.success && result.mods) {
+                this.showThunderstoreResults(result.mods);
+            } else {
+                this.showToast('No mods found on Thunderstore', 'info');
+            }
+        } catch (error) {
+            console.error('[MOD_MANAGER] Failed to search Thunderstore:', error);
+            this.showToast('Failed to search Thunderstore', 'error');
+        }
+    }
+
+    /**
+     * Show Thunderstore search results
+     */
+    showThunderstoreResults(mods) {
+        // TODO: Create a modal to show Thunderstore mods
+        // For now, just show a count
+        this.showToast(`Found ${mods.length} mods on Thunderstore!`, 'success');
+        console.log('[MOD_MANAGER] Thunderstore mods:', mods);
     }
 
     /**

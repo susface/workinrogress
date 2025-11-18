@@ -107,6 +107,9 @@ function initDatabase() {
             total_play_time INTEGER DEFAULT 0,
             user_rating INTEGER,
             user_notes TEXT,
+            has_workshop_support INTEGER DEFAULT 0,
+            workshop_id TEXT,
+            engine TEXT,
             UNIQUE(platform, title)
         )
     `);
@@ -271,6 +274,15 @@ function initDatabase() {
     } catch (e) { /* Column already exists */ }
     try {
         db.exec('ALTER TABLE games ADD COLUMN custom_launch_options TEXT');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN has_workshop_support INTEGER DEFAULT 0');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN workshop_id TEXT');
+    } catch (e) { /* Column already exists */ }
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN engine TEXT');
     } catch (e) { /* Column already exists */ }
 
     return db;
@@ -710,13 +722,15 @@ async function loadGamesFromJSON() {
             launch_command, description, short_description, long_description,
             developer, publisher, release_date, icon_path, boxart_path,
             exe_icon_path, header_path,
-            size_on_disk, last_updated, genres, metadata, has_vr_support, updated_at
+            size_on_disk, last_updated, genres, metadata, has_vr_support,
+            has_workshop_support, workshop_id, engine, updated_at
         ) VALUES (
             @platform, @title, @app_id, @package_name, @install_directory,
             @launch_command, @description, @short_description, @long_description,
             @developer, @publisher, @release_date, @icon_path, @boxart_path,
             @exe_icon_path, @header_path,
-            @size_on_disk, @last_updated, @genres, @metadata, @has_vr_support, datetime('now')
+            @size_on_disk, @last_updated, @genres, @metadata, @has_vr_support,
+            @has_workshop_support, @workshop_id, @engine, datetime('now')
         )
     `);
 
@@ -753,7 +767,10 @@ async function loadGamesFromJSON() {
                 last_updated: game.last_updated || 0,
                 genres: JSON.stringify(game.genres || []),
                 metadata: JSON.stringify({}),
-                has_vr_support: game.has_vr_support || 0
+                has_vr_support: game.has_vr_support || 0,
+                has_workshop_support: game.has_workshop_support || 0,
+                workshop_id: game.workshop_id || null,
+                engine: game.engine || null
             });
         }
     });
@@ -2428,15 +2445,227 @@ ipcMain.handle('restart-app', async () => {
 // MOD MANAGER API
 // ============================================
 
+// Helper functions for mod scanning
+async function getWorkshopPath(appId) {
+    // Try to find Steam Workshop folder for the game
+    const system = process.platform;
+    let steamPath;
+
+    if (system === 'win32') {
+        const programFiles = process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)';
+        steamPath = path.join(programFiles, 'Steam');
+    } else if (system === 'darwin') {
+        steamPath = path.join(require('os').homedir(), 'Library', 'Application Support', 'Steam');
+    } else {
+        // Linux
+        steamPath = path.join(require('os').homedir(), '.steam', 'steam');
+    }
+
+    const workshopPath = path.join(steamPath, 'steamapps', 'workshop', 'content', appId);
+    return workshopPath;
+}
+
+async function scanWorkshopMods(workshopPath, appId) {
+    const mods = [];
+
+    try {
+        if (!fs.existsSync(workshopPath)) {
+            return mods;
+        }
+
+        const modFolders = fs.readdirSync(workshopPath);
+
+        for (const folder of modFolders) {
+            const modPath = path.join(workshopPath, folder);
+            const stats = fs.statSync(modPath);
+
+            if (stats.isDirectory()) {
+                // Try to read mod info from various sources
+                const modInfo = {
+                    id: folder,
+                    name: `Workshop Mod ${folder}`,
+                    version: '1.0',
+                    author: 'Unknown',
+                    description: 'Steam Workshop mod',
+                    enabled: true, // Assume enabled by default
+                    source: 'steam_workshop',
+                    path: modPath
+                };
+
+                // Try to find mod name from common config files
+                const possibleInfoFiles = ['mod.info', 'modinfo.txt', 'description.txt'];
+                for (const infoFile of possibleInfoFiles) {
+                    const infoPath = path.join(modPath, infoFile);
+                    if (fs.existsSync(infoPath)) {
+                        try {
+                            const content = fs.readFileSync(infoPath, 'utf8');
+                            // Try to parse mod name
+                            const nameMatch = content.match(/name\s*[:=]\s*["']?([^"'\n]+)["']?/i);
+                            if (nameMatch) {
+                                modInfo.name = nameMatch[1].trim();
+                            }
+                        } catch (e) {
+                            // Ignore parsing errors
+                        }
+                        break;
+                    }
+                }
+
+                mods.push(modInfo);
+            }
+        }
+    } catch (error) {
+        console.error('Error scanning Workshop mods:', error);
+    }
+
+    return mods;
+}
+
+async function scanUnityMods(installDir, gameTitle) {
+    const mods = [];
+
+    if (!installDir || !fs.existsSync(installDir)) {
+        return mods;
+    }
+
+    try {
+        // Check for BepInEx
+        const bepInExPath = path.join(installDir, 'BepInEx', 'plugins');
+        if (fs.existsSync(bepInExPath)) {
+            const plugins = fs.readdirSync(bepInExPath);
+
+            for (const plugin of plugins) {
+                const pluginPath = path.join(bepInExPath, plugin);
+                const stats = fs.statSync(pluginPath);
+
+                if (stats.isDirectory() || plugin.endsWith('.dll')) {
+                    mods.push({
+                        id: plugin,
+                        name: plugin.replace(/\.dll$/i, ''),
+                        version: '1.0',
+                        author: 'Unknown',
+                        description: 'BepInEx plugin',
+                        enabled: true,
+                        source: 'bepinex',
+                        path: pluginPath,
+                        thunderstoreCompatible: true
+                    });
+                }
+            }
+        }
+
+        // Check for MelonLoader
+        const melonLoaderPath = path.join(installDir, 'Mods');
+        if (fs.existsSync(melonLoaderPath)) {
+            const mods_ml = fs.readdirSync(melonLoaderPath);
+
+            for (const mod of mods_ml) {
+                const modPath = path.join(melonLoaderPath, mod);
+                const stats = fs.statSync(modPath);
+
+                if (stats.isDirectory() || mod.endsWith('.dll')) {
+                    mods.push({
+                        id: mod,
+                        name: mod.replace(/\.dll$/i, ''),
+                        version: '1.0',
+                        author: 'Unknown',
+                        description: 'MelonLoader mod',
+                        enabled: true,
+                        source: 'melonloader',
+                        path: modPath,
+                        thunderstoreCompatible: true
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error scanning Unity mods:', error);
+    }
+
+    return mods;
+}
+
+async function scanGenericMods(installDir) {
+    const mods = [];
+
+    if (!installDir || !fs.existsSync(installDir)) {
+        return mods;
+    }
+
+    try {
+        // Check common mod folder locations
+        const modFolders = ['mods', 'Mods', 'data/mods', 'Data/Mods'];
+
+        for (const folder of modFolders) {
+            const modPath = path.join(installDir, folder);
+            if (fs.existsSync(modPath)) {
+                const items = fs.readdirSync(modPath);
+
+                for (const item of items) {
+                    const itemPath = path.join(modPath, item);
+                    const stats = fs.statSync(itemPath);
+
+                    if (stats.isDirectory() || item.match(/\.(zip|rar|7z|pak|ba2)$/i)) {
+                        mods.push({
+                            id: item,
+                            name: item,
+                            version: '1.0',
+                            author: 'Unknown',
+                            description: 'Generic mod',
+                            enabled: true,
+                            source: 'generic',
+                            path: itemPath
+                        });
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error scanning generic mods:', error);
+    }
+
+    return mods;
+}
+
 // Get mods for a game
 ipcMain.handle('get-game-mods', async (event, gameId) => {
     try {
-        // TODO: Implement actual mod detection logic
-        // Would scan game's mod directory for installed mods
-        // Common locations: <game_dir>/mods/, <game_dir>/data/mods/
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
         const mods = [];
 
-        return { success: true, mods };
+        // Check if game has Steam Workshop support
+        if (game.has_workshop_support && game.workshop_id) {
+            // For Steam Workshop games, scan the workshop folder
+            const workshopPath = await getWorkshopPath(game.app_id);
+            if (workshopPath && fs.existsSync(workshopPath)) {
+                const workshopMods = await scanWorkshopMods(workshopPath, game.app_id);
+                mods.push(...workshopMods);
+            }
+        }
+
+        // Check if game is Unity-based (potential Thunderstore support)
+        if (game.engine === 'Unity') {
+            // Scan for BepInEx/MelonLoader mods
+            const unityMods = await scanUnityMods(game.install_directory, game.title);
+            mods.push(...unityMods);
+        }
+
+        // Check for generic mod folders
+        const genericMods = await scanGenericMods(game.install_directory);
+        mods.push(...genericMods);
+
+        return { success: true, mods, modSupport: {
+            hasWorkshop: Boolean(game.has_workshop_support),
+            isUnity: game.engine === 'Unity',
+            engine: game.engine
+        }};
     } catch (error) {
         console.error('Error getting game mods:', error);
         return { success: false, error: error.message };
@@ -2501,6 +2730,121 @@ ipcMain.handle('delete-mod', async (event, gameId, modId) => {
         return { success: true };
     } catch (error) {
         console.error('Error deleting mod:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// ============================================
+// THUNDERSTORE API
+// ============================================
+
+// Search for mods on Thunderstore
+ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
+    try {
+        const axios = require('axios');
+
+        // Thunderstore API endpoint
+        const apiUrl = 'https://thunderstore.io/api/v1/package/';
+
+        const response = await axios.get(apiUrl, { timeout: 10000 });
+
+        if (response.status === 200 && response.data) {
+            // Filter packages by game name (community name)
+            const packages = response.data.filter(pkg => {
+                // Try to match game name with community names
+                // Common Unity game communities on Thunderstore:
+                // - Lethal Company, Risk of Rain 2, Valheim, etc.
+                return pkg.categories && pkg.categories.some(cat =>
+                    cat.toLowerCase().includes(gameName.toLowerCase())
+                );
+            });
+
+            return {
+                success: true,
+                mods: packages.slice(0, 50).map(pkg => ({
+                    name: pkg.name,
+                    fullName: pkg.full_name,
+                    owner: pkg.owner,
+                    packageUrl: pkg.package_url,
+                    description: pkg.description || '',
+                    version: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].version_number : '1.0.0',
+                    downloads: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].downloads : 0,
+                    rating: pkg.rating_score || 0,
+                    isDeprecated: pkg.is_deprecated || false,
+                    categories: pkg.categories || []
+                }))
+            };
+        }
+
+        return { success: false, error: 'Failed to fetch from Thunderstore' };
+    } catch (error) {
+        console.error('Error searching Thunderstore:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Install a mod from Thunderstore
+ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => {
+    try {
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        if (!game.install_directory || !fs.existsSync(game.install_directory)) {
+            return { success: false, error: 'Game installation directory not found' };
+        }
+
+        const axios = require('axios');
+        const AdmZip = require('adm-zip');
+
+        // Get the latest version download URL
+        const packageUrl = modPackage.packageUrl;
+        const response = await axios.get(packageUrl, { timeout: 10000 });
+
+        if (response.status === 200 && response.data.latest && response.data.latest.download_url) {
+            const downloadUrl = response.data.latest.download_url;
+
+            // Download the mod
+            const modResponse = await axios.get(downloadUrl, {
+                responseType: 'arraybuffer',
+                timeout: 30000
+            });
+
+            // Determine installation path based on mod loader
+            let installPath;
+            const bepInExPath = path.join(game.install_directory, 'BepInEx', 'plugins');
+            const melonLoaderPath = path.join(game.install_directory, 'Mods');
+
+            if (fs.existsSync(bepInExPath)) {
+                installPath = bepInExPath;
+            } else if (fs.existsSync(melonLoaderPath)) {
+                installPath = melonLoaderPath;
+            } else {
+                // Create BepInEx plugins folder by default
+                installPath = bepInExPath;
+                fs.mkdirSync(installPath, { recursive: true });
+            }
+
+            // Extract the mod
+            const zip = new AdmZip(Buffer.from(modResponse.data));
+            const modFolderName = modPackage.fullName.replace('/', '-');
+            const extractPath = path.join(installPath, modFolderName);
+
+            zip.extractAllTo(extractPath, true);
+
+            return {
+                success: true,
+                message: `Mod ${modPackage.name} installed successfully to ${extractPath}`
+            };
+        }
+
+        return { success: false, error: 'Could not find mod download URL' };
+    } catch (error) {
+        console.error('Error installing Thunderstore mod:', error);
         return { success: false, error: error.message };
     }
 });
