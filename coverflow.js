@@ -2710,24 +2710,6 @@ class CoverFlow {
         document.getElementById('settings-btn').addEventListener('click', () => this.openModal('settings-modal'));
         document.getElementById('fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
 
-        // Mod manager button
-        const modsBtn = document.getElementById('mods-btn');
-        if (modsBtn && typeof this.showModManager === 'function') {
-            modsBtn.addEventListener('click', () => {
-                // Show mod manager with current game if one is selected
-                const currentGame = this.filteredAlbums[this.currentIndex];
-                if (currentGame && currentGame.type === 'game') {
-                    this.showModManager(currentGame);
-                } else {
-                    // Open mod manager panel anyway, showing empty state
-                    const panel = document.getElementById('mod-manager-panel');
-                    if (panel) {
-                        panel.style.display = 'flex';
-                    }
-                }
-            });
-        }
-
         // Dropdown menu toggle
         const moreBtn = document.getElementById('more-btn');
         const moreDropdown = document.getElementById('more-dropdown');
@@ -2747,6 +2729,24 @@ class CoverFlow {
         }
 
         // Dropdown menu items
+        const modsBtnMenu = document.getElementById('mods-btn-menu');
+        if (modsBtnMenu && typeof this.showModManager === 'function') {
+            modsBtnMenu.addEventListener('click', () => {
+                // Show mod manager with current game if one is selected
+                const currentGame = this.filteredAlbums[this.currentIndex];
+                if (currentGame && currentGame.type === 'game') {
+                    this.showModManager(currentGame);
+                } else {
+                    // Open mod manager panel anyway, showing empty state
+                    const panel = document.getElementById('mod-manager-panel');
+                    if (panel) {
+                        panel.style.display = 'flex';
+                    }
+                }
+                moreDropdown.style.display = 'none';
+            });
+        }
+
         const insightsBtnMenu = document.getElementById('insights-btn-menu');
         if (insightsBtnMenu && typeof this.toggleInsights === 'function') {
             insightsBtnMenu.addEventListener('click', () => {
