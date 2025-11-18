@@ -290,9 +290,15 @@ class ModManager {
             <div class="modal-content thunderstore-content">
                 <div class="modal-header">
                     <h3>🌩️ Thunderstore Mod Browser</h3>
+                    <span class="mod-count-badge">${mods.length} packages found</span>
                     <button class="close-thunderstore-btn close-btn">×</button>
                 </div>
                 <div class="modal-body">
+                    <div class="thunderstore-tabs">
+                        <button class="tab-btn active" data-tab="all">All (${mods.length})</button>
+                        <button class="tab-btn" data-tab="mods">Mods (${mods.filter(m => !m.isModpack).length})</button>
+                        <button class="tab-btn" data-tab="modpacks">Modpacks (${mods.filter(m => m.isModpack).length})</button>
+                    </div>
                     <div class="thunderstore-header">
                         <input type="text" id="thunderstore-search" class="search-input" placeholder="Search mods...">
                         <select id="thunderstore-sort" class="sort-select">
@@ -325,6 +331,15 @@ class ModManager {
             }
         });
 
+        // Tab switching
+        browser.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                browser.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.filterByTab(mods, e.target.dataset.tab);
+            });
+        });
+
         // Search functionality
         const searchInput = document.getElementById('thunderstore-search');
         searchInput.addEventListener('input', (e) => {
@@ -339,9 +354,62 @@ class ModManager {
 
         // Store mods for filtering/sorting
         this.thunderstoreMods = mods;
+        this.currentTab = 'all';
 
         // Attach install handlers
         this.attachInstallHandlers();
+    }
+
+    /**
+     * Filter by tab (all/mods/modpacks)
+     */
+    filterByTab(mods, tab) {
+        this.currentTab = tab;
+        const cards = document.querySelectorAll('.thunderstore-mod-card');
+
+        cards.forEach(card => {
+            const isModpack = card.dataset.isModpack === 'true';
+
+            let show = false;
+            switch (tab) {
+                case 'all':
+                    show = true;
+                    break;
+                case 'mods':
+                    show = !isModpack;
+                    break;
+                case 'modpacks':
+                    show = isModpack;
+                    break;
+            }
+
+            card.style.display = show ? 'flex' : 'none';
+        });
+    }
+
+    /**
+     * Simple markdown to HTML converter
+     */
+    markdownToHtml(markdown) {
+        if (!markdown) return 'No description available';
+
+        let html = markdown
+            // Headers
+            .replace(/^### (.*$)/gim, '<h4>$1</h4>')
+            .replace(/^## (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^# (.*$)/gim, '<h2>$1</h2>')
+            // Bold
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\_\_(.*?)\_\_/g, '<strong>$1</strong>')
+            // Italic
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/\_(.*?)\_/g, '<em>$1</em>')
+            // Links
+            .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+            // Line breaks
+            .replace(/\n/g, '<br>');
+
+        return html;
     }
 
     /**
@@ -353,17 +421,19 @@ class ModManager {
         }
 
         return mods.map(mod => `
-            <div class="thunderstore-mod-card" data-mod-name="${mod.name.toLowerCase()}">
+            <div class="thunderstore-mod-card" data-mod-name="${mod.name.toLowerCase()}" data-is-modpack="${mod.isModpack}">
                 <div class="mod-icon">
-                    ${mod.iconUrl ? `<img src="${mod.iconUrl}" alt="${mod.name}" onerror="this.style.display='none'">` : '📦'}
+                    ${mod.iconUrl ? `<img src="${mod.iconUrl}" alt="${mod.name}" onerror="this.parentElement.innerHTML='📦'">` : '📦'}
                 </div>
                 <div class="mod-info-section">
                     <div class="mod-title-row">
                         <h4 class="mod-name">${mod.name}</h4>
                         <span class="mod-version">v${mod.version}</span>
+                        ${mod.isModpack ? '<span class="modpack-badge">📦 Modpack</span>' : ''}
+                        ${mod.isPinned ? '<span class="pinned-badge">📌 Pinned</span>' : ''}
                     </div>
                     <div class="mod-author">by ${mod.owner}</div>
-                    <p class="mod-description">${mod.description || 'No description available'}</p>
+                    <div class="mod-description">${this.markdownToHtml(mod.description)}</div>
                     <div class="mod-stats">
                         <span class="stat">⬇️ ${this.formatNumber(mod.downloads)} downloads</span>
                         ${mod.rating ? `<span class="stat">⭐ ${mod.rating.toFixed(1)}</span>` : ''}
