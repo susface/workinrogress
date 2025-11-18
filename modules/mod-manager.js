@@ -159,7 +159,7 @@ class ModManager {
         // Show modal
         const manager = document.getElementById('mod-manager');
         if (manager) {
-            manager.classList.add('visible');
+            manager.classList.add('active');
         }
     }
 
@@ -170,7 +170,7 @@ class ModManager {
         this.isVisible = false;
         const manager = document.getElementById('mod-manager');
         if (manager) {
-            manager.classList.remove('visible');
+            manager.classList.remove('active');
         }
     }
 
