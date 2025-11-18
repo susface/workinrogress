@@ -2759,15 +2759,26 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
             return { success: false, error: 'Game not found' };
         }
 
-        // Use thunderstore_community if set, otherwise fall back to title
-        const gameName = game.thunderstore_community || game.title;
-        console.log(`[THUNDERSTORE] Game lookup: title="${game.title}", thunderstore_community="${game.thunderstore_community}", using="${gameName}"`);
+        // Use thunderstore_community if set, otherwise try to normalize title
+        // Thunderstore community slugs are lowercase with hyphens (e.g., "lethal-company", "peak")
+        let communitySlug = game.thunderstore_community;
+        if (!communitySlug) {
+            // Auto-generate from title: "Lethal Company" → "lethal-company"
+            communitySlug = game.title.toLowerCase()
+                .replace(/\s+/g, '-')      // Replace spaces with hyphens
+                .replace(/[^a-z0-9-]/g, '') // Remove non-alphanumeric except hyphens
+                .replace(/-+/g, '-')       // Collapse multiple hyphens
+                .replace(/^-|-$/g, '');    // Remove leading/trailing hyphens
+        }
+
+        console.log(`[THUNDERSTORE] Game lookup: title="${game.title}", thunderstore_community="${game.thunderstore_community}", using slug="${communitySlug}"`);
 
         // Packages to exclude from verbose logging (mod managers, etc.)
         const LOG_EXCLUDE_PACKAGES = ['r2modman', 'thunderstore-cli'];
 
-        // Thunderstore API endpoint
-        const apiUrl = 'https://thunderstore.io/api/v1/package/';
+        // Use community-specific API endpoint
+        const apiUrl = `https://thunderstore.io/c/${communitySlug}/api/v1/package/`;
+        console.log(`[THUNDERSTORE] API URL: ${apiUrl}`);
 
         // Make HTTPS request
         const response = await new Promise((resolve, reject) => {
@@ -2794,10 +2805,9 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
         });
 
         if (response.status === 200 && response.data) {
-            console.log(`[THUNDERSTORE] Fetched ${response.data.length} total packages from Thunderstore`);
-            console.log(`[THUNDERSTORE] Searching for game: "${gameName}" (normalized: "${gameName.toLowerCase().replace(/[^a-z0-9]/g, '')}")`);
+            console.log(`[THUNDERSTORE] Fetched ${response.data.length} packages for community "${communitySlug}"`);
 
-            // Debug: Log first non-excluded package structure
+            // Debug: Log first non-excluded package
             if (response.data.length > 0) {
                 const samplePackage = response.data.find(pkg =>
                     !LOG_EXCLUDE_PACKAGES.some(excluded =>
@@ -2806,108 +2816,22 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
                     )
                 );
                 if (samplePackage) {
-                    console.log('[THUNDERSTORE] Sample package_url:', samplePackage.package_url);
-                    console.log('[THUNDERSTORE] Sample full_name:', samplePackage.full_name);
+                    console.log('[THUNDERSTORE] Sample package:', samplePackage.full_name);
                 }
             }
 
-            // Filter packages by game name (try multiple matching strategies)
-            const gameNameLower = gameName.toLowerCase();
-            const gameNameNorm = gameNameLower.replace(/[^a-z0-9]/g, '');
+            // No filtering needed - the API already returns only packages for this community!
+            const packages = response.data;
 
-            // Track matching statistics
-            let matchStats = {
-                urlMatches: 0,
-                fullNameMatches: 0,
-                categoryMatches: 0,
-                total: 0
-            };
-
-            const packages = response.data.filter(pkg => {
-                // Debug first few packages
-                const pkgIndex = response.data.indexOf(pkg);
-                const shouldLogPackage = !LOG_EXCLUDE_PACKAGES.some(excluded =>
+            // Show a few example packages (excluding r2modman)
+            const examplePackages = packages.slice(0, 5).filter(pkg =>
+                !LOG_EXCLUDE_PACKAGES.some(excluded =>
                     pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
                     pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
-                );
-
-                if (pkgIndex < 5 && shouldLogPackage) {
-                    console.log(`[THUNDERSTORE] Checking package #${pkgIndex}:`, {
-                        name: pkg.name,
-                        full_name: pkg.full_name,
-                        package_url: pkg.package_url,
-                        categories: pkg.categories,
-                        has_nsfw_content: pkg.has_nsfw_content
-                    });
-                }
-
-                // Strategy 1: Check package_url for community slug
-                if (pkg.package_url) {
-                    const urlLower = pkg.package_url.toLowerCase();
-                    // Extract community from URL like: /c/lethal-company/p/...
-                    const communityMatch = urlLower.match(/\/c\/([^\/]+)\//);
-
-                    if (pkgIndex < 5 && shouldLogPackage) {
-                        console.log(`[THUNDERSTORE] Package #${pkgIndex} URL: "${pkg.package_url}"`);
-                        console.log(`[THUNDERSTORE] Community regex match result:`, communityMatch);
-                    }
-
-                    if (communityMatch) {
-                        const communitySlug = communityMatch[1];
-                        const communityNorm = communitySlug.replace(/[^a-z0-9]/g, '');
-
-                        if (pkgIndex < 5 && shouldLogPackage) {
-                            console.log(`[THUNDERSTORE] Package #${pkgIndex} community: "${communitySlug}" (normalized: "${communityNorm}"), game: "${gameNameLower}" (normalized: "${gameNameNorm}")`);
-                        }
-
-                        // Check if community matches game name
-                        if (communityNorm === gameNameNorm ||
-                            communitySlug === gameNameLower ||
-                            communitySlug.includes(gameNameLower) ||
-                            gameNameLower.includes(communitySlug)) {
-                            if (pkgIndex < 5 && shouldLogPackage) {
-                                console.log(`[THUNDERSTORE] ✓ MATCH on package_url!`);
-                            }
-                            matchStats.urlMatches++;
-                            matchStats.total++;
-                            return true;
-                        }
-                    }
-                }
-
-                // Strategy 2: DISABLED - Full name matching causes too many false positives
-                // (e.g., "peak" matches any package with "peak" in description/name)
-                // Only use URL-based community matching for accuracy
-
-                // Strategy 3: DISABLED - Category matching also causes false positives
-                // Only rely on URL-based community matching
-
-                return false;
-            });
-
-            console.log(`[THUNDERSTORE] Found ${packages.length} packages for "${gameName}"`);
-            console.log(`[THUNDERSTORE] Match breakdown: URL=${matchStats.urlMatches}, FullName=${matchStats.fullNameMatches}, Categories=${matchStats.categoryMatches}`);
-            if (packages.length > 0) {
-                // Find first non-excluded package to log
-                const firstLoggablePackage = packages.find(pkg =>
-                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
-                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
-                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
-                    )
-                );
-                if (firstLoggablePackage) {
-                    console.log(`[THUNDERSTORE] First matching package:`, firstLoggablePackage.name, firstLoggablePackage.full_name);
-                }
-                // Show a few example matches
-                const exampleMatches = packages.slice(0, 5).filter(pkg =>
-                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
-                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
-                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
-                    )
-                );
-                if (exampleMatches.length > 0) {
-                    console.log(`[THUNDERSTORE] Sample matches:`, exampleMatches.map(p => p.full_name));
-                }
+                )
+            );
+            if (examplePackages.length > 0) {
+                console.log(`[THUNDERSTORE] Sample packages:`, examplePackages.map(p => p.full_name));
             }
 
             return {
@@ -2937,9 +2861,18 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
             };
         }
 
-        return { success: false, error: 'Failed to fetch from Thunderstore' };
+        // Handle non-200 status codes
+        if (response.status === 404) {
+            console.error(`[THUNDERSTORE] Community "${communitySlug}" not found (404)`);
+            return {
+                success: false,
+                error: `Community "${communitySlug}" not found on Thunderstore. Try setting the correct community name via console: await window.electronAPI.setThunderstoreCommunity(gameId, 'community-name')`
+            };
+        }
+
+        return { success: false, error: `Failed to fetch from Thunderstore (HTTP ${response.status})` };
     } catch (error) {
-        console.error('Error searching Thunderstore:', error);
+        console.error('[THUNDERSTORE] Error searching Thunderstore:', error);
         return { success: false, error: error.message };
     }
 });
