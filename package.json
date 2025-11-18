@@ -38,6 +38,9 @@
     "directories": {
       "output": "dist"
     },
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
+    ],
     "files": [
       "main.js",
       "preload.js",
