@@ -17,7 +17,7 @@ class ModManager {
         // Create mod manager UI
         this.createModManagerUI();
 
-        console.log('[MOD_MANAGER] Mod manager initialized');
+        window.logger?.debug('MOD_MANAGER', 'Mod manager initialized');
     }
 
     /**
@@ -195,7 +195,7 @@ class ModManager {
                 this.updateModSupportInfo();
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to load mods:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to load mods:', error);
             this.showToast('Failed to load mods', 'error');
         }
     }
@@ -258,7 +258,7 @@ class ModManager {
                 this.showToast('No mods found on Thunderstore', 'info');
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to search Thunderstore:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to search Thunderstore:', error);
             this.showToast('Failed to search Thunderstore', 'error');
         }
     }
@@ -448,18 +448,18 @@ class ModManager {
         const paginatedMods = mods.slice(startIndex, endIndex);
 
         return paginatedMods.map(mod => `
-            <div class="thunderstore-mod-card" data-mod-name="${mod.name.toLowerCase()}" data-is-modpack="${mod.isModpack}">
+            <div class="thunderstore-mod-card" data-mod-name="${this.escapeHtml(mod.name.toLowerCase())}" data-is-modpack="${mod.isModpack}">
                 <div class="mod-icon">
-                    ${mod.iconUrl ? `<img src="${mod.iconUrl}" alt="${mod.name}" onerror="this.parentElement.innerHTML='📦'">` : '📦'}
+                    ${(mod.iconUrl && this.isSafeUrl(mod.iconUrl)) ? `<img src="${this.escapeHtml(mod.iconUrl)}" alt="${this.escapeHtml(mod.name)}" onerror="this.parentElement.innerHTML='📦'">` : '📦'}
                 </div>
                 <div class="mod-info-section">
                     <div class="mod-title-row">
-                        <h4 class="mod-name">${mod.name}</h4>
-                        <span class="mod-version">v${mod.version}</span>
+                        <h4 class="mod-name">${this.escapeHtml(mod.name)}</h4>
+                        <span class="mod-version">v${this.escapeHtml(mod.version)}</span>
                         ${mod.isModpack ? '<span class="modpack-badge">📦 Modpack</span>' : ''}
                         ${mod.isPinned ? '<span class="pinned-badge">📌 Pinned</span>' : ''}
                     </div>
-                    <div class="mod-author">by ${mod.owner}</div>
+                    <div class="mod-author">by ${this.escapeHtml(mod.owner)}</div>
                     <div class="mod-description">${this.markdownToHtml(mod.description)}</div>
                     <div class="mod-stats">
                         <span class="stat">⬇️ ${this.formatNumber(mod.downloads)} downloads</span>
@@ -471,7 +471,7 @@ class ModManager {
                     <button class="install-mod-btn btn primary" data-mod='${JSON.stringify(mod).replace(/'/g, "&#39;")}'>
                         Install
                     </button>
-                    ${mod.websiteUrl ? `<a href="${mod.websiteUrl}" class="view-mod-btn btn" target="_blank">View Page</a>` : ''}
+                    ${(mod.websiteUrl && this.isSafeUrl(mod.websiteUrl)) ? `<a href="${this.escapeHtml(mod.websiteUrl)}" class="view-mod-btn btn" target="_blank" rel="noopener noreferrer">View Page</a>` : ''}
                 </div>
             </div>
         `).join('');
@@ -638,8 +638,13 @@ class ModManager {
     attachInstallHandlers() {
         document.querySelectorAll('.install-mod-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                const modData = JSON.parse(e.target.dataset.mod.replace(/&#39;/g, "'"));
-                await this.installThunderstoreMod(modData);
+                try {
+                    const modData = JSON.parse(e.target.dataset.mod.replace(/&#39;/g, "'"));
+                    await this.installThunderstoreMod(modData, e.target);
+                } catch (error) {
+                    window.logger?.error('MOD_MANAGER', 'Error parsing mod data:', error);
+                    this.showToast('Failed to install mod: Invalid mod data', 'error');
+                }
             });
         });
     }
@@ -647,10 +652,15 @@ class ModManager {
     /**
      * Install a Thunderstore mod
      */
-    async installThunderstoreMod(modData) {
+    async installThunderstoreMod(modData, buttonElement) {
         if (!this.currentGame || !window.electronAPI) return;
 
-        const btn = event.target;
+        const btn = buttonElement;
+        if (!btn) {
+            window.logger?.error('MOD_MANAGER', 'Install button element not found');
+            return;
+        }
+
         btn.disabled = true;
         btn.textContent = 'Installing...';
 
@@ -673,7 +683,7 @@ class ModManager {
                 btn.textContent = 'Install';
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to install mod:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to install mod:', error);
             this.showToast('Failed to install mod', 'error');
             btn.disabled = false;
             btn.textContent = 'Install';
@@ -712,13 +722,13 @@ class ModManager {
                     <input type="checkbox" ${mod.enabled ? 'checked' : ''} data-index="${index}">
                 </div>
                 <div class="mod-info">
-                    <div class="mod-name">${mod.name}</div>
+                    <div class="mod-name">${this.escapeHtml(mod.name)}</div>
                     <div class="mod-details">
-                        <span class="mod-version">v${mod.version || '1.0'}</span>
-                        <span class="mod-author">${mod.author || 'Unknown'}</span>
+                        <span class="mod-version">v${this.escapeHtml(mod.version || '1.0')}</span>
+                        <span class="mod-author">${this.escapeHtml(mod.author || 'Unknown')}</span>
                         ${mod.hasConflict ? '<span class="conflict-badge">⚠️ Conflict</span>' : ''}
                     </div>
-                    ${mod.description ? `<div class="mod-description">${mod.description}</div>` : ''}
+                    ${mod.description ? `<div class="mod-description">${this.escapeHtml(mod.description)}</div>` : ''}
                 </div>
                 <div class="mod-actions">
                     <button class="mod-config-btn" data-index="${index}" title="Configure">⚙️</button>
@@ -832,7 +842,7 @@ class ModManager {
                 this.loadModsForGame(this.currentGame.id);
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to scan mods:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to scan mods:', error);
             this.showToast('Failed to scan for mods', 'error');
         }
     }
@@ -862,7 +872,7 @@ class ModManager {
                 this.showToast('Failed to apply mod changes', 'error');
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to apply changes:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to apply changes:', error);
             this.showToast('Error applying mod changes', 'error');
         }
     }
@@ -876,7 +886,7 @@ class ModManager {
         try {
             await window.electronAPI.openModFolder(this.currentGame.id);
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to open mod folder:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to open mod folder:', error);
         }
     }
 
@@ -922,7 +932,7 @@ Description: ${mod.description || 'No description available'}
                 this.showToast('Mod deleted', 'success');
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to delete mod:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to delete mod:', error);
             this.showToast('Failed to delete mod', 'error');
         }
     }
@@ -998,5 +1008,24 @@ Description: ${mod.description || 'No description available'}
         if (window.coverflow && typeof window.coverflow.showToast === 'function') {
             window.coverflow.showToast(message, type);
         }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Validate URL to prevent javascript: and data: URLs
+     */
+    isSafeUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+        const urlLower = url.trim().toLowerCase();
+        return urlLower.startsWith('http://') || urlLower.startsWith('https://');
     }
 }

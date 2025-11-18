@@ -13,6 +13,9 @@ class SoundtrackPlayer {
         this.volume = 0.7;
         this.repeat = false;
         this.shuffle = false;
+        this.youtubePlayer = null;
+        this.isYouTubeMode = false;
+        this.youtubePlayerReady = false;
     }
 
     /**
@@ -31,7 +34,7 @@ class SoundtrackPlayer {
         // Create player UI
         this.createPlayerUI();
 
-        console.log('[SOUNDTRACK] Soundtrack player initialized');
+        window.logger?.debug('SOUNDTRACK', 'Soundtrack player initialized');
     }
 
     /**
@@ -179,11 +182,203 @@ class SoundtrackPlayer {
                     this.showPlayer();
                     this.playTrack(0);
                 } else {
-                    this.showToast('No soundtrack files found for this game', 'info');
+                    this.showToast(result.error || 'No soundtrack files found for this game', 'info');
                 }
+            }).catch(error => {
+                window.logger?.error('SOUNDTRACK', 'Failed to scan soundtrack:', error);
+                this.showToast('Failed to scan game soundtrack', 'error');
             });
         } else {
             this.showToast('Soundtrack player requires Electron mode', 'info');
+        }
+    }
+
+    /**
+     * Load YouTube soundtrack (audio-only from YouTube video)
+     */
+    async loadYouTubeSoundtrack(game, videoIdOrUrl = null) {
+        if (!game) return;
+
+        this.isYouTubeMode = true;
+
+        try {
+            // Get YouTube integration instance
+            const youtube = window.coverflow && window.coverflow.youtubeIntegration
+                ? window.coverflow.youtubeIntegration
+                : new YouTubeIntegration();
+
+            // Initialize YouTube API
+            await youtube.initializeYouTubeAPI();
+
+            let videoId = videoIdOrUrl;
+
+            // If no video ID provided, let user paste one
+            if (!videoId) {
+                videoId = await this.promptForYouTubeVideo(game.title);
+                if (!videoId) {
+                    this.showToast('No YouTube video selected', 'info');
+                    return;
+                }
+            } else {
+                // Extract video ID from URL if needed
+                const extracted = youtube.extractVideoId(videoId);
+                if (extracted) {
+                    videoId = extracted;
+                }
+            }
+
+            // Validate video ID
+            if (!youtube.isValidVideoId(videoId)) {
+                this.showToast('Invalid YouTube video ID or URL', 'error');
+                return;
+            }
+
+            // Add to playlist
+            this.playlist = [{
+                type: 'youtube',
+                videoId: videoId,
+                title: `${game.title} Soundtrack`,
+                game: game.title
+            }];
+
+            this.currentIndex = 0;
+            this.updatePlaylistUI();
+            this.showPlayer();
+            this.playYouTubeTrack(0);
+
+        } catch (error) {
+            window.logger?.error('SOUNDTRACK', 'Failed to load YouTube soundtrack:', error);
+            this.showToast('Failed to load YouTube soundtrack', 'error');
+            this.isYouTubeMode = false;
+        }
+    }
+
+    /**
+     * Prompt user for YouTube video URL
+     */
+    async promptForYouTubeVideo(gameTitle) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 500px;">
+                    <h3>Load YouTube Soundtrack</h3>
+                    <p>Paste a YouTube URL or Video ID for <strong>${this.escapeHtml(gameTitle)}</strong> soundtrack:</p>
+                    <input type="text" id="youtube-url-input" placeholder="https://youtube.com/watch?v=... or video ID" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #444; background: #2a2a2a; color: #fff; border-radius: 4px;">
+                    <p style="font-size: 12px; color: #888;">This will play the audio from the YouTube video without showing the video.</p>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                        <button class="btn" id="youtube-cancel-btn">Cancel</button>
+                        <button class="btn primary" id="youtube-ok-btn">Load</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const input = document.getElementById('youtube-url-input');
+            const okBtn = document.getElementById('youtube-ok-btn');
+            const cancelBtn = document.getElementById('youtube-cancel-btn');
+
+            input.focus();
+
+            const cleanup = () => {
+                document.body.removeChild(modal);
+            };
+
+            okBtn.addEventListener('click', () => {
+                const value = input.value.trim();
+                cleanup();
+                resolve(value || null);
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                cleanup();
+                resolve(null);
+            });
+
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const value = input.value.trim();
+                    cleanup();
+                    resolve(value || null);
+                }
+            });
+        });
+    }
+
+    /**
+     * Play a YouTube track (audio-only)
+     */
+    async playYouTubeTrack(index) {
+        if (index < 0 || index >= this.playlist.length) return;
+
+        this.currentIndex = index;
+        this.currentTrack = this.playlist[index];
+
+        if (this.currentTrack.type !== 'youtube') {
+            this.playTrack(index);
+            return;
+        }
+
+        // Stop local audio if playing
+        if (this.audio) {
+            this.audio.pause();
+        }
+
+        // Create YouTube player container if not exists
+        let ytContainer = document.getElementById('soundtrack-youtube-player');
+        if (!ytContainer) {
+            ytContainer = document.createElement('div');
+            ytContainer.id = 'soundtrack-youtube-player';
+            ytContainer.style.display = 'none'; // Hidden for audio-only
+            document.body.appendChild(ytContainer);
+        }
+
+        try {
+            // Get YouTube integration instance
+            const youtube = window.coverflow && window.coverflow.youtubeIntegration
+                ? window.coverflow.youtubeIntegration
+                : new YouTubeIntegration();
+
+            // Destroy existing player if any
+            if (this.youtubePlayer) {
+                this.youtubePlayer.destroy();
+            }
+
+            // Create new YouTube player
+            this.youtubePlayer = await youtube.createPlayer('soundtrack-youtube-player', this.currentTrack.videoId, {
+                autoplay: true,
+                controls: false,
+                width: '0',
+                height: '0',
+                playerVars: {
+                    autoplay: 1,
+                    controls: 0
+                },
+                onReady: (event) => {
+                    event.target.setVolume(this.volume * 100);
+                    this.youtubePlayerReady = true;
+                    this.isPlaying = true;
+                    this.updatePlayerUI();
+                },
+                onStateChange: (event) => {
+                    // 0 = ended
+                    if (event.data === 0) {
+                        this.onTrackEnded();
+                    }
+                    // 1 = playing, 2 = paused
+                    this.isPlaying = (event.data === 1);
+                    this.updatePlayerUI();
+                }
+            });
+
+            this.highlightCurrentTrack();
+
+        } catch (error) {
+            window.logger?.error('SOUNDTRACK', 'Failed to play YouTube track:', error);
+            this.showToast(`Failed to play: ${this.currentTrack.title}`, 'error');
+            this.isPlaying = false;
+            this.updatePlayerUI();
         }
     }
 
@@ -200,12 +395,14 @@ class SoundtrackPlayer {
         if (this.currentTrack.path.startsWith('http')) {
             this.audio.src = this.currentTrack.path;
         } else {
-            // Convert file path to file:// URL for Electron
-            this.audio.src = `file://${this.currentTrack.path}`;
+            // Convert file path to file:// URL for Electron (normalize Windows paths)
+            const normalizedPath = this.currentTrack.path.replace(/\\/g, '/');
+            this.audio.src = `file:///${normalizedPath}`;
         }
 
         this.audio.play().catch(error => {
-            console.error('[SOUNDTRACK] Playback failed:', error);
+            window.logger?.error('SOUNDTRACK', 'Playback failed:', error);
+            this.showToast(`Failed to play: ${this.currentTrack.title}`, 'error');
             this.isPlaying = false;
             this.updatePlayerUI();
         });
@@ -225,16 +422,29 @@ class SoundtrackPlayer {
             return;
         }
 
-        if (this.isPlaying) {
-            this.audio.pause();
-            this.isPlaying = false;
-        } else {
-            this.audio.play().catch(error => {
-                console.error('[SOUNDTRACK] Playback failed:', error);
+        // Handle YouTube player
+        if (this.isYouTubeMode && this.youtubePlayer && this.youtubePlayerReady) {
+            if (this.isPlaying) {
+                this.youtubePlayer.pauseVideo();
                 this.isPlaying = false;
-                this.updatePlayerUI();
-            });
-            this.isPlaying = true;
+            } else {
+                this.youtubePlayer.playVideo();
+                this.isPlaying = true;
+            }
+        } else if (this.audio) {
+            // Handle local audio
+            if (this.isPlaying) {
+                this.audio.pause();
+                this.isPlaying = false;
+            } else {
+                this.audio.play().catch(error => {
+                    window.logger?.error('SOUNDTRACK', 'Playback failed:', error);
+                    this.showToast('Failed to resume playback', 'error');
+                    this.isPlaying = false;
+                    this.updatePlayerUI();
+                });
+                this.isPlaying = true;
+            }
         }
 
         this.updatePlayerUI();
@@ -251,7 +461,7 @@ class SoundtrackPlayer {
             newIndex = this.playlist.length - 1;
         }
 
-        this.playTrack(newIndex);
+        this.playTrackAtIndex(newIndex);
     }
 
     /**
@@ -270,7 +480,22 @@ class SoundtrackPlayer {
             }
         }
 
-        this.playTrack(newIndex);
+        this.playTrackAtIndex(newIndex);
+    }
+
+    /**
+     * Play track at index (handles both local and YouTube)
+     */
+    playTrackAtIndex(index) {
+        if (index < 0 || index >= this.playlist.length) return;
+
+        const track = this.playlist[index];
+
+        if (track.type === 'youtube') {
+            this.playYouTubeTrack(index);
+        } else {
+            this.playTrack(index);
+        }
     }
 
     /**
@@ -280,7 +505,7 @@ class SoundtrackPlayer {
         if (this.repeat) {
             this.audio.currentTime = 0;
             this.audio.play().catch(error => {
-                console.error('[SOUNDTRACK] Repeat playback failed:', error);
+                window.logger?.error('SOUNDTRACK', 'Repeat playback failed:', error);
             });
         } else {
             this.nextTrack();
@@ -329,8 +554,15 @@ class SoundtrackPlayer {
      */
     setVolume(volume) {
         this.volume = Math.max(0, Math.min(1, volume));
+
+        // Update local audio player
         if (this.audio) {
             this.audio.volume = this.volume;
+        }
+
+        // Update YouTube player
+        if (this.youtubePlayer && this.youtubePlayerReady) {
+            this.youtubePlayer.setVolume(this.volume * 100);
         }
     }
 
@@ -416,7 +648,7 @@ class SoundtrackPlayer {
             <div class="playlist-item" data-index="${index}">
                 <div class="track-number">${index + 1}</div>
                 <div class="track-info">
-                    <div class="track-name">${track.title}</div>
+                    <div class="track-name">${this.escapeHtml(track.title)}</div>
                 </div>
                 <div class="track-duration">${this.formatTime(track.duration)}</div>
             </div>
@@ -501,9 +733,18 @@ class SoundtrackPlayer {
             // Event listeners will be removed when audio element is disposed
             this.audio = null;
         }
+
+        // Cleanup YouTube player
+        if (this.youtubePlayer) {
+            this.youtubePlayer.destroy();
+            this.youtubePlayer = null;
+        }
+
         this.playlist = [];
         this.currentTrack = null;
         this.isPlaying = false;
+        this.isYouTubeMode = false;
+        this.youtubePlayerReady = false;
     }
 
     /**
@@ -513,5 +754,15 @@ class SoundtrackPlayer {
         if (window.coverflow && typeof window.coverflow.showToast === 'function') {
             window.coverflow.showToast(message, type);
         }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }

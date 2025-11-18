@@ -183,8 +183,8 @@ class SessionInsights {
             <div class="most-played-item">
                 <div class="rank">#${index + 1}</div>
                 <div class="game-info">
-                    <div class="game-title">${game.title}</div>
-                    <div class="game-platform">${game.platform || 'Unknown'}</div>
+                    <div class="game-title">${this.escapeHtml(game.title)}</div>
+                    <div class="game-platform">${this.escapeHtml(game.platform || 'Unknown')}</div>
                 </div>
                 <div class="game-stats">
                     <div class="playtime">${this.formatPlaytime(game.total_play_time)}</div>
@@ -246,7 +246,7 @@ class SessionInsights {
 
             return `
                 <div class="session-item">
-                    <div class="session-game">${session.title}</div>
+                    <div class="session-game">${this.escapeHtml(session.title)}</div>
                     <div class="session-time">${startTime.toLocaleString()}</div>
                     <div class="session-duration">${this.formatPlaytime(duration)}</div>
                 </div>
@@ -347,5 +347,15 @@ class SessionInsights {
         } else {
             this.showInsights();
         }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }

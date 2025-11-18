@@ -1438,37 +1438,125 @@ class VisualEffectsManager {
     }
 
     /**
-     * Update VR UI overlay with current game info
+     * Update VR UI overlay with current game info (Enhanced)
      */
-    updateVRUI(albumTitle, albumArtist) {
+    updateVRUI(albumTitle, albumArtist, gameData = null) {
         if (!this.vrUIPanel) return;
 
         const canvas = document.createElement('canvas');
-        canvas.width = 1024;
-        canvas.height = 512;
+        canvas.width = 1536;  // Higher resolution for better VR readability
+        canvas.height = 768;
         const context = canvas.getContext('2d');
 
-        // Draw background
-        context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        // Draw background with gradient
+        const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+        gradient.addColorStop(1, 'rgba(20, 20, 40, 0.95)');
+        context.fillStyle = gradient;
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw game info
+        // Draw border
+        context.strokeStyle = '#4fc3f7';
+        context.lineWidth = 4;
+        context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+        // Draw game cover image if available
+        let coverImageLoaded = false;
+        if (gameData && gameData.image) {
+            try {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = () => {
+                    // Draw cover on left side
+                    const coverWidth = 200;
+                    const coverHeight = 300;
+                    const coverX = 50;
+                    const coverY = (canvas.height - coverHeight) / 2;
+                    context.drawImage(img, coverX, coverY, coverWidth, coverHeight);
+
+                    // Re-update texture with image
+                    const texture = new THREE.CanvasTexture(canvas);
+                    this.vrUIPanel.material.map = texture;
+                    this.vrUIPanel.material.needsUpdate = true;
+                };
+                img.src = gameData.image;
+            } catch (error) {
+                console.warn('[VR] Failed to load game cover:', error);
+            }
+        }
+
+        // Draw game title (centered, or offset if cover loaded)
+        const textStartX = canvas.width / 2;
         context.fillStyle = 'white';
-        context.font = 'bold 56px Arial';
+        context.font = 'bold 72px Arial';
         context.textAlign = 'center';
-        context.fillText(albumTitle || 'No Game Selected', canvas.width / 2, 150);
+        context.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        context.shadowBlur = 10;
 
-        context.font = '36px Arial';
+        // Truncate long titles
+        let displayTitle = albumTitle || 'No Game Selected';
+        if (displayTitle.length > 30) {
+            displayTitle = displayTitle.substring(0, 27) + '...';
+        }
+        context.fillText(displayTitle, textStartX, 120);
+
+        // Draw platform/artist
+        context.font = '40px Arial';
         context.fillStyle = '#4fc3f7';
-        context.fillText(albumArtist || '', canvas.width / 2, 210);
+        context.fillText(albumArtist || '', textStartX, 180);
 
-        // Draw controls
+        // Draw additional game details if available
+        if (gameData) {
+            let detailsY = 250;
+
+            // Genre
+            if (gameData.genre) {
+                context.font = '32px Arial';
+                context.fillStyle = '#aaa';
+                context.fillText(`Genre: ${gameData.genre}`, textStartX, detailsY);
+                detailsY += 50;
+            }
+
+            // Rating
+            if (gameData.rating) {
+                const stars = '⭐'.repeat(Math.floor(gameData.rating));
+                context.fillText(`Rating: ${stars} ${gameData.rating}/5`, textStartX, detailsY);
+                detailsY += 50;
+            }
+
+            // Playtime
+            if (gameData.total_play_time || gameData.playtime) {
+                const hours = Math.floor((gameData.total_play_time || gameData.playtime) / 60);
+                context.fillText(`Playtime: ${hours}h`, textStartX, detailsY);
+                detailsY += 50;
+            }
+
+            // VR Badge
+            if (gameData.has_vr_support) {
+                context.font = 'bold 36px Arial';
+                context.fillStyle = '#00ff00';
+                context.fillText('🥽 VR COMPATIBLE', textStartX, detailsY);
+            }
+        }
+
+        // Draw enhanced controls
         context.font = '28px Arial';
         context.fillStyle = '#888';
-        context.fillText('Right Trigger: Next | Left Trigger: Previous | Grip: Launch', canvas.width / 2, 350);
+        context.textAlign = 'center';
+        const controlsY = canvas.height - 100;
+        context.fillText('LEFT TRIGGER: ◀ Previous', canvas.width * 0.25, controlsY);
+        context.fillText('RIGHT TRIGGER: Next ▶', canvas.width * 0.5, controlsY);
+        context.fillText('GRIP: Launch 🚀', canvas.width * 0.75, controlsY);
+
+        context.fillText('MENU: Exit VR | A/X: Select', canvas.width * 0.5, controlsY + 40);
+
+        // Reset shadow
+        context.shadowBlur = 0;
 
         // Update texture
         const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;  // Better filtering for VR
+        texture.magFilter = THREE.LinearFilter;
         this.vrUIPanel.material.map = texture;
         this.vrUIPanel.material.needsUpdate = true;
     }

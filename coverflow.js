@@ -29,7 +29,11 @@ class CoverFlow {
         const touchGestures = new TouchGestures();
         const platformAnimations = new PlatformAnimations();
         const sessionInsights = new SessionInsights();
+        const youtubeIntegration = new YouTubeIntegration();
         const soundtrackPlayer = new SoundtrackPlayer();
+        const videoPlayer = new VideoPlayer();
+        const vrMode = new VRMode();
+        const vrGameFilter = new VRGameFilter();
         const updateNotifications = new UpdateNotifications();
         const portableMode = new PortableMode();
         const modManager = new ModManager();
@@ -37,7 +41,11 @@ class CoverFlow {
         // Store module instances for direct access
         this._modules = {
             sessionInsights,
-            modManager
+            modManager,
+            youtubeIntegration,
+            videoPlayer,
+            vrMode,
+            vrGameFilter
         };
 
         // Copy instance properties from modules
@@ -53,7 +61,11 @@ class CoverFlow {
         Object.assign(this, touchGestures);
         Object.assign(this, platformAnimations);
         Object.assign(this, sessionInsights);
+        Object.assign(this, youtubeIntegration);
         Object.assign(this, soundtrackPlayer);
+        Object.assign(this, videoPlayer);
+        Object.assign(this, vrMode);
+        Object.assign(this, vrGameFilter);
         Object.assign(this, updateNotifications);
         Object.assign(this, portableMode);
         Object.assign(this, modManager);
@@ -80,6 +92,8 @@ class CoverFlow {
         // Bind module initialization methods
         this.initializeSessionInsights = sessionInsights.initializeSessionInsights.bind(sessionInsights);
         this.initializeModManager = modManager.initializeModManager.bind(modManager);
+        this.initializeYouTubeAPI = youtubeIntegration.initializeYouTubeAPI.bind(youtubeIntegration);
+        this.initializeVideoPlayer = videoPlayer.initializeVideoPlayer.bind(videoPlayer);
 
         // Bind main class methods that are called from module code
         this.loadGames = this.loadGames.bind(this);
@@ -132,7 +146,7 @@ class CoverFlow {
 
         // Detect if running in Electron or browser
         this.isElectron = typeof window.electronAPI !== 'undefined';
-        console.log(`Running in ${this.isElectron ? 'Electron' : 'Browser'} mode`);
+        window.logger?.info('COVERFLOW', `Running in ${this.isElectron ? 'Electron' : 'Browser'} mode`);
 
         // Game scanner server (for browser mode) - configurable
         this.serverURL = this.detectServerURL();
@@ -201,7 +215,7 @@ class CoverFlow {
             // createCovers(), createThumbnails(), updateInfo() are called in reloadGamesFromServer()/loadGamesFromJSON()
             this.hideLoadingScreen();
         }).catch(error => {
-            console.error('Failed to initialize album data:', error);
+            window.logger?.error('COVERFLOW', 'Failed to initialize album data:', error);
             this.hideLoadingScreen();
         });
     }
@@ -250,7 +264,7 @@ class CoverFlow {
     async initializeAppPaths() {
         if (window.electronAPI && window.electronAPI.getAppPath) {
             this.appPaths = await window.electronAPI.getAppPath();
-            console.log('App paths initialized:', this.appPaths);
+            window.logger?.debug('COVERFLOW', 'App paths initialized:', this.appPaths);
         }
     }
 
@@ -334,7 +348,7 @@ class CoverFlow {
             });
         });
 
-        console.log('Error logging enabled');
+        window.logger?.debug('COVERFLOW', 'Error logging enabled');
     }
 
     logError(errorData) {
@@ -358,7 +372,7 @@ class CoverFlow {
         // In Electron mode, write to file
         if (this.isElectron && window.electronAPI) {
             window.electronAPI.logError(errorData).catch(err => {
-                console.error('Failed to write error to file:', err);
+                window.logger?.error('COVERFLOW', 'Failed to write error to file:', err);
             });
         }
     }
@@ -431,7 +445,10 @@ class CoverFlow {
         // Start with empty array - no hardcoded examples
         this.allAlbums = [];
         this.filteredAlbums = [];
-        document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+        const totalAlbumsEl = document.getElementById('total-albums');
+        if (totalAlbumsEl) {
+            totalAlbumsEl.textContent = this.filteredAlbums.length;
+        }
 
         // Load games from database (Electron) or JSON file (browser)
         if (this.isElectron) {
@@ -516,7 +533,7 @@ class CoverFlow {
 
             this.showToast(`Loaded ${convertedGames.length} games!`, 'success');
         } catch (error) {
-            console.error('Error loading games:', error);
+            window.logger?.error('COVERFLOW', 'Error loading games:', error);
             this.showToast('Failed to load games file', 'error');
         }
     }
@@ -619,6 +636,17 @@ class CoverFlow {
         if (typeof this.initializeSoundtrackPlayer === 'function') {
             this.initializeSoundtrackPlayer();
         }
+        if (typeof this.initializeVideoPlayer === 'function') {
+            this.initializeVideoPlayer();
+        }
+        if (typeof this.initializeVRMode === 'function') {
+            this.initializeVRMode().catch(err => {
+                window.logger?.error('COVERFLOW', 'Error initializing VR mode:', err);
+            });
+        }
+        if (typeof this.initializeVRGameFilter === 'function') {
+            this.initializeVRGameFilter();
+        }
         if (typeof this.initializeUpdateNotifications === 'function') {
             this.initializeUpdateNotifications();
         }
@@ -626,7 +654,7 @@ class CoverFlow {
             // Portable mode is async, but we don't need to await it
             // It will update UI when ready
             this.initializePortableMode().catch(err => {
-                console.error('[INIT] Error initializing portable mode:', err);
+                window.logger?.error('COVERFLOW', 'Error initializing portable mode:', err);
             });
         }
         if (typeof this.initializeModManager === 'function') {
@@ -1509,7 +1537,7 @@ class CoverFlow {
         }
     }
 
-    // Open media file in default Windows app
+    // Open media file - uses built-in player for videos
     openMediaFile(item) {
         let filePath = null;
 
@@ -1529,6 +1557,14 @@ class CoverFlow {
 
         console.log('Opening media file:', item.title, 'at path:', filePath);
 
+        // Use built-in video player for videos
+        if (item.type === 'video' && this._modules && this._modules.videoPlayer) {
+            this._modules.videoPlayer.playLocalVideo(filePath, item.title);
+            this.showToast(`Playing ${item.title}`, 'success');
+            return;
+        }
+
+        // For images and audio, use system default app
         if (this.isElectron) {
             // Use Electron shell API to open in default app
             window.electronAPI.openMediaFile(filePath).then(result => {
@@ -1564,9 +1600,12 @@ class CoverFlow {
                         `<span style="color: #4CAF50;">✓ Desktop Mode</span> - ${count.total} games found`;
                 }
             } catch (error) {
-                console.error('Error getting games count:', error);
-                document.getElementById('game-count-info').innerHTML =
-                    `<span style="color: #f44336;">✗ Error loading game count</span>`;
+                window.logger?.error('COVERFLOW', 'Error getting games count:', error);
+                const gameCountEl = document.getElementById('game-count-info');
+                if (gameCountEl) {
+                    gameCountEl.innerHTML =
+                        `<span style="color: #f44336;">✗ Error loading game count</span>`;
+                }
             }
             return;
         }
@@ -2129,7 +2168,7 @@ class CoverFlow {
             const subtitle = isGame ? (item.developer || 'Unknown Developer') :
                             isImage ? (item.category || 'Image') :
                             (item.artist || 'Unknown Artist');
-            this.visualEffects.updateVRUI(title, subtitle);
+            this.visualEffects.updateVRUI(title, subtitle, item);
         }
     }
 
@@ -2774,6 +2813,40 @@ class CoverFlow {
             });
         }
 
+        const soundtrackBtnMenu = document.getElementById('soundtrack-btn-menu');
+        if (soundtrackBtnMenu && typeof this.loadGameSoundtrack === 'function') {
+            soundtrackBtnMenu.addEventListener('click', () => {
+                const currentGame = this.filteredAlbums[this.currentIndex];
+                if (currentGame && currentGame.type === 'game') {
+                    this.loadGameSoundtrack(currentGame);
+                } else {
+                    this.showToast('Please select a game first', 'info');
+                }
+                moreDropdown.style.display = 'none';
+            });
+        }
+
+        const youtubeSoundtrackBtnMenu = document.getElementById('youtube-soundtrack-btn-menu');
+        if (youtubeSoundtrackBtnMenu && typeof this.loadYouTubeSoundtrack === 'function') {
+            youtubeSoundtrackBtnMenu.addEventListener('click', () => {
+                const currentGame = this.filteredAlbums[this.currentIndex];
+                if (currentGame && currentGame.type === 'game') {
+                    this.loadYouTubeSoundtrack(currentGame);
+                } else {
+                    this.showToast('Please select a game first', 'info');
+                }
+                moreDropdown.style.display = 'none';
+            });
+        }
+
+        const videoPlayerBtnMenu = document.getElementById('video-player-btn-menu');
+        if (videoPlayerBtnMenu && this._modules && this._modules.videoPlayer) {
+            videoPlayerBtnMenu.addEventListener('click', () => {
+                this._modules.videoPlayer.showPlayer();
+                moreDropdown.style.display = 'none';
+            });
+        }
+
         const insightsBtnMenu = document.getElementById('insights-btn-menu');
         if (insightsBtnMenu && typeof this.toggleInsights === 'function') {
             insightsBtnMenu.addEventListener('click', () => {
@@ -2990,6 +3063,56 @@ class CoverFlow {
                         alert('❌ Failed to clear game data: ' + (result.error || 'Unknown error'));
                     }
                 }
+            });
+        }
+
+        // Logging controls
+        const logLevelSelect = document.getElementById('log-level-select');
+        if (logLevelSelect) {
+            // Load current log level
+            logLevelSelect.value = window.logger?.getLogLevelName() || 'INFO';
+
+            logLevelSelect.addEventListener('change', (e) => {
+                window.logger?.setLogLevel(e.target.value);
+                this.showToast(`Log level set to ${e.target.value}`, 'info');
+            });
+        }
+
+        const disableVRLogs = document.getElementById('disable-vr-logs');
+        if (disableVRLogs) {
+            disableVRLogs.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    window.logger?.disableModule('VR');
+                    window.logger?.disableModule('VR_FILTER');
+                } else {
+                    window.logger?.enableModule('VR');
+                    window.logger?.enableModule('VR_FILTER');
+                }
+                this.showToast(`VR logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
+            });
+        }
+
+        const disableModManagerLogs = document.getElementById('disable-mod-manager-logs');
+        if (disableModManagerLogs) {
+            disableModManagerLogs.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    window.logger?.disableModule('MOD_MANAGER');
+                } else {
+                    window.logger?.enableModule('MOD_MANAGER');
+                }
+                this.showToast(`Mod Manager logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
+            });
+        }
+
+        const disableVideoLogs = document.getElementById('disable-video-logs');
+        if (disableVideoLogs) {
+            disableVideoLogs.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    window.logger?.disableModule('VIDEO');
+                } else {
+                    window.logger?.enableModule('VIDEO');
+                }
+                this.showToast(`Video Player logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
             });
         }
 

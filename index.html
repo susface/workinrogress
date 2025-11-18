@@ -30,6 +30,9 @@
                     <div id="more-dropdown" class="dropdown-menu" style="display: none;">
                         <button id="themes-btn-menu" class="dropdown-item">🎨 Themes</button>
                         <button id="mods-btn-menu" class="dropdown-item">🧩 Mod Manager</button>
+                        <button id="soundtrack-btn-menu" class="dropdown-item">🎵 Game Soundtrack</button>
+                        <button id="youtube-soundtrack-btn-menu" class="dropdown-item">🎬 YouTube Soundtrack</button>
+                        <button id="video-player-btn-menu" class="dropdown-item">📺 Video Player</button>
                         <button id="insights-btn-menu" class="dropdown-item">📊 Gaming Insights</button>
                         <button id="shortcuts-btn-menu" class="dropdown-item">⌨️ Keyboard Shortcuts</button>
                     </div>
@@ -306,6 +309,47 @@
                     <button id="view-error-log-btn" class="btn">View Error Log</button>
                     <button id="clear-error-log-btn" class="btn secondary">Clear Log</button>
                 </div>
+
+                <div class="setting-divider"></div>
+                <h4 class="setting-section-title">🔍 Console Logging</h4>
+
+                <div class="setting-group">
+                    <label>
+                        <span>Log Level</span>
+                        <select id="log-level-select">
+                            <option value="ERROR">Error (Errors only)</option>
+                            <option value="WARN">Warning (Errors + Warnings)</option>
+                            <option value="INFO" selected>Info (Normal logging)</option>
+                            <option value="DEBUG">Debug (Verbose logging)</option>
+                            <option value="TRACE">Trace (All messages)</option>
+                        </select>
+                    </label>
+                    <small class="setting-info">Control console output verbosity. Lower levels reduce log spam.</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="disable-vr-logs">
+                        <span>Disable VR module logs</span>
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="disable-mod-manager-logs">
+                        <span>Disable Mod Manager logs</span>
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="disable-video-logs">
+                        <span>Disable Video Player logs</span>
+                    </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
                 <div class="setting-group">
                     <button id="export-settings-btn" class="btn">Export Settings</button>
                 </div>
@@ -529,6 +573,9 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 
     <!-- CoverFlow Modular Architecture -->
+    <!-- Logger (must load first) -->
+    <script src="modules/logger.js"></script>
+
     <!-- Core utilities (no dependencies) -->
     <script src="modules/coverflow-settings.js"></script>
     <script src="modules/coverflow-textures.js"></script>
@@ -552,7 +599,11 @@
     <script src="modules/touch-gestures.js"></script>
     <script src="modules/platform-animations.js"></script>
     <script src="modules/session-insights.js"></script>
+    <script src="modules/youtube-integration.js"></script>
     <script src="modules/soundtrack-player.js"></script>
+    <script src="modules/video-player.js"></script>
+    <script src="modules/vr-mode.js"></script>
+    <script src="modules/vr-game-filter.js"></script>
     <script src="modules/update-notifications.js"></script>
     <script src="modules/portable-mode.js"></script>
     <script src="modules/mod-manager.js"></script>
