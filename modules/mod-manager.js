@@ -17,7 +17,7 @@ class ModManager {
         // Create mod manager UI
         this.createModManagerUI();
 
-        console.log('[MOD_MANAGER] Mod manager initialized');
+        window.logger?.debug('MOD_MANAGER', 'Mod manager initialized');
     }
 
     /**
@@ -195,7 +195,7 @@ class ModManager {
                 this.updateModSupportInfo();
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to load mods:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to load mods:', error);
             this.showToast('Failed to load mods', 'error');
         }
     }
@@ -258,7 +258,7 @@ class ModManager {
                 this.showToast('No mods found on Thunderstore', 'info');
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to search Thunderstore:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to search Thunderstore:', error);
             this.showToast('Failed to search Thunderstore', 'error');
         }
     }
@@ -642,7 +642,7 @@ class ModManager {
                     const modData = JSON.parse(e.target.dataset.mod.replace(/&#39;/g, "'"));
                     await this.installThunderstoreMod(modData, e.target);
                 } catch (error) {
-                    console.error('Error parsing mod data:', error);
+                    window.logger?.error('MOD_MANAGER', 'Error parsing mod data:', error);
                     this.showToast('Failed to install mod: Invalid mod data', 'error');
                 }
             });
@@ -657,7 +657,7 @@ class ModManager {
 
         const btn = buttonElement;
         if (!btn) {
-            console.error('Install button element not found');
+            window.logger?.error('MOD_MANAGER', 'Install button element not found');
             return;
         }
 
@@ -683,7 +683,7 @@ class ModManager {
                 btn.textContent = 'Install';
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to install mod:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to install mod:', error);
             this.showToast('Failed to install mod', 'error');
             btn.disabled = false;
             btn.textContent = 'Install';
@@ -842,7 +842,7 @@ class ModManager {
                 this.loadModsForGame(this.currentGame.id);
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to scan mods:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to scan mods:', error);
             this.showToast('Failed to scan for mods', 'error');
         }
     }
@@ -872,7 +872,7 @@ class ModManager {
                 this.showToast('Failed to apply mod changes', 'error');
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to apply changes:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to apply changes:', error);
             this.showToast('Error applying mod changes', 'error');
         }
     }
@@ -886,7 +886,7 @@ class ModManager {
         try {
             await window.electronAPI.openModFolder(this.currentGame.id);
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to open mod folder:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to open mod folder:', error);
         }
     }
 
@@ -932,7 +932,7 @@ Description: ${mod.description || 'No description available'}
                 this.showToast('Mod deleted', 'success');
             }
         } catch (error) {
-            console.error('[MOD_MANAGER] Failed to delete mod:', error);
+            window.logger?.error('MOD_MANAGER', 'Failed to delete mod:', error);
             this.showToast('Failed to delete mod', 'error');
         }
     }

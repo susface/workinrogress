@@ -26,13 +26,13 @@ class VRMode {
         // Check WebXR support
         if ('xr' in navigator) {
             this.vrSupported = await navigator.xr.isSessionSupported('immersive-vr');
-            console.log('[VR] WebXR VR support:', this.vrSupported);
+            window.logger?.debug('VR', 'WebXR VR support:', this.vrSupported);
 
             if (this.vrSupported) {
                 this.createEnterVRButton();
             }
         } else {
-            console.log('[VR] WebXR not supported in this browser');
+            window.logger?.info('VR', 'WebXR not supported in this browser');
         }
     }
 
@@ -86,7 +86,7 @@ class VRMode {
                 optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
             });
 
-            console.log('[VR] VR session started');
+            window.logger?.info('VR', 'VR session started');
 
             // Set up XR rendering
             await visualEffects.renderer.xr.setSession(this.vrSession);
@@ -117,7 +117,7 @@ class VRMode {
             this.showToast('Entered VR Mode', 'success');
 
         } catch (error) {
-            console.error('[VR] Failed to enter VR:', error);
+            window.logger?.error('VR', 'Failed to enter VR:', error);
             this.showToast('Failed to enter VR: ' + error.message, 'error');
         }
     }
@@ -147,7 +147,7 @@ class VRMode {
         // Clean up 3D carousel
         this.cleanup3DCarousel();
 
-        console.log('[VR] VR session ended');
+        window.logger?.debug('VR', 'VR session ended');
         this.showToast('Exited VR Mode', 'info');
     }
 
@@ -193,7 +193,7 @@ class VRMode {
         controller0.add(line0);
         controller1.add(line1);
 
-        console.log('[VR] VR controllers setup complete');
+        window.logger?.debug('VR', 'VR controllers setup complete');
     }
 
     /**
@@ -202,7 +202,7 @@ class VRMode {
     onControllerSelect(controllerIndex, pressed) {
         if (!pressed) return;
 
-        console.log('[VR] Controller', controllerIndex, 'trigger pressed');
+        window.logger?.trace('VR', 'Controller', controllerIndex, 'trigger pressed');
 
         // Left controller (0) = previous game
         if (controllerIndex === 0) {
@@ -221,11 +221,11 @@ class VRMode {
         // Get current game list from coverflow
         const games = window.coverflow && window.coverflow.filteredAlbums;
         if (!games || games.length === 0) {
-            console.warn('[VR] No games to display in carousel');
+            window.logger?.warn('VR', 'No games to display in carousel');
             return;
         }
 
-        console.log('[VR] Creating 3D carousel with', games.length, 'games');
+        window.logger?.debug('VR', 'Creating 3D carousel with', games.length, 'games');
 
         this.gameCovers3D = [];
 
@@ -274,7 +274,7 @@ class VRMode {
             this.gameCovers3D.push(cover);
         });
 
-        console.log('[VR] 3D carousel created');
+        window.logger?.debug('VR', '3D carousel created');
     }
 
     /**
@@ -330,7 +330,7 @@ class VRMode {
         const visualEffects = window.coverflow && window.coverflow.visualEffects;
         if (!visualEffects || !visualEffects.scene) return;
 
-        console.log('[VR] Entering theater mode');
+        window.logger?.info('VR', 'Entering theater mode');
 
         // Create giant screen in VR
         const screenWidth = 8;

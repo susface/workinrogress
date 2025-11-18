@@ -18,7 +18,7 @@ class VideoPlayer {
      */
     initializeVideoPlayer() {
         this.createPlayerUI();
-        console.log('[VIDEO] Video player initialized');
+        window.logger?.debug('VIDEO', 'Video player initialized');
     }
 
     /**
@@ -149,7 +149,7 @@ class VideoPlayer {
         const normalizedPath = filePath.replace(/\\/g, '/');
 
         if (!videoElement) {
-            console.error('[VIDEO] Video element not found');
+            window.logger?.error('VIDEO', 'Video element not found');
             this.showToast('Video player not initialized', 'error');
             return;
         }
@@ -157,7 +157,7 @@ class VideoPlayer {
         videoElement.src = `file:///${normalizedPath}`;
 
         videoElement.play().catch(error => {
-            console.error('[VIDEO] Playback failed:', error);
+            window.logger?.error('VIDEO', 'Playback failed:', error);
             this.showToast('Failed to play video', 'error');
         });
 
@@ -181,7 +181,7 @@ class VideoPlayer {
         const placeholder = document.querySelector('.video-placeholder');
 
         if (!youtubeContainer) {
-            console.error('[VIDEO] YouTube container not found');
+            window.logger?.error('VIDEO', 'YouTube container not found');
             this.showToast('Video player not initialized', 'error');
             return;
         }
@@ -216,7 +216,7 @@ class VideoPlayer {
             this.updatePlayerUI();
             this.showPlayer();
         } catch (error) {
-            console.error('[VIDEO] Failed to load YouTube video:', error);
+            window.logger?.error('VIDEO', 'Failed to load YouTube video:', error);
             this.showToast('Failed to load YouTube video', 'error');
         }
     }
@@ -297,7 +297,7 @@ class VideoPlayer {
 
         if (!document.fullscreenElement) {
             container.requestFullscreen().catch(err => {
-                console.error('[VIDEO] Fullscreen failed:', err);
+                window.logger?.error('VIDEO', 'Fullscreen failed:', err);
             });
         } else {
             document.exitFullscreen();

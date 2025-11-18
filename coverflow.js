@@ -3060,6 +3060,56 @@ class CoverFlow {
             });
         }
 
+        // Logging controls
+        const logLevelSelect = document.getElementById('log-level-select');
+        if (logLevelSelect) {
+            // Load current log level
+            logLevelSelect.value = window.logger?.getLogLevelName() || 'INFO';
+
+            logLevelSelect.addEventListener('change', (e) => {
+                window.logger?.setLogLevel(e.target.value);
+                this.showToast(`Log level set to ${e.target.value}`, 'info');
+            });
+        }
+
+        const disableVRLogs = document.getElementById('disable-vr-logs');
+        if (disableVRLogs) {
+            disableVRLogs.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    window.logger?.disableModule('VR');
+                    window.logger?.disableModule('VR_FILTER');
+                } else {
+                    window.logger?.enableModule('VR');
+                    window.logger?.enableModule('VR_FILTER');
+                }
+                this.showToast(`VR logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
+            });
+        }
+
+        const disableModManagerLogs = document.getElementById('disable-mod-manager-logs');
+        if (disableModManagerLogs) {
+            disableModManagerLogs.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    window.logger?.disableModule('MOD_MANAGER');
+                } else {
+                    window.logger?.enableModule('MOD_MANAGER');
+                }
+                this.showToast(`Mod Manager logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
+            });
+        }
+
+        const disableVideoLogs = document.getElementById('disable-video-logs');
+        if (disableVideoLogs) {
+            disableVideoLogs.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    window.logger?.disableModule('VIDEO');
+                } else {
+                    window.logger?.enableModule('VIDEO');
+                }
+                this.showToast(`Video Player logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
+            });
+        }
+
         // Settings export/import
         document.getElementById('export-settings-btn').addEventListener('click', () => {
             this.exportSettings();

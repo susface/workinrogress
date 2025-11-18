@@ -13,7 +13,7 @@ class VRGameFilter {
      * Initialize VR game filtering
      */
     initializeVRGameFilter() {
-        console.log('[VR_FILTER] VR game filter initialized');
+        window.logger?.debug('VR_FILTER', 'VR game filter initialized');
     }
 
     /**
@@ -71,11 +71,11 @@ class VRGameFilter {
         games.forEach((game, index) => {
             if (this.detectVRSupport(game)) {
                 this.vrGames.add(index);
-                console.log('[VR_FILTER] VR game detected:', game.title);
+                window.logger?.trace('VR_FILTER', 'VR game detected:', game.title);
             }
         });
 
-        console.log('[VR_FILTER] Found', this.vrGames.size, 'VR games');
+        window.logger?.info('VR_FILTER', 'Found', this.vrGames.size, 'VR games');
     }
 
     /**
@@ -126,7 +126,7 @@ class VRGameFilter {
      */
     async updateSteamVRGames() {
         if (!window.electronAPI || typeof window.electronAPI.detectSteamVRGames !== 'function') {
-            console.log('[VR_FILTER] Steam VR detection requires Electron mode');
+            window.logger?.debug('VR_FILTER', 'Steam VR detection requires Electron mode');
             return;
         }
 
@@ -140,7 +140,7 @@ class VRGameFilter {
                 this.showToast(`Detected ${result.vrGames.length} VR games`, 'success');
             }
         } catch (error) {
-            console.error('[VR_FILTER] Failed to detect Steam VR games:', error);
+            window.logger?.error('VR_FILTER', 'Failed to detect Steam VR games:', error);
         }
     }
 
@@ -155,7 +155,7 @@ class VRGameFilter {
         try {
             await window.electronAPI.setGameVRSupport(gameId, true);
         } catch (error) {
-            console.error('[VR_FILTER] Failed to mark game as VR:', error);
+            window.logger?.error('VR_FILTER', 'Failed to mark game as VR:', error);
         }
     }
 

@@ -309,6 +309,47 @@
                     <button id="view-error-log-btn" class="btn">View Error Log</button>
                     <button id="clear-error-log-btn" class="btn secondary">Clear Log</button>
                 </div>
+
+                <div class="setting-divider"></div>
+                <h4 class="setting-section-title">🔍 Console Logging</h4>
+
+                <div class="setting-group">
+                    <label>
+                        <span>Log Level</span>
+                        <select id="log-level-select">
+                            <option value="ERROR">Error (Errors only)</option>
+                            <option value="WARN">Warning (Errors + Warnings)</option>
+                            <option value="INFO" selected>Info (Normal logging)</option>
+                            <option value="DEBUG">Debug (Verbose logging)</option>
+                            <option value="TRACE">Trace (All messages)</option>
+                        </select>
+                    </label>
+                    <small class="setting-info">Control console output verbosity. Lower levels reduce log spam.</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="disable-vr-logs">
+                        <span>Disable VR module logs</span>
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="disable-mod-manager-logs">
+                        <span>Disable Mod Manager logs</span>
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="disable-video-logs">
+                        <span>Disable Video Player logs</span>
+                    </label>
+                </div>
+
+                <div class="setting-divider"></div>
+
                 <div class="setting-group">
                     <button id="export-settings-btn" class="btn">Export Settings</button>
                 </div>
@@ -532,6 +573,9 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 
     <!-- CoverFlow Modular Architecture -->
+    <!-- Logger (must load first) -->
+    <script src="modules/logger.js"></script>
+
     <!-- Core utilities (no dependencies) -->
     <script src="modules/coverflow-settings.js"></script>
     <script src="modules/coverflow-textures.js"></script>
