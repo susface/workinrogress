@@ -2676,7 +2676,7 @@ class CoverFlow {
         let touchStartX = 0;
         this.container.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
-        });
+        }, { passive: false });
 
         this.container.addEventListener('touchend', (e) => {
             const touchEndX = e.changedTouches[0].clientX;
@@ -2685,7 +2685,7 @@ class CoverFlow {
             if (Math.abs(diff) > 50) {
                 this.navigate(diff > 0 ? 1 : -1);
             }
-        });
+        }, { passive: false });
 
         // Search functionality
         const searchInput = document.getElementById('search-input');
@@ -2708,13 +2708,59 @@ class CoverFlow {
 
         // Top bar buttons
         document.getElementById('settings-btn').addEventListener('click', () => this.openModal('settings-modal'));
-        document.getElementById('shortcuts-btn').addEventListener('click', () => this.openModal('shortcuts-modal'));
         document.getElementById('fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
 
-        // Insights button
-        const insightsBtn = document.getElementById('insights-btn');
-        if (insightsBtn && typeof this.toggleInsights === 'function') {
-            insightsBtn.addEventListener('click', () => this.toggleInsights());
+        // Mod manager button
+        const modsBtn = document.getElementById('mods-btn');
+        if (modsBtn && typeof this.showModManager === 'function') {
+            modsBtn.addEventListener('click', () => {
+                // Show mod manager with current game if one is selected
+                const currentGame = this.filteredAlbums[this.currentIndex];
+                if (currentGame && currentGame.type === 'game') {
+                    this.showModManager(currentGame);
+                } else {
+                    // Open mod manager panel anyway, showing empty state
+                    const panel = document.getElementById('mod-manager-panel');
+                    if (panel) {
+                        panel.style.display = 'flex';
+                    }
+                }
+            });
+        }
+
+        // Dropdown menu toggle
+        const moreBtn = document.getElementById('more-btn');
+        const moreDropdown = document.getElementById('more-dropdown');
+        if (moreBtn && moreDropdown) {
+            moreBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isVisible = moreDropdown.style.display === 'block';
+                moreDropdown.style.display = isVisible ? 'none' : 'block';
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.dropdown-container')) {
+                    moreDropdown.style.display = 'none';
+                }
+            });
+        }
+
+        // Dropdown menu items
+        const insightsBtnMenu = document.getElementById('insights-btn-menu');
+        if (insightsBtnMenu && typeof this.toggleInsights === 'function') {
+            insightsBtnMenu.addEventListener('click', () => {
+                this.toggleInsights();
+                moreDropdown.style.display = 'none';
+            });
+        }
+
+        const shortcutsBtnMenu = document.getElementById('shortcuts-btn-menu');
+        if (shortcutsBtnMenu) {
+            shortcutsBtnMenu.addEventListener('click', () => {
+                this.openModal('shortcuts-modal');
+                moreDropdown.style.display = 'none';
+            });
         }
 
         // Modal close buttons
@@ -3292,8 +3338,8 @@ class CoverFlow {
                 this.centerCoverBaseY = isAnimating ? 0 : centerCover.parent.position.y;
                 this.lastFloatingIndex = this.currentIndex;
             }
-            // Apply floating offset from fixed base
-            centerCover.parent.position.y = this.centerCoverBaseY + Math.sin(Date.now() * 0.001) * 0.03;
+            // Apply floating offset from fixed base (increased intensity from 0.03 to 0.08)
+            centerCover.parent.position.y = this.centerCoverBaseY + Math.sin(Date.now() * 0.001) * 0.08;
         }
 
         // Update visual effects
