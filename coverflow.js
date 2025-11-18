@@ -68,8 +68,8 @@ class CoverFlow {
         this.showToast = coverFlowUIUtils.showToast.bind(this);
 
         // Bind module methods for dropdown menu items
-        this.toggleInsights = sessionInsights.toggleInsights.bind(this);
-        this.showModManager = modManager.showModManager.bind(this);
+        this.toggleInsights = sessionInsights.toggleInsights.bind(sessionInsights);
+        this.showModManager = modManager.showModManager.bind(modManager);
 
         // Bind main class methods that are called from module code
         this.loadGames = this.loadGames.bind(this);
