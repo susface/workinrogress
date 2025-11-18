@@ -7,6 +7,7 @@ import re
 import json
 import subprocess
 import requests
+import string
 from pathlib import Path
 from typing import List, Dict, Optional
 import platform
@@ -33,6 +34,98 @@ class XboxScanner:
         self.icons_dir = icons_dir
         self.boxart_dir = boxart_dir
         self.is_windows = platform.system() == 'Windows'
+
+    def _get_available_drives(self) -> List[str]:
+        """Get all available drive letters on Windows"""
+        if not self.is_windows:
+            return []
+
+        drives = []
+        for letter in string.ascii_uppercase:
+            drive = f"{letter}:\\"
+            if os.path.exists(drive):
+                drives.append(drive)
+        return drives
+
+    def _scan_xboxgames_directories(self) -> List[Dict]:
+        """Scan XboxGames directories on all drives for installed games"""
+        games = []
+
+        if not self.is_windows:
+            return games
+
+        drives = self._get_available_drives()
+        print(f"Scanning for XboxGames directories on drives: {', '.join(drives)}")
+
+        for drive in drives:
+            xbox_games_path = Path(drive) / "XboxGames"
+
+            if not xbox_games_path.exists():
+                continue
+
+            print(f"  Found XboxGames directory: {xbox_games_path}")
+
+            try:
+                # Each game is in its own subdirectory
+                for game_dir in xbox_games_path.iterdir():
+                    if not game_dir.is_dir():
+                        continue
+
+                    # Look for executable files in the game directory
+                    exe_files = []
+                    try:
+                        # Search recursively for .exe files, up to 3 levels deep
+                        for root, dirs, files in os.walk(game_dir):
+                            # Limit depth to avoid scanning too deep
+                            depth = root[len(str(game_dir)):].count(os.sep)
+                            if depth > 3:
+                                dirs.clear()  # Don't go deeper
+                                continue
+
+                            for file in files:
+                                if file.lower().endswith('.exe'):
+                                    # Filter out gamelaunchhelper.exe
+                                    if file.lower() != 'gamelaunchhelper.exe':
+                                        exe_path = Path(root) / file
+                                        exe_files.append(exe_path)
+                    except PermissionError:
+                        continue
+
+                    # If we found executables, create a game entry
+                    if exe_files:
+                        # Prefer the first non-system executable
+                        main_exe = exe_files[0]
+
+                        # Try to find the most likely game executable
+                        # (prefer files in Content subdirectory or with game name)
+                        for exe in exe_files:
+                            if 'Content' in str(exe) or game_dir.name.lower() in exe.name.lower():
+                                main_exe = exe
+                                break
+
+                        # Use game directory name as title (clean it up)
+                        title = game_dir.name
+                        # Remove version numbers and IDs
+                        title = re.sub(r'_\d+\.\d+\.\d+\.\d+_x64__\w+$', '', title)
+                        title = title.replace('_', ' ')
+
+                        game_info = {
+                            'title': title,
+                            'install_directory': str(game_dir),
+                            'launch_command': str(main_exe),
+                            'exe_path': str(main_exe),
+                            'platform': 'xbox',
+                            'source': 'xboxgames_directory'
+                        }
+
+                        games.append(game_info)
+                        print(f"  Found game: {title}")
+                        print(f"    Path: {main_exe}")
+
+            except Exception as e:
+                print(f"  Error scanning {xbox_games_path}: {e}")
+
+        return games
 
     def _get_uwp_apps_powershell(self) -> List[Dict]:
         """Get UWP apps using PowerShell (Windows only)"""
@@ -290,6 +383,48 @@ class XboxScanner:
             return []
 
         games = []
+
+        # Scan XboxGames directories on all drives
+        print("\n=== Scanning XboxGames directories ===")
+        xboxgames_games = self._scan_xboxgames_directories()
+
+        # Process games from XboxGames directories
+        for game_info in xboxgames_games:
+            # Extract icon from executable
+            if ICON_EXTRACTOR_AVAILABLE:
+                exe_path = game_info.get('exe_path', '')
+                title = game_info.get('title', '')
+
+                if exe_path and os.path.exists(exe_path):
+                    print(f"  Extracting icon for: {title}")
+                    safe_name = re.sub(r'[<>:"/\\|?*]', '_', title)
+                    icon_filename = f"xbox_{safe_name}_icon.png"
+                    icon_path = self.icons_dir / icon_filename
+
+                    extracted_path = extract_game_icon(exe_path, title, str(icon_path))
+                    if extracted_path:
+                        game_info['icon_path'] = f"game_data/icons/{icon_filename}"
+                        game_info['boxart_path'] = f"game_data/icons/{icon_filename}"
+                        print(f"    [OK] Extracted icon from executable")
+                    else:
+                        game_info['icon_path'] = None
+                        game_info['boxart_path'] = None
+            else:
+                game_info['icon_path'] = None
+                game_info['boxart_path'] = None
+
+            # Set default values for missing fields
+            game_info.setdefault('publisher', '')
+            game_info.setdefault('developer', '')
+            game_info.setdefault('description', '')
+            game_info.setdefault('genres', [])
+            game_info.setdefault('has_vr_support', 0)
+            game_info.setdefault('package_name', '')
+
+            games.append(game_info)
+
+        # Scan UWP apps via PowerShell
+        print("\n=== Scanning UWP/Microsoft Store apps ===")
         uwp_apps = self._get_uwp_apps_powershell()
 
         for app in uwp_apps:
@@ -312,7 +447,8 @@ class XboxScanner:
                 'launch_command': f"shell:AppsFolder\\{package_name}!App",
                 'publisher': manifest_info.get('publisher', ''),
                 'description': manifest_info.get('description', ''),
-                'has_vr_support': 0  # Xbox doesn't provide VR metadata in their API
+                'has_vr_support': 0,  # Xbox doesn't provide VR metadata in their API
+                'source': 'uwp_store_app'
             }
 
             # Get online metadata
