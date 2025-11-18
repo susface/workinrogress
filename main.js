@@ -2773,36 +2773,88 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
         if (response.status === 200 && response.data) {
             console.log(`[THUNDERSTORE] Fetched ${response.data.length} total packages from Thunderstore`);
 
+            // Debug: Log first package structure
+            if (response.data.length > 0) {
+                console.log('[THUNDERSTORE] Sample package structure:', JSON.stringify(response.data[0], null, 2));
+            }
+
             // Filter packages by game name (try multiple matching strategies)
-            const gameNameLower = gameName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const gameNameLower = gameName.toLowerCase();
+            const gameNameNorm = gameNameLower.replace(/[^a-z0-9]/g, '');
 
             const packages = response.data.filter(pkg => {
-                // Check if package has a matching community
-                // Thunderstore communities are in the package URL
+                // Debug first few packages
+                const pkgIndex = response.data.indexOf(pkg);
+                if (pkgIndex < 3) {
+                    console.log(`[THUNDERSTORE] Checking package #${pkgIndex}:`, {
+                        name: pkg.name,
+                        full_name: pkg.full_name,
+                        package_url: pkg.package_url,
+                        categories: pkg.categories,
+                        has_nsfw_content: pkg.has_nsfw_content
+                    });
+                }
+
+                // Strategy 1: Check package_url for community slug
                 if (pkg.package_url) {
                     const urlLower = pkg.package_url.toLowerCase();
                     // Extract community from URL like: /c/lethal-company/p/...
                     const communityMatch = urlLower.match(/\/c\/([^\/]+)\//);
                     if (communityMatch) {
-                        const community = communityMatch[1].replace(/[^a-z0-9]/g, '');
-                        if (community.includes(gameNameLower) || gameNameLower.includes(community)) {
+                        const communitySlug = communityMatch[1];
+                        const communityNorm = communitySlug.replace(/[^a-z0-9]/g, '');
+
+                        if (pkgIndex < 3) {
+                            console.log(`[THUNDERSTORE] Package #${pkgIndex} community: "${communitySlug}" (normalized: "${communityNorm}"), game: "${gameNameLower}" (normalized: "${gameNameNorm}")`);
+                        }
+
+                        // Check if community matches game name
+                        if (communityNorm === gameNameNorm ||
+                            communitySlug === gameNameLower ||
+                            communitySlug.includes(gameNameLower) ||
+                            gameNameLower.includes(communitySlug)) {
+                            if (pkgIndex < 3) {
+                                console.log(`[THUNDERSTORE] ✓ MATCH on package_url!`);
+                            }
                             return true;
                         }
                     }
                 }
 
-                // Also check categories as fallback
+                // Strategy 2: Check full_name for community (format: community-namespace-package)
+                if (pkg.full_name) {
+                    const fullNameLower = pkg.full_name.toLowerCase();
+                    if (fullNameLower.includes(gameNameLower) ||
+                        fullNameLower.replace(/[^a-z0-9]/g, '').includes(gameNameNorm)) {
+                        if (pkgIndex < 3) {
+                            console.log(`[THUNDERSTORE] ✓ MATCH on full_name!`);
+                        }
+                        return true;
+                    }
+                }
+
+                // Strategy 3: Check categories
                 if (pkg.categories && pkg.categories.length > 0) {
-                    return pkg.categories.some(cat => {
-                        const catLower = cat.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        return catLower.includes(gameNameLower) || gameNameLower.includes(catLower);
+                    const match = pkg.categories.some(cat => {
+                        const catLower = cat.toLowerCase();
+                        const catNorm = catLower.replace(/[^a-z0-9]/g, '');
+                        return catNorm.includes(gameNameNorm) ||
+                               catLower.includes(gameNameLower) ||
+                               gameNameLower.includes(catLower);
                     });
+                    if (match && pkgIndex < 3) {
+                        console.log(`[THUNDERSTORE] ✓ MATCH on categories!`);
+                    }
+                    return match;
                 }
 
                 return false;
             });
 
             console.log(`[THUNDERSTORE] Found ${packages.length} packages for "${gameName}"`);
+            if (packages.length > 0) {
+                console.log(`[THUNDERSTORE] First matching package:`, packages[0].name, packages[0].full_name);
+            }
 
             return {
                 success: true,
