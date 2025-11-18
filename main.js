@@ -2960,6 +2960,11 @@ ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName
 // Install a mod from Thunderstore
 ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => {
     try {
+        // Validate modPackage
+        if (!modPackage || !modPackage.packageUrl || !modPackage.name || !modPackage.fullName) {
+            return { success: false, error: 'Invalid mod package data' };
+        }
+
         const db = initDatabase();
         let game;
         try {
@@ -2982,62 +2987,89 @@ ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => 
         // Get the latest version download URL
         const packageUrl = modPackage.packageUrl;
         const response = await new Promise((resolve, reject) => {
-            https.get(packageUrl, { timeout: 10000 }, (res) => {
+            const request = https.get(packageUrl, { timeout: 10000 }, (res) => {
                 let data = '';
                 res.on('data', (chunk) => data += chunk);
                 res.on('end', () => {
                     try {
-                        resolve({ status: res.statusCode, data: JSON.parse(data) });
+                        const parsedData = data ? JSON.parse(data) : null;
+                        resolve({ status: res.statusCode, data: parsedData });
                     } catch (e) {
-                        reject(e);
+                        reject(new Error(`Invalid JSON response: ${e.message}`));
                     }
                 });
-            }).on('error', reject);
-        });
-
-        if (response.status === 200 && response.data.latest && response.data.latest.download_url) {
-            const downloadUrl = response.data.latest.download_url;
-
-            // Download the mod
-            const modResponse = await new Promise((resolve, reject) => {
-                https.get(downloadUrl, { timeout: 30000 }, (res) => {
-                    const chunks = [];
-                    res.on('data', (chunk) => chunks.push(chunk));
-                    res.on('end', () => {
-                        resolve({ status: res.statusCode, data: Buffer.concat(chunks) });
-                    });
-                }).on('error', reject);
             });
 
-            // Determine installation path based on mod loader
-            let installPath;
-            const bepInExPath = path.join(game.install_directory, 'BepInEx', 'plugins');
-            const melonLoaderPath = path.join(game.install_directory, 'Mods');
+            request.on('error', (err) => {
+                reject(new Error(`Network error: ${err.message}`));
+            });
 
-            if (fs.existsSync(bepInExPath)) {
-                installPath = bepInExPath;
-            } else if (fs.existsSync(melonLoaderPath)) {
-                installPath = melonLoaderPath;
-            } else {
-                // Create BepInEx plugins folder by default
-                installPath = bepInExPath;
-                fs.mkdirSync(installPath, { recursive: true });
-            }
+            request.on('timeout', () => {
+                request.destroy();
+                reject(new Error('Request timed out'));
+            });
+        });
 
-            // Extract the mod
-            const zip = new AdmZip(Buffer.from(modResponse.data));
-            const modFolderName = modPackage.fullName.replace('/', '-');
-            const extractPath = path.join(installPath, modFolderName);
-
-            zip.extractAllTo(extractPath, true);
-
-            return {
-                success: true,
-                message: `Mod ${modPackage.name} installed successfully to ${extractPath}`
-            };
+        if (response.status !== 200) {
+            return { success: false, error: `Failed to fetch mod info (HTTP ${response.status})` };
         }
 
-        return { success: false, error: 'Could not find mod download URL' };
+        if (!response.data || !response.data.latest || !response.data.latest.download_url) {
+            return { success: false, error: 'Could not find mod download URL in response' };
+        }
+
+        const downloadUrl = response.data.latest.download_url;
+
+        // Download the mod
+        const modResponse = await new Promise((resolve, reject) => {
+            const request = https.get(downloadUrl, { timeout: 30000 }, (res) => {
+                const chunks = [];
+                res.on('data', (chunk) => chunks.push(chunk));
+                res.on('end', () => {
+                    resolve({ status: res.statusCode, data: Buffer.concat(chunks) });
+                });
+            });
+
+            request.on('error', (err) => {
+                reject(new Error(`Download error: ${err.message}`));
+            });
+
+            request.on('timeout', () => {
+                request.destroy();
+                reject(new Error('Download timed out'));
+            });
+        });
+
+        if (modResponse.status !== 200) {
+            return { success: false, error: `Failed to download mod (HTTP ${modResponse.status})` };
+        }
+
+        // Determine installation path based on mod loader
+        let installPath;
+        const bepInExPath = path.join(game.install_directory, 'BepInEx', 'plugins');
+        const melonLoaderPath = path.join(game.install_directory, 'Mods');
+
+        if (fs.existsSync(bepInExPath)) {
+            installPath = bepInExPath;
+        } else if (fs.existsSync(melonLoaderPath)) {
+            installPath = melonLoaderPath;
+        } else {
+            // Create BepInEx plugins folder by default
+            installPath = bepInExPath;
+            fs.mkdirSync(installPath, { recursive: true });
+        }
+
+        // Extract the mod
+        const zip = new AdmZip(modResponse.data);
+        const modFolderName = modPackage.fullName.replace(/\//g, '-');
+        const extractPath = path.join(installPath, modFolderName);
+
+        zip.extractAllTo(extractPath, true);
+
+        return {
+            success: true,
+            message: `Mod ${modPackage.name} installed successfully to ${extractPath}`
+        };
     } catch (error) {
         console.error('Error installing Thunderstore mod:', error);
         return { success: false, error: error.message };
