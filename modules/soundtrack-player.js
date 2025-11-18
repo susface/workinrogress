@@ -34,7 +34,7 @@ class SoundtrackPlayer {
         // Create player UI
         this.createPlayerUI();
 
-        console.log('[SOUNDTRACK] Soundtrack player initialized');
+        window.logger?.debug('SOUNDTRACK', 'Soundtrack player initialized');
     }
 
     /**
@@ -185,7 +185,7 @@ class SoundtrackPlayer {
                     this.showToast(result.error || 'No soundtrack files found for this game', 'info');
                 }
             }).catch(error => {
-                console.error('[SOUNDTRACK] Failed to scan soundtrack:', error);
+                window.logger?.error('SOUNDTRACK', 'Failed to scan soundtrack:', error);
                 this.showToast('Failed to scan game soundtrack', 'error');
             });
         } else {
@@ -247,7 +247,7 @@ class SoundtrackPlayer {
             this.playYouTubeTrack(0);
 
         } catch (error) {
-            console.error('[SOUNDTRACK] Failed to load YouTube soundtrack:', error);
+            window.logger?.error('SOUNDTRACK', 'Failed to load YouTube soundtrack:', error);
             this.showToast('Failed to load YouTube soundtrack', 'error');
             this.isYouTubeMode = false;
         }
@@ -375,7 +375,7 @@ class SoundtrackPlayer {
             this.highlightCurrentTrack();
 
         } catch (error) {
-            console.error('[SOUNDTRACK] Failed to play YouTube track:', error);
+            window.logger?.error('SOUNDTRACK', 'Failed to play YouTube track:', error);
             this.showToast(`Failed to play: ${this.currentTrack.title}`, 'error');
             this.isPlaying = false;
             this.updatePlayerUI();
@@ -401,7 +401,7 @@ class SoundtrackPlayer {
         }
 
         this.audio.play().catch(error => {
-            console.error('[SOUNDTRACK] Playback failed:', error);
+            window.logger?.error('SOUNDTRACK', 'Playback failed:', error);
             this.showToast(`Failed to play: ${this.currentTrack.title}`, 'error');
             this.isPlaying = false;
             this.updatePlayerUI();
@@ -438,7 +438,7 @@ class SoundtrackPlayer {
                 this.isPlaying = false;
             } else {
                 this.audio.play().catch(error => {
-                    console.error('[SOUNDTRACK] Playback failed:', error);
+                    window.logger?.error('SOUNDTRACK', 'Playback failed:', error);
                     this.showToast('Failed to resume playback', 'error');
                     this.isPlaying = false;
                     this.updatePlayerUI();
@@ -505,7 +505,7 @@ class SoundtrackPlayer {
         if (this.repeat) {
             this.audio.currentTime = 0;
             this.audio.play().catch(error => {
-                console.error('[SOUNDTRACK] Repeat playback failed:', error);
+                window.logger?.error('SOUNDTRACK', 'Repeat playback failed:', error);
             });
         } else {
             this.nextTrack();

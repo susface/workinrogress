@@ -146,7 +146,7 @@ class CoverFlow {
 
         // Detect if running in Electron or browser
         this.isElectron = typeof window.electronAPI !== 'undefined';
-        console.log(`Running in ${this.isElectron ? 'Electron' : 'Browser'} mode`);
+        window.logger?.info('COVERFLOW', `Running in ${this.isElectron ? 'Electron' : 'Browser'} mode`);
 
         // Game scanner server (for browser mode) - configurable
         this.serverURL = this.detectServerURL();
@@ -215,7 +215,7 @@ class CoverFlow {
             // createCovers(), createThumbnails(), updateInfo() are called in reloadGamesFromServer()/loadGamesFromJSON()
             this.hideLoadingScreen();
         }).catch(error => {
-            console.error('Failed to initialize album data:', error);
+            window.logger?.error('COVERFLOW', 'Failed to initialize album data:', error);
             this.hideLoadingScreen();
         });
     }
@@ -264,7 +264,7 @@ class CoverFlow {
     async initializeAppPaths() {
         if (window.electronAPI && window.electronAPI.getAppPath) {
             this.appPaths = await window.electronAPI.getAppPath();
-            console.log('App paths initialized:', this.appPaths);
+            window.logger?.debug('COVERFLOW', 'App paths initialized:', this.appPaths);
         }
     }
 
@@ -348,7 +348,7 @@ class CoverFlow {
             });
         });
 
-        console.log('Error logging enabled');
+        window.logger?.debug('COVERFLOW', 'Error logging enabled');
     }
 
     logError(errorData) {
@@ -372,7 +372,7 @@ class CoverFlow {
         // In Electron mode, write to file
         if (this.isElectron && window.electronAPI) {
             window.electronAPI.logError(errorData).catch(err => {
-                console.error('Failed to write error to file:', err);
+                window.logger?.error('COVERFLOW', 'Failed to write error to file:', err);
             });
         }
     }
@@ -445,7 +445,10 @@ class CoverFlow {
         // Start with empty array - no hardcoded examples
         this.allAlbums = [];
         this.filteredAlbums = [];
-        document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+        const totalAlbumsEl = document.getElementById('total-albums');
+        if (totalAlbumsEl) {
+            totalAlbumsEl.textContent = this.filteredAlbums.length;
+        }
 
         // Load games from database (Electron) or JSON file (browser)
         if (this.isElectron) {
@@ -530,7 +533,7 @@ class CoverFlow {
 
             this.showToast(`Loaded ${convertedGames.length} games!`, 'success');
         } catch (error) {
-            console.error('Error loading games:', error);
+            window.logger?.error('COVERFLOW', 'Error loading games:', error);
             this.showToast('Failed to load games file', 'error');
         }
     }
@@ -638,7 +641,7 @@ class CoverFlow {
         }
         if (typeof this.initializeVRMode === 'function') {
             this.initializeVRMode().catch(err => {
-                console.error('[INIT] Error initializing VR mode:', err);
+                window.logger?.error('COVERFLOW', 'Error initializing VR mode:', err);
             });
         }
         if (typeof this.initializeVRGameFilter === 'function') {
@@ -651,7 +654,7 @@ class CoverFlow {
             // Portable mode is async, but we don't need to await it
             // It will update UI when ready
             this.initializePortableMode().catch(err => {
-                console.error('[INIT] Error initializing portable mode:', err);
+                window.logger?.error('COVERFLOW', 'Error initializing portable mode:', err);
             });
         }
         if (typeof this.initializeModManager === 'function') {
@@ -1597,9 +1600,12 @@ class CoverFlow {
                         `<span style="color: #4CAF50;">✓ Desktop Mode</span> - ${count.total} games found`;
                 }
             } catch (error) {
-                console.error('Error getting games count:', error);
-                document.getElementById('game-count-info').innerHTML =
-                    `<span style="color: #f44336;">✗ Error loading game count</span>`;
+                window.logger?.error('COVERFLOW', 'Error getting games count:', error);
+                const gameCountEl = document.getElementById('game-count-info');
+                if (gameCountEl) {
+                    gameCountEl.innerHTML =
+                        `<span style="color: #f44336;">✗ Error loading game count</span>`;
+                }
             }
             return;
         }

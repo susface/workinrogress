@@ -31,12 +31,12 @@ class YouTubeIntegration {
 
             window.onYouTubeIframeAPIReady = () => {
                 this.apiLoaded = true;
-                console.log('[YOUTUBE] YouTube IFrame API loaded');
+                window.logger?.debug('YOUTUBE', 'YouTube IFrame API loaded');
                 resolve();
             };
 
             tag.onerror = () => {
-                console.error('[YOUTUBE] Failed to load YouTube API');
+                window.logger?.error('YOUTUBE', 'Failed to load YouTube API');
                 reject(new Error('Failed to load YouTube API'));
             };
 
@@ -78,7 +78,7 @@ class YouTubeIntegration {
             this.searchCache.set(cacheKey, videos);
             return videos;
         } catch (error) {
-            console.error('[YOUTUBE] Search failed:', error);
+            window.logger?.error('YOUTUBE', 'Search failed:', error);
             return [];
         }
     }
@@ -93,7 +93,7 @@ class YouTubeIntegration {
         // 1. Use YouTube Data API v3 with API key
         // 2. Or implement server-side proxy to handle searches
 
-        console.log('[YOUTUBE] Searching for:', query);
+        window.logger?.debug('YOUTUBE', 'Searching for:', query);
 
         // Return empty array for now - user can implement API key support
         // or manually add video IDs
@@ -143,7 +143,7 @@ class YouTubeIntegration {
                     },
                     events: {
                         onReady: (event) => {
-                            console.log('[YOUTUBE] Player ready');
+                            window.logger?.debug('YOUTUBE', 'Player ready');
                             if (options.onReady) options.onReady(event);
                             resolve(player);
                         },
@@ -151,7 +151,7 @@ class YouTubeIntegration {
                             if (options.onStateChange) options.onStateChange(event);
                         },
                         onError: (event) => {
-                            console.error('[YOUTUBE] Player error:', event.data);
+                            window.logger?.error('YOUTUBE', 'Player error:', event.data);
                             if (options.onError) options.onError(event);
                             reject(new Error(`YouTube player error: ${event.data}`));
                         }
