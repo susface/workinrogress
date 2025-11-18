@@ -1954,3 +1954,230 @@
 .mod-manager-footer .btn.primary:hover {
     background: linear-gradient(135deg, #7daeff 0%, #5b8be9 100%);
 }
+
+/* ============================================
+   THUNDERSTORE BROWSER
+   ============================================ */
+
+.thunderstore-browser .modal-content {
+    max-width: 900px;
+    width: 95%;
+    max-height: 90vh;
+}
+
+.thunderstore-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.thunderstore-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.thunderstore-header .search-input {
+    flex: 1;
+    padding: 10px 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.thunderstore-header .search-input:focus {
+    outline: none;
+    border-color: #4fc3f7;
+}
+
+.thunderstore-header .sort-select {
+    padding: 10px 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.thunderstore-header .sort-select:focus {
+    outline: none;
+    border-color: #4fc3f7;
+}
+
+.thunderstore-mod-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-height: calc(90vh - 200px);
+    overflow-y: auto;
+    padding: 0 5px;
+}
+
+.thunderstore-mod-card {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.thunderstore-mod-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #4fc3f7;
+    transform: translateY(-2px);
+}
+
+.thunderstore-mod-card .mod-icon {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    font-size: 32px;
+    overflow: hidden;
+}
+
+.thunderstore-mod-card .mod-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thunderstore-mod-card .mod-info-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.thunderstore-mod-card .mod-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.thunderstore-mod-card .mod-name {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #4fc3f7;
+}
+
+.thunderstore-mod-card .mod-version {
+    padding: 2px 8px;
+    background: rgba(79, 195, 247, 0.2);
+    border-radius: 4px;
+    font-size: 12px;
+    color: #4fc3f7;
+}
+
+.thunderstore-mod-card .mod-author {
+    font-size: 14px;
+    color: #999;
+    margin-bottom: 8px;
+}
+
+.thunderstore-mod-card .mod-description {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #ccc;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.thunderstore-mod-card .mod-stats {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.thunderstore-mod-card .mod-stats .stat {
+    font-size: 13px;
+    color: #999;
+}
+
+.thunderstore-mod-card .deprecated-badge {
+    padding: 2px 8px;
+    background: rgba(255, 152, 0, 0.2);
+    border-radius: 4px;
+    font-size: 12px;
+    color: #ff9800;
+}
+
+.thunderstore-mod-card .mod-actions-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
+}
+
+.thunderstore-mod-card .install-mod-btn {
+    min-width: 100px;
+    padding: 8px 16px;
+    white-space: nowrap;
+}
+
+.thunderstore-mod-card .install-mod-btn.installed {
+    background: #4caf50;
+    cursor: default;
+}
+
+.thunderstore-mod-card .install-mod-btn.installed:hover {
+    background: #4caf50;
+}
+
+.thunderstore-mod-card .view-mod-btn {
+    min-width: 100px;
+    padding: 8px 16px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+}
+
+/* Badge styles */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    margin: 5px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.badge.workshop {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.badge.unity {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: #fff;
+}
+
+.badge.engine {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: #fff;
+}
+
+.support-badges {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.mod-support-info {
+    margin-bottom: 15px;
+}
