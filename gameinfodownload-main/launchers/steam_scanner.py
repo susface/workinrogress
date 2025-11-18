@@ -155,20 +155,20 @@ class SteamScanner:
                     metadata['genres'] = [g.get('description', '') for g in genres]
 
                     # Check for VR support
-                    # Steam API provides categories that include VR-related info
+                    # Use the vr_support field from Steam API which is more reliable
                     categories = game_data.get('categories', [])
-                    vr_categories = [28, 29, 30, 31]  # VR Supported, VR Only, VR - Tracked Motion Controllers, VR - Gamepad
-                    has_vr = any(cat.get('id') in vr_categories for cat in categories)
+
+                    # Check for VR by looking for VR-related categories by description
+                    # Don't use category IDs as they can be misleading (e.g., 30 is Workshop, not VR)
+                    vr_category_names = ['VR Supported', 'VR Only', 'Tracked Motion Controllers']
+                    has_vr = any(cat.get('description') in vr_category_names for cat in categories)
 
                     # Mark as VR only if VR categories are present
-                    # Note: We only check the categories field, as empty vr_support dicts
-                    # in the API response don't mean the game actually supports VR
                     if has_vr:
                         metadata['has_vr_support'] = 1
 
                     # Check for Steam Workshop support
-                    # Category ID 30 is for Steam Workshop in the categories list
-                    # Note: This is different from VR category 30, need to check for 'Steam Workshop' in description
+                    # Look for Steam Workshop category by description (more reliable than ID)
                     workshop_categories = [cat for cat in categories if cat.get('description') == 'Steam Workshop']
                     if workshop_categories:
                         metadata['has_workshop_support'] = 1
