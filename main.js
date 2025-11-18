@@ -2797,9 +2797,18 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
             console.log(`[THUNDERSTORE] Fetched ${response.data.length} total packages from Thunderstore`);
             console.log(`[THUNDERSTORE] Searching for game: "${gameName}" (normalized: "${gameName.toLowerCase().replace(/[^a-z0-9]/g, '')}")`);
 
-            // Debug: Log first package structure
+            // Debug: Log first non-excluded package structure
             if (response.data.length > 0) {
-                console.log('[THUNDERSTORE] Sample package structure:', JSON.stringify(response.data[0], null, 2));
+                const samplePackage = response.data.find(pkg =>
+                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
+                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                    )
+                );
+                if (samplePackage) {
+                    console.log('[THUNDERSTORE] Sample package_url:', samplePackage.package_url);
+                    console.log('[THUNDERSTORE] Sample full_name:', samplePackage.full_name);
+                }
             }
 
             // Filter packages by game name (try multiple matching strategies)
@@ -2837,6 +2846,12 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
                     const urlLower = pkg.package_url.toLowerCase();
                     // Extract community from URL like: /c/lethal-company/p/...
                     const communityMatch = urlLower.match(/\/c\/([^\/]+)\//);
+
+                    if (pkgIndex < 5 && shouldLogPackage) {
+                        console.log(`[THUNDERSTORE] Package #${pkgIndex} URL: "${pkg.package_url}"`);
+                        console.log(`[THUNDERSTORE] Community regex match result:`, communityMatch);
+                    }
+
                     if (communityMatch) {
                         const communitySlug = communityMatch[1];
                         const communityNorm = communitySlug.replace(/[^a-z0-9]/g, '');
@@ -2860,38 +2875,12 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
                     }
                 }
 
-                // Strategy 2: Check full_name for community (format: community-namespace-package)
-                if (pkg.full_name) {
-                    const fullNameLower = pkg.full_name.toLowerCase();
-                    if (fullNameLower.includes(gameNameLower) ||
-                        fullNameLower.replace(/[^a-z0-9]/g, '').includes(gameNameNorm)) {
-                        if (pkgIndex < 5 && shouldLogPackage) {
-                            console.log(`[THUNDERSTORE] ✓ MATCH on full_name!`);
-                        }
-                        matchStats.fullNameMatches++;
-                        matchStats.total++;
-                        return true;
-                    }
-                }
+                // Strategy 2: DISABLED - Full name matching causes too many false positives
+                // (e.g., "peak" matches any package with "peak" in description/name)
+                // Only use URL-based community matching for accuracy
 
-                // Strategy 3: Check categories
-                if (pkg.categories && pkg.categories.length > 0) {
-                    const match = pkg.categories.some(cat => {
-                        const catLower = cat.toLowerCase();
-                        const catNorm = catLower.replace(/[^a-z0-9]/g, '');
-                        return catNorm.includes(gameNameNorm) ||
-                               catLower.includes(gameNameLower) ||
-                               gameNameLower.includes(catLower);
-                    });
-                    if (match) {
-                        if (pkgIndex < 5 && shouldLogPackage) {
-                            console.log(`[THUNDERSTORE] ✓ MATCH on categories!`);
-                        }
-                        matchStats.categoryMatches++;
-                        matchStats.total++;
-                    }
-                    return match;
-                }
+                // Strategy 3: DISABLED - Category matching also causes false positives
+                // Only rely on URL-based community matching
 
                 return false;
             });
