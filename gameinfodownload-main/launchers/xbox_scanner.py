@@ -109,18 +109,54 @@ class XboxScanner:
                         title = re.sub(r'_\d+\.\d+\.\d+\.\d+_x64__\w+$', '', title)
                         title = title.replace('_', ' ')
 
+                        # Look for icon files in the game directory
+                        # Xbox games typically have .ico, splashscreen.png, logo.png files
+                        icon_file = None
+                        logo_file = None
+
+                        try:
+                            for root, dirs, files in os.walk(game_dir):
+                                depth = root[len(str(game_dir)):].count(os.sep)
+                                if depth > 2:  # Don't search too deep for icons
+                                    dirs.clear()
+                                    continue
+
+                                for file in files:
+                                    file_lower = file.lower()
+                                    file_path = Path(root) / file
+
+                                    # Look for .ico files
+                                    if file_lower.endswith('.ico') and not icon_file:
+                                        icon_file = file_path
+
+                                    # Look for PNG logos/splashscreens
+                                    if file_lower.endswith('.png'):
+                                        # Prefer files with "logo", "icon", or "splash" in name
+                                        if any(keyword in file_lower for keyword in ['logo', 'icon', 'splash']):
+                                            # Prefer larger files (often higher quality)
+                                            if not logo_file or file_path.stat().st_size > logo_file.stat().st_size:
+                                                logo_file = file_path
+                        except (PermissionError, OSError):
+                            pass
+
                         game_info = {
                             'title': title,
                             'install_directory': str(game_dir),
                             'launch_command': str(main_exe),
                             'exe_path': str(main_exe),
                             'platform': 'xbox',
-                            'source': 'xboxgames_directory'
+                            'source': 'xboxgames_directory',
+                            'local_icon_file': str(icon_file) if icon_file else None,
+                            'local_logo_file': str(logo_file) if logo_file else None
                         }
 
                         games.append(game_info)
                         print(f"  Found game: {title}")
-                        print(f"    Path: {main_exe}")
+                        print(f"    Executable: {main_exe}")
+                        if icon_file:
+                            print(f"    Icon: {icon_file.name}")
+                        if logo_file:
+                            print(f"    Logo: {logo_file.name}")
 
             except Exception as e:
                 print(f"  Error scanning {xbox_games_path}: {e}")
@@ -390,28 +426,55 @@ class XboxScanner:
 
         # Process games from XboxGames directories
         for game_info in xboxgames_games:
-            # Extract icon from executable
-            if ICON_EXTRACTOR_AVAILABLE:
+            title = game_info.get('title', '')
+            safe_name = re.sub(r'[<>:"/\\|?*]', '_', title)
+            icon_path = None
+            boxart_path = None
+
+            # Try to copy local icon files first (much faster than extraction)
+            local_icon_file = game_info.get('local_icon_file')
+            local_logo_file = game_info.get('local_logo_file')
+
+            # Prefer .ico file for icon
+            if local_icon_file and os.path.exists(local_icon_file):
+                try:
+                    import shutil
+                    icon_filename = f"xbox_{safe_name}_icon{Path(local_icon_file).suffix}"
+                    dest_path = self.icons_dir / icon_filename
+                    shutil.copy2(local_icon_file, dest_path)
+                    icon_path = f"game_data/icons/{icon_filename}"
+                    print(f"  Copied icon: {Path(local_icon_file).name}")
+                except Exception as e:
+                    print(f"  Error copying icon: {e}")
+
+            # Use PNG logo for boxart
+            if local_logo_file and os.path.exists(local_logo_file):
+                try:
+                    import shutil
+                    logo_filename = f"xbox_{safe_name}_boxart{Path(local_logo_file).suffix}"
+                    dest_path = self.boxart_dir / logo_filename
+                    shutil.copy2(local_logo_file, dest_path)
+                    boxart_path = f"game_data/boxart/{logo_filename}"
+                    print(f"  Copied logo: {Path(local_logo_file).name}")
+                except Exception as e:
+                    print(f"  Error copying logo: {e}")
+
+            # Fallback to icon extraction if no local files found
+            if not icon_path and not boxart_path and ICON_EXTRACTOR_AVAILABLE:
                 exe_path = game_info.get('exe_path', '')
-                title = game_info.get('title', '')
-
                 if exe_path and os.path.exists(exe_path):
-                    print(f"  Extracting icon for: {title}")
-                    safe_name = re.sub(r'[<>:"/\\|?*]', '_', title)
+                    print(f"  Extracting icon from executable...")
                     icon_filename = f"xbox_{safe_name}_icon.png"
-                    icon_path = self.icons_dir / icon_filename
+                    icon_dest = self.icons_dir / icon_filename
 
-                    extracted_path = extract_game_icon(exe_path, title, str(icon_path))
+                    extracted_path = extract_game_icon(exe_path, title, str(icon_dest))
                     if extracted_path:
-                        game_info['icon_path'] = f"game_data/icons/{icon_filename}"
-                        game_info['boxart_path'] = f"game_data/icons/{icon_filename}"
+                        icon_path = f"game_data/icons/{icon_filename}"
+                        boxart_path = icon_path
                         print(f"    [OK] Extracted icon from executable")
-                    else:
-                        game_info['icon_path'] = None
-                        game_info['boxart_path'] = None
-            else:
-                game_info['icon_path'] = None
-                game_info['boxart_path'] = None
+
+            game_info['icon_path'] = icon_path
+            game_info['boxart_path'] = boxart_path
 
             # Set default values for missing fields
             game_info.setdefault('publisher', '')
