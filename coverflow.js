@@ -66,6 +66,10 @@ class CoverFlow {
         this.createFileTypeThumbnail = coverFlowUI.createFileTypeThumbnail.bind(this);
         this.showToast = coverFlowUIUtils.showToast.bind(this);
 
+        // Bind module methods for dropdown menu items
+        this.toggleInsights = sessionInsights.toggleInsights.bind(this);
+        this.showModManager = modManager.showModManager.bind(this);
+
         // Bind main class methods that are called from module code
         this.loadGames = this.loadGames.bind(this);
         this.reloadGamesFromServer = this.reloadGamesFromServer.bind(this);
