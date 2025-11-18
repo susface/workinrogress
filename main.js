@@ -1328,105 +1328,108 @@ ipcMain.handle('get-play-time', async (event, gameId) => {
 
 // Toggle favorite
 ipcMain.handle('toggle-favorite', async (event, gameId) => {
+    const db = initDatabase();
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT is_favorite FROM games WHERE id = ?').get(gameId);
 
         if (game) {
             const newStatus = game.is_favorite ? 0 : 1;
             db.prepare('UPDATE games SET is_favorite = ? WHERE id = ?').run(newStatus, gameId);
-            db.close();
             return { success: true, is_favorite: Boolean(newStatus) };
         }
 
-        db.close();
         return { success: false, error: 'Game not found' };
     } catch (error) {
         console.error('Error toggling favorite:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Toggle hidden
 ipcMain.handle('toggle-hidden', async (event, gameId) => {
+    const db = initDatabase();
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT is_hidden FROM games WHERE id = ?').get(gameId);
 
         if (game) {
             const newStatus = game.is_hidden ? 0 : 1;
             db.prepare('UPDATE games SET is_hidden = ? WHERE id = ?').run(newStatus, gameId);
-            db.close();
             return { success: true, is_hidden: Boolean(newStatus) };
         }
 
-        db.close();
         return { success: false, error: 'Game not found' };
     } catch (error) {
         console.error('Error toggling hidden:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Set rating
 ipcMain.handle('set-rating', async (event, gameId, rating) => {
-    try {
-        // Validate rating
-        if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
-            return { success: false, error: 'Rating must be a number between 1 and 5' };
-        }
+    // Validate rating before opening DB
+    if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
+        return { success: false, error: 'Rating must be a number between 1 and 5' };
+    }
 
-        const db = initDatabase();
+    const db = initDatabase();
+    try {
         db.prepare('UPDATE games SET user_rating = ? WHERE id = ?').run(Math.floor(rating), gameId);
-        db.close();
         return { success: true };
     } catch (error) {
         console.error('Error setting rating:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Set notes
 ipcMain.handle('set-notes', async (event, gameId, notes) => {
+    // Validate notes before opening DB
+    if (notes !== null && notes !== undefined && typeof notes !== 'string') {
+        return { success: false, error: 'Notes must be a string' };
+    }
+
+    // Limit notes length to prevent database bloat
+    const MAX_NOTES_LENGTH = 5000;
+    const validatedNotes = notes ? notes.substring(0, MAX_NOTES_LENGTH) : '';
+
+    const db = initDatabase();
     try {
-        // Validate notes
-        if (notes !== null && notes !== undefined && typeof notes !== 'string') {
-            return { success: false, error: 'Notes must be a string' };
-        }
-
-        // Limit notes length to prevent database bloat
-        const MAX_NOTES_LENGTH = 5000;
-        const validatedNotes = notes ? notes.substring(0, MAX_NOTES_LENGTH) : '';
-
-        const db = initDatabase();
         db.prepare('UPDATE games SET user_notes = ? WHERE id = ?').run(validatedNotes, gameId);
-        db.close();
         return { success: true };
     } catch (error) {
         console.error('Error setting notes:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Set custom launch options
 ipcMain.handle('set-custom-launch-options', async (event, gameId, options) => {
+    // Validate launch options before opening DB
+    if (options !== null && options !== undefined && typeof options !== 'string') {
+        return { success: false, error: 'Launch options must be a string' };
+    }
+
+    // Limit options length
+    const MAX_OPTIONS_LENGTH = 500;
+    const validatedOptions = options ? options.substring(0, MAX_OPTIONS_LENGTH) : '';
+
+    const db = initDatabase();
     try {
-        // Validate launch options
-        if (options !== null && options !== undefined && typeof options !== 'string') {
-            return { success: false, error: 'Launch options must be a string' };
-        }
-
-        // Limit options length
-        const MAX_OPTIONS_LENGTH = 500;
-        const validatedOptions = options ? options.substring(0, MAX_OPTIONS_LENGTH) : '';
-
-        const db = initDatabase();
         db.prepare('UPDATE games SET custom_launch_options = ? WHERE id = ?').run(validatedOptions, gameId);
-        db.close();
         return { success: true };
     } catch (error) {
         console.error('Error setting custom launch options:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
@@ -2752,26 +2755,53 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
 
         // Look up game to get title and thunderstore_community
         const db = initDatabase();
-        const game = db.prepare('SELECT title, thunderstore_community FROM games WHERE id = ?').get(gameId);
-        db.close();
+        let game;
+        try {
+            game = db.prepare('SELECT title, thunderstore_community FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
 
         if (!game) {
             return { success: false, error: 'Game not found' };
         }
 
-        // Use thunderstore_community if set, otherwise fall back to title
-        const gameName = game.thunderstore_community || game.title;
-        console.log(`[THUNDERSTORE] Game lookup: title="${game.title}", thunderstore_community="${game.thunderstore_community}", using="${gameName}"`);
+        // Use thunderstore_community if set, otherwise try to normalize title
+        // Thunderstore community slugs are lowercase with hyphens (e.g., "lethal-company", "peak")
+        let communitySlug = game.thunderstore_community;
+
+        // Handle null/undefined/empty/"null" string cases
+        // Add typeof check for extra safety
+        if (!communitySlug || typeof communitySlug !== 'string' || communitySlug === 'null' || communitySlug.trim() === '') {
+            // Auto-generate from title: "Lethal Company" → "lethal-company"
+            communitySlug = game.title.toLowerCase()
+                .replace(/\s+/g, '-')      // Replace spaces with hyphens
+                .replace(/[^a-z0-9-]/g, '') // Remove non-alphanumeric except hyphens
+                .replace(/-+/g, '-')       // Collapse multiple hyphens
+                .replace(/^-|-$/g, '');    // Remove leading/trailing hyphens
+        }
+
+        // Validate that we have a valid slug
+        if (!communitySlug || typeof communitySlug !== 'string' || communitySlug.trim() === '') {
+            console.error(`[THUNDERSTORE] Could not generate valid community slug from title: "${game.title}"`);
+            return {
+                success: false,
+                error: `Could not determine Thunderstore community for "${game.title}". Please set it manually via console: await window.electronAPI.setThunderstoreCommunity(${gameId}, 'community-name')`
+            };
+        }
+
+        console.log(`[THUNDERSTORE] Game lookup: title="${game.title}", thunderstore_community="${game.thunderstore_community}", using slug="${communitySlug}"`);
 
         // Packages to exclude from verbose logging (mod managers, etc.)
         const LOG_EXCLUDE_PACKAGES = ['r2modman', 'thunderstore-cli'];
 
-        // Thunderstore API endpoint
-        const apiUrl = 'https://thunderstore.io/api/v1/package/';
+        // Use community-specific API endpoint
+        const apiUrl = `https://thunderstore.io/c/${communitySlug}/api/v1/package/`;
+        console.log(`[THUNDERSTORE] API URL: ${apiUrl}`);
 
         // Make HTTPS request
         const response = await new Promise((resolve, reject) => {
-            https.get(apiUrl, { timeout: 10000 }, (res) => {
+            const request = https.get(apiUrl, { timeout: 10000 }, (res) => {
                 let data = '';
 
                 res.on('data', (chunk) => {
@@ -2780,143 +2810,81 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
 
                 res.on('end', () => {
                     try {
+                        // Even if status is not 200, still try to parse JSON for error messages
+                        const parsedData = data ? JSON.parse(data) : null;
                         resolve({
                             status: res.statusCode,
-                            data: JSON.parse(data)
+                            data: parsedData
                         });
                     } catch (e) {
-                        reject(e);
+                        console.error('[THUNDERSTORE] Failed to parse JSON response:', e.message);
+                        reject(new Error(`Invalid JSON response from Thunderstore API: ${e.message}`));
                     }
                 });
-            }).on('error', (err) => {
-                reject(err);
+            });
+
+            request.on('error', (err) => {
+                console.error('[THUNDERSTORE] HTTP request error:', err.message);
+                reject(new Error(`Network error: ${err.message}`));
+            });
+
+            request.on('timeout', () => {
+                request.destroy();
+                reject(new Error('Request timed out after 10 seconds'));
             });
         });
 
         if (response.status === 200 && response.data) {
-            console.log(`[THUNDERSTORE] Fetched ${response.data.length} total packages from Thunderstore`);
-            console.log(`[THUNDERSTORE] Searching for game: "${gameName}" (normalized: "${gameName.toLowerCase().replace(/[^a-z0-9]/g, '')}")`);
+            // Validate that response.data is an array
+            if (!Array.isArray(response.data)) {
+                console.error('[THUNDERSTORE] API returned non-array data:', typeof response.data);
+                return {
+                    success: false,
+                    error: 'Invalid response format from Thunderstore API'
+                };
+            }
 
-            // Debug: Log first non-excluded package structure
+            console.log(`[THUNDERSTORE] Fetched ${response.data.length} packages for community "${communitySlug}"`);
+
+            // Debug: Log first non-excluded package
             if (response.data.length > 0) {
                 const samplePackage = response.data.find(pkg =>
+                    pkg && pkg.name && pkg.full_name &&
                     !LOG_EXCLUDE_PACKAGES.some(excluded =>
-                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
-                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                        pkg.name?.toLowerCase()?.includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase()?.includes(excluded.toLowerCase())
                     )
                 );
                 if (samplePackage) {
-                    console.log('[THUNDERSTORE] Sample package_url:', samplePackage.package_url);
-                    console.log('[THUNDERSTORE] Sample full_name:', samplePackage.full_name);
+                    console.log('[THUNDERSTORE] Sample package:', samplePackage.full_name);
                 }
             }
 
-            // Filter packages by game name (try multiple matching strategies)
-            const gameNameLower = gameName.toLowerCase();
-            const gameNameNorm = gameNameLower.replace(/[^a-z0-9]/g, '');
+            // No filtering needed - the API already returns only packages for this community!
+            const packages = response.data;
 
-            // Track matching statistics
-            let matchStats = {
-                urlMatches: 0,
-                fullNameMatches: 0,
-                categoryMatches: 0,
-                total: 0
-            };
-
-            const packages = response.data.filter(pkg => {
-                // Debug first few packages
-                const pkgIndex = response.data.indexOf(pkg);
-                const shouldLogPackage = !LOG_EXCLUDE_PACKAGES.some(excluded =>
-                    pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
-                    pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
-                );
-
-                if (pkgIndex < 5 && shouldLogPackage) {
-                    console.log(`[THUNDERSTORE] Checking package #${pkgIndex}:`, {
-                        name: pkg.name,
-                        full_name: pkg.full_name,
-                        package_url: pkg.package_url,
-                        categories: pkg.categories,
-                        has_nsfw_content: pkg.has_nsfw_content
-                    });
-                }
-
-                // Strategy 1: Check package_url for community slug
-                if (pkg.package_url) {
-                    const urlLower = pkg.package_url.toLowerCase();
-                    // Extract community from URL like: /c/lethal-company/p/...
-                    const communityMatch = urlLower.match(/\/c\/([^\/]+)\//);
-
-                    if (pkgIndex < 5 && shouldLogPackage) {
-                        console.log(`[THUNDERSTORE] Package #${pkgIndex} URL: "${pkg.package_url}"`);
-                        console.log(`[THUNDERSTORE] Community regex match result:`, communityMatch);
-                    }
-
-                    if (communityMatch) {
-                        const communitySlug = communityMatch[1];
-                        const communityNorm = communitySlug.replace(/[^a-z0-9]/g, '');
-
-                        if (pkgIndex < 5 && shouldLogPackage) {
-                            console.log(`[THUNDERSTORE] Package #${pkgIndex} community: "${communitySlug}" (normalized: "${communityNorm}"), game: "${gameNameLower}" (normalized: "${gameNameNorm}")`);
-                        }
-
-                        // Check if community matches game name
-                        if (communityNorm === gameNameNorm ||
-                            communitySlug === gameNameLower ||
-                            communitySlug.includes(gameNameLower) ||
-                            gameNameLower.includes(communitySlug)) {
-                            if (pkgIndex < 5 && shouldLogPackage) {
-                                console.log(`[THUNDERSTORE] ✓ MATCH on package_url!`);
-                            }
-                            matchStats.urlMatches++;
-                            matchStats.total++;
-                            return true;
-                        }
-                    }
-                }
-
-                // Strategy 2: DISABLED - Full name matching causes too many false positives
-                // (e.g., "peak" matches any package with "peak" in description/name)
-                // Only use URL-based community matching for accuracy
-
-                // Strategy 3: DISABLED - Category matching also causes false positives
-                // Only rely on URL-based community matching
-
-                return false;
-            });
-
-            console.log(`[THUNDERSTORE] Found ${packages.length} packages for "${gameName}"`);
-            console.log(`[THUNDERSTORE] Match breakdown: URL=${matchStats.urlMatches}, FullName=${matchStats.fullNameMatches}, Categories=${matchStats.categoryMatches}`);
-            if (packages.length > 0) {
-                // Find first non-excluded package to log
-                const firstLoggablePackage = packages.find(pkg =>
+            // Show a few example packages (excluding r2modman)
+            const examplePackages = packages
+                .slice(0, 5)
+                .filter(pkg =>
+                    pkg && pkg.full_name &&
                     !LOG_EXCLUDE_PACKAGES.some(excluded =>
-                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
-                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                        pkg.name?.toLowerCase()?.includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase()?.includes(excluded.toLowerCase())
                     )
                 );
-                if (firstLoggablePackage) {
-                    console.log(`[THUNDERSTORE] First matching package:`, firstLoggablePackage.name, firstLoggablePackage.full_name);
-                }
-                // Show a few example matches
-                const exampleMatches = packages.slice(0, 5).filter(pkg =>
-                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
-                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
-                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
-                    )
-                );
-                if (exampleMatches.length > 0) {
-                    console.log(`[THUNDERSTORE] Sample matches:`, exampleMatches.map(p => p.full_name));
-                }
+            if (examplePackages.length > 0) {
+                console.log(`[THUNDERSTORE] Sample packages:`, examplePackages.map(p => p.full_name));
             }
 
-            return {
-                success: true,
-                mods: packages.map(pkg => ({
+            // Map packages to our format, filtering out any invalid entries
+            const validPackages = packages
+                .filter(pkg => pkg && pkg.name && pkg.full_name && pkg.owner)
+                .map(pkg => ({
                     name: pkg.name,
                     fullName: pkg.full_name,
                     owner: pkg.owner,
-                    packageUrl: pkg.package_url,
+                    packageUrl: pkg.package_url || '',
                     description: pkg.description || '',
                     version: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].version_number : '1.0.0',
                     downloads: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].downloads : 0,
@@ -2933,48 +2901,77 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
                         cat.toLowerCase().includes('modpack') ||
                         cat.toLowerCase().includes('pack')
                     )) || pkg.name.toLowerCase().includes('pack')
-                }))
+                }));
+
+            return {
+                success: true,
+                mods: validPackages
             };
         }
 
-        return { success: false, error: 'Failed to fetch from Thunderstore' };
+        // Handle non-200 status codes
+        if (response.status === 404) {
+            console.error(`[THUNDERSTORE] Community "${communitySlug}" not found (404)`);
+            return {
+                success: false,
+                error: `Community "${communitySlug}" not found on Thunderstore. Try setting the correct community name via console: await window.electronAPI.setThunderstoreCommunity(gameId, 'community-name')`
+            };
+        }
+
+        return { success: false, error: `Failed to fetch from Thunderstore (HTTP ${response.status})` };
     } catch (error) {
-        console.error('Error searching Thunderstore:', error);
+        console.error('[THUNDERSTORE] Error searching Thunderstore:', error);
         return { success: false, error: error.message };
     }
 });
 
 // Set the Thunderstore community name for a game
 ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName) => {
+    const db = initDatabase();
     try {
-        const db = initDatabase();
-
         // Validate game exists
         const game = db.prepare('SELECT id FROM games WHERE id = ?').get(gameId);
         if (!game) {
-            db.close();
             return { success: false, error: 'Game not found' };
         }
 
         // Update thunderstore_community field
-        const normalizedCommunity = communityName ? communityName.trim().toLowerCase() : null;
+        // Normalize: trim, lowercase, treat empty/null/"null" as null
+        let normalizedCommunity = null;
+        if (communityName && typeof communityName === 'string') {
+            const trimmed = communityName.trim().toLowerCase();
+            if (trimmed && trimmed !== 'null') {
+                normalizedCommunity = trimmed;
+            }
+        }
+
         db.prepare('UPDATE games SET thunderstore_community = ? WHERE id = ?').run(normalizedCommunity, gameId);
-        db.close();
 
         console.log(`[THUNDERSTORE] Set community for game ${gameId} to: ${normalizedCommunity}`);
         return { success: true };
     } catch (error) {
-        console.error('Error setting Thunderstore community:', error);
+        console.error('[THUNDERSTORE] Error setting Thunderstore community:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Install a mod from Thunderstore
 ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => {
     try {
+        // Validate modPackage
+        if (!modPackage || !modPackage.packageUrl || !modPackage.name || !modPackage.fullName) {
+            return { success: false, error: 'Invalid mod package data' };
+        }
+
         const db = initDatabase();
-        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        db.close();
+        let game;
+        try {
+            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -2990,62 +2987,89 @@ ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => 
         // Get the latest version download URL
         const packageUrl = modPackage.packageUrl;
         const response = await new Promise((resolve, reject) => {
-            https.get(packageUrl, { timeout: 10000 }, (res) => {
+            const request = https.get(packageUrl, { timeout: 10000 }, (res) => {
                 let data = '';
                 res.on('data', (chunk) => data += chunk);
                 res.on('end', () => {
                     try {
-                        resolve({ status: res.statusCode, data: JSON.parse(data) });
+                        const parsedData = data ? JSON.parse(data) : null;
+                        resolve({ status: res.statusCode, data: parsedData });
                     } catch (e) {
-                        reject(e);
+                        reject(new Error(`Invalid JSON response: ${e.message}`));
                     }
                 });
-            }).on('error', reject);
-        });
-
-        if (response.status === 200 && response.data.latest && response.data.latest.download_url) {
-            const downloadUrl = response.data.latest.download_url;
-
-            // Download the mod
-            const modResponse = await new Promise((resolve, reject) => {
-                https.get(downloadUrl, { timeout: 30000 }, (res) => {
-                    const chunks = [];
-                    res.on('data', (chunk) => chunks.push(chunk));
-                    res.on('end', () => {
-                        resolve({ status: res.statusCode, data: Buffer.concat(chunks) });
-                    });
-                }).on('error', reject);
             });
 
-            // Determine installation path based on mod loader
-            let installPath;
-            const bepInExPath = path.join(game.install_directory, 'BepInEx', 'plugins');
-            const melonLoaderPath = path.join(game.install_directory, 'Mods');
+            request.on('error', (err) => {
+                reject(new Error(`Network error: ${err.message}`));
+            });
 
-            if (fs.existsSync(bepInExPath)) {
-                installPath = bepInExPath;
-            } else if (fs.existsSync(melonLoaderPath)) {
-                installPath = melonLoaderPath;
-            } else {
-                // Create BepInEx plugins folder by default
-                installPath = bepInExPath;
-                fs.mkdirSync(installPath, { recursive: true });
-            }
+            request.on('timeout', () => {
+                request.destroy();
+                reject(new Error('Request timed out'));
+            });
+        });
 
-            // Extract the mod
-            const zip = new AdmZip(Buffer.from(modResponse.data));
-            const modFolderName = modPackage.fullName.replace('/', '-');
-            const extractPath = path.join(installPath, modFolderName);
-
-            zip.extractAllTo(extractPath, true);
-
-            return {
-                success: true,
-                message: `Mod ${modPackage.name} installed successfully to ${extractPath}`
-            };
+        if (response.status !== 200) {
+            return { success: false, error: `Failed to fetch mod info (HTTP ${response.status})` };
         }
 
-        return { success: false, error: 'Could not find mod download URL' };
+        if (!response.data || !response.data.latest || !response.data.latest.download_url) {
+            return { success: false, error: 'Could not find mod download URL in response' };
+        }
+
+        const downloadUrl = response.data.latest.download_url;
+
+        // Download the mod
+        const modResponse = await new Promise((resolve, reject) => {
+            const request = https.get(downloadUrl, { timeout: 30000 }, (res) => {
+                const chunks = [];
+                res.on('data', (chunk) => chunks.push(chunk));
+                res.on('end', () => {
+                    resolve({ status: res.statusCode, data: Buffer.concat(chunks) });
+                });
+            });
+
+            request.on('error', (err) => {
+                reject(new Error(`Download error: ${err.message}`));
+            });
+
+            request.on('timeout', () => {
+                request.destroy();
+                reject(new Error('Download timed out'));
+            });
+        });
+
+        if (modResponse.status !== 200) {
+            return { success: false, error: `Failed to download mod (HTTP ${modResponse.status})` };
+        }
+
+        // Determine installation path based on mod loader
+        let installPath;
+        const bepInExPath = path.join(game.install_directory, 'BepInEx', 'plugins');
+        const melonLoaderPath = path.join(game.install_directory, 'Mods');
+
+        if (fs.existsSync(bepInExPath)) {
+            installPath = bepInExPath;
+        } else if (fs.existsSync(melonLoaderPath)) {
+            installPath = melonLoaderPath;
+        } else {
+            // Create BepInEx plugins folder by default
+            installPath = bepInExPath;
+            fs.mkdirSync(installPath, { recursive: true });
+        }
+
+        // Extract the mod
+        const zip = new AdmZip(modResponse.data);
+        const modFolderName = modPackage.fullName.replace(/\//g, '-');
+        const extractPath = path.join(installPath, modFolderName);
+
+        zip.extractAllTo(extractPath, true);
+
+        return {
+            success: true,
+            message: `Mod ${modPackage.name} installed successfully to ${extractPath}`
+        };
     } catch (error) {
         console.error('Error installing Thunderstore mod:', error);
         return { success: false, error: error.message };
