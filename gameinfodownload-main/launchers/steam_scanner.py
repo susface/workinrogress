@@ -158,12 +158,10 @@ class SteamScanner:
                     vr_categories = [28, 29, 30, 31]  # VR Supported, VR Only, VR - Tracked Motion Controllers, VR - Gamepad
                     has_vr = any(cat.get('id') in vr_categories for cat in categories)
 
-                    # Also check platforms for vr_support field
-                    platforms = game_data.get('platforms', {})
-                    vr_support_info = game_data.get('vr_support', {})
-
-                    # Mark as VR if any VR-related data is present
-                    if has_vr or vr_support_info or platforms.get('vr_support'):
+                    # Mark as VR only if VR categories are present
+                    # Note: We only check the categories field, as empty vr_support dicts
+                    # in the API response don't mean the game actually supports VR
+                    if has_vr:
                         metadata['has_vr_support'] = 1
 
         except Exception as e:
