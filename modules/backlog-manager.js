@@ -37,7 +37,7 @@ class BacklogManager {
             if (saved) {
                 const data = JSON.parse(saved);
                 Object.entries(data).forEach(([gameId, entry]) => {
-                    this.backlog.set(parseInt(gameId), entry);
+                    this.backlog.set(parseInt(gameId, 10), entry);
                 });
                 console.log(`[BACKLOG] Loaded ${this.backlog.size} entries`);
             }
@@ -565,7 +565,7 @@ class BacklogManager {
         container.querySelectorAll('.edit-backlog-entry').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const gameId = parseInt(btn.getAttribute('data-game-id'));
+                const gameId = parseInt(btn.getAttribute('data-game-id'), 10);
                 this.showEditEntryDialog(modal, gameId);
             });
         });
@@ -780,8 +780,8 @@ class BacklogManager {
         dialog.querySelector('#save-edit').addEventListener('click', () => {
             this.updateEntry(gameId, {
                 status: dialog.querySelector('#edit-status').value,
-                priority: parseInt(dialog.querySelector('#edit-priority').value),
-                completionPercentage: parseInt(dialog.querySelector('#edit-completion').value),
+                priority: parseInt(dialog.querySelector('#edit-priority').value, 10),
+                completionPercentage: parseInt(dialog.querySelector('#edit-completion').value, 10),
                 notes: dialog.querySelector('#edit-notes').value
             });
 

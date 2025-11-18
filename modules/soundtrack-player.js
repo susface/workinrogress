@@ -425,7 +425,7 @@ class SoundtrackPlayer {
         // Add click handlers to playlist items
         container.querySelectorAll('.playlist-item').forEach(item => {
             item.addEventListener('click', () => {
-                const index = parseInt(item.dataset.index);
+                const index = parseInt(item.dataset.index, 10);
                 this.playTrack(index);
             });
         });

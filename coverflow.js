@@ -608,7 +608,11 @@ class CoverFlow {
             this.initializeUpdateNotifications();
         }
         if (typeof this.initializePortableMode === 'function') {
-            this.initializePortableMode();
+            // Portable mode is async, but we don't need to await it
+            // It will update UI when ready
+            this.initializePortableMode().catch(err => {
+                console.error('[INIT] Error initializing portable mode:', err);
+            });
         }
         if (typeof this.initializeModManager === 'function') {
             this.initializeModManager();
