@@ -1328,105 +1328,108 @@ ipcMain.handle('get-play-time', async (event, gameId) => {
 
 // Toggle favorite
 ipcMain.handle('toggle-favorite', async (event, gameId) => {
+    const db = initDatabase();
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT is_favorite FROM games WHERE id = ?').get(gameId);
 
         if (game) {
             const newStatus = game.is_favorite ? 0 : 1;
             db.prepare('UPDATE games SET is_favorite = ? WHERE id = ?').run(newStatus, gameId);
-            db.close();
             return { success: true, is_favorite: Boolean(newStatus) };
         }
 
-        db.close();
         return { success: false, error: 'Game not found' };
     } catch (error) {
         console.error('Error toggling favorite:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Toggle hidden
 ipcMain.handle('toggle-hidden', async (event, gameId) => {
+    const db = initDatabase();
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT is_hidden FROM games WHERE id = ?').get(gameId);
 
         if (game) {
             const newStatus = game.is_hidden ? 0 : 1;
             db.prepare('UPDATE games SET is_hidden = ? WHERE id = ?').run(newStatus, gameId);
-            db.close();
             return { success: true, is_hidden: Boolean(newStatus) };
         }
 
-        db.close();
         return { success: false, error: 'Game not found' };
     } catch (error) {
         console.error('Error toggling hidden:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Set rating
 ipcMain.handle('set-rating', async (event, gameId, rating) => {
-    try {
-        // Validate rating
-        if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
-            return { success: false, error: 'Rating must be a number between 1 and 5' };
-        }
+    // Validate rating before opening DB
+    if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
+        return { success: false, error: 'Rating must be a number between 1 and 5' };
+    }
 
-        const db = initDatabase();
+    const db = initDatabase();
+    try {
         db.prepare('UPDATE games SET user_rating = ? WHERE id = ?').run(Math.floor(rating), gameId);
-        db.close();
         return { success: true };
     } catch (error) {
         console.error('Error setting rating:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Set notes
 ipcMain.handle('set-notes', async (event, gameId, notes) => {
+    // Validate notes before opening DB
+    if (notes !== null && notes !== undefined && typeof notes !== 'string') {
+        return { success: false, error: 'Notes must be a string' };
+    }
+
+    // Limit notes length to prevent database bloat
+    const MAX_NOTES_LENGTH = 5000;
+    const validatedNotes = notes ? notes.substring(0, MAX_NOTES_LENGTH) : '';
+
+    const db = initDatabase();
     try {
-        // Validate notes
-        if (notes !== null && notes !== undefined && typeof notes !== 'string') {
-            return { success: false, error: 'Notes must be a string' };
-        }
-
-        // Limit notes length to prevent database bloat
-        const MAX_NOTES_LENGTH = 5000;
-        const validatedNotes = notes ? notes.substring(0, MAX_NOTES_LENGTH) : '';
-
-        const db = initDatabase();
         db.prepare('UPDATE games SET user_notes = ? WHERE id = ?').run(validatedNotes, gameId);
-        db.close();
         return { success: true };
     } catch (error) {
         console.error('Error setting notes:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
 // Set custom launch options
 ipcMain.handle('set-custom-launch-options', async (event, gameId, options) => {
+    // Validate launch options before opening DB
+    if (options !== null && options !== undefined && typeof options !== 'string') {
+        return { success: false, error: 'Launch options must be a string' };
+    }
+
+    // Limit options length
+    const MAX_OPTIONS_LENGTH = 500;
+    const validatedOptions = options ? options.substring(0, MAX_OPTIONS_LENGTH) : '';
+
+    const db = initDatabase();
     try {
-        // Validate launch options
-        if (options !== null && options !== undefined && typeof options !== 'string') {
-            return { success: false, error: 'Launch options must be a string' };
-        }
-
-        // Limit options length
-        const MAX_OPTIONS_LENGTH = 500;
-        const validatedOptions = options ? options.substring(0, MAX_OPTIONS_LENGTH) : '';
-
-        const db = initDatabase();
         db.prepare('UPDATE games SET custom_launch_options = ? WHERE id = ?').run(validatedOptions, gameId);
-        db.close();
         return { success: true };
     } catch (error) {
         console.error('Error setting custom launch options:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
@@ -2752,8 +2755,12 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
 
         // Look up game to get title and thunderstore_community
         const db = initDatabase();
-        const game = db.prepare('SELECT title, thunderstore_community FROM games WHERE id = ?').get(gameId);
-        db.close();
+        let game;
+        try {
+            game = db.prepare('SELECT title, thunderstore_community FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -2764,7 +2771,8 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
         let communitySlug = game.thunderstore_community;
 
         // Handle null/undefined/empty/"null" string cases
-        if (!communitySlug || communitySlug === 'null' || communitySlug.trim() === '') {
+        // Add typeof check for extra safety
+        if (!communitySlug || typeof communitySlug !== 'string' || communitySlug === 'null' || communitySlug.trim() === '') {
             // Auto-generate from title: "Lethal Company" → "lethal-company"
             communitySlug = game.title.toLowerCase()
                 .replace(/\s+/g, '-')      // Replace spaces with hyphens
@@ -2774,7 +2782,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
         }
 
         // Validate that we have a valid slug
-        if (!communitySlug || communitySlug.trim() === '') {
+        if (!communitySlug || typeof communitySlug !== 'string' || communitySlug.trim() === '') {
             console.error(`[THUNDERSTORE] Could not generate valid community slug from title: "${game.title}"`);
             return {
                 success: false,
@@ -2843,8 +2851,8 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
                 const samplePackage = response.data.find(pkg =>
                     pkg && pkg.name && pkg.full_name &&
                     !LOG_EXCLUDE_PACKAGES.some(excluded =>
-                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
-                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                        pkg.name?.toLowerCase()?.includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase()?.includes(excluded.toLowerCase())
                     )
                 );
                 if (samplePackage) {
@@ -2856,12 +2864,15 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
             const packages = response.data;
 
             // Show a few example packages (excluding r2modman)
-            const examplePackages = packages.slice(0, 5).filter(pkg =>
-                !LOG_EXCLUDE_PACKAGES.some(excluded =>
-                    pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
-                    pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
-                )
-            );
+            const examplePackages = packages
+                .slice(0, 5)
+                .filter(pkg =>
+                    pkg && pkg.full_name &&
+                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
+                        pkg.name?.toLowerCase()?.includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase()?.includes(excluded.toLowerCase())
+                    )
+                );
             if (examplePackages.length > 0) {
                 console.log(`[THUNDERSTORE] Sample packages:`, examplePackages.map(p => p.full_name));
             }
@@ -2916,13 +2927,11 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
 
 // Set the Thunderstore community name for a game
 ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName) => {
+    const db = initDatabase();
     try {
-        const db = initDatabase();
-
         // Validate game exists
         const game = db.prepare('SELECT id FROM games WHERE id = ?').get(gameId);
         if (!game) {
-            db.close();
             return { success: false, error: 'Game not found' };
         }
 
@@ -2937,13 +2946,14 @@ ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName
         }
 
         db.prepare('UPDATE games SET thunderstore_community = ? WHERE id = ?').run(normalizedCommunity, gameId);
-        db.close();
 
         console.log(`[THUNDERSTORE] Set community for game ${gameId} to: ${normalizedCommunity}`);
         return { success: true };
     } catch (error) {
-        console.error('Error setting Thunderstore community:', error);
+        console.error('[THUNDERSTORE] Error setting Thunderstore community:', error);
         return { success: false, error: error.message };
+    } finally {
+        db.close();
     }
 });
 
@@ -2951,8 +2961,12 @@ ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName
 ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => {
     try {
         const db = initDatabase();
-        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        db.close();
+        let game;
+        try {
+            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
 
         if (!game) {
             return { success: false, error: 'Game not found' };
