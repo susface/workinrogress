@@ -2775,6 +2775,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
 
         if (response.status === 200 && response.data) {
             console.log(`[THUNDERSTORE] Fetched ${response.data.length} total packages from Thunderstore`);
+            console.log(`[THUNDERSTORE] Searching for game: "${gameName}" (normalized: "${gameName.toLowerCase().replace(/[^a-z0-9]/g, '')}")`);
 
             // Debug: Log first package structure
             if (response.data.length > 0) {
@@ -2785,6 +2786,14 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
             const gameNameLower = gameName.toLowerCase();
             const gameNameNorm = gameNameLower.replace(/[^a-z0-9]/g, '');
 
+            // Track matching statistics
+            let matchStats = {
+                urlMatches: 0,
+                fullNameMatches: 0,
+                categoryMatches: 0,
+                total: 0
+            };
+
             const packages = response.data.filter(pkg => {
                 // Debug first few packages
                 const pkgIndex = response.data.indexOf(pkg);
@@ -2793,7 +2802,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                     pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
                 );
 
-                if (pkgIndex < 3 && shouldLogPackage) {
+                if (pkgIndex < 5 && shouldLogPackage) {
                     console.log(`[THUNDERSTORE] Checking package #${pkgIndex}:`, {
                         name: pkg.name,
                         full_name: pkg.full_name,
@@ -2812,7 +2821,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                         const communitySlug = communityMatch[1];
                         const communityNorm = communitySlug.replace(/[^a-z0-9]/g, '');
 
-                        if (pkgIndex < 3 && shouldLogPackage) {
+                        if (pkgIndex < 5 && shouldLogPackage) {
                             console.log(`[THUNDERSTORE] Package #${pkgIndex} community: "${communitySlug}" (normalized: "${communityNorm}"), game: "${gameNameLower}" (normalized: "${gameNameNorm}")`);
                         }
 
@@ -2821,9 +2830,11 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                             communitySlug === gameNameLower ||
                             communitySlug.includes(gameNameLower) ||
                             gameNameLower.includes(communitySlug)) {
-                            if (pkgIndex < 3 && shouldLogPackage) {
+                            if (pkgIndex < 5 && shouldLogPackage) {
                                 console.log(`[THUNDERSTORE] ✓ MATCH on package_url!`);
                             }
+                            matchStats.urlMatches++;
+                            matchStats.total++;
                             return true;
                         }
                     }
@@ -2834,9 +2845,11 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                     const fullNameLower = pkg.full_name.toLowerCase();
                     if (fullNameLower.includes(gameNameLower) ||
                         fullNameLower.replace(/[^a-z0-9]/g, '').includes(gameNameNorm)) {
-                        if (pkgIndex < 3 && shouldLogPackage) {
+                        if (pkgIndex < 5 && shouldLogPackage) {
                             console.log(`[THUNDERSTORE] ✓ MATCH on full_name!`);
                         }
+                        matchStats.fullNameMatches++;
+                        matchStats.total++;
                         return true;
                     }
                 }
@@ -2850,8 +2863,12 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                                catLower.includes(gameNameLower) ||
                                gameNameLower.includes(catLower);
                     });
-                    if (match && pkgIndex < 3 && shouldLogPackage) {
-                        console.log(`[THUNDERSTORE] ✓ MATCH on categories!`);
+                    if (match) {
+                        if (pkgIndex < 5 && shouldLogPackage) {
+                            console.log(`[THUNDERSTORE] ✓ MATCH on categories!`);
+                        }
+                        matchStats.categoryMatches++;
+                        matchStats.total++;
                     }
                     return match;
                 }
@@ -2860,6 +2877,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
             });
 
             console.log(`[THUNDERSTORE] Found ${packages.length} packages for "${gameName}"`);
+            console.log(`[THUNDERSTORE] Match breakdown: URL=${matchStats.urlMatches}, FullName=${matchStats.fullNameMatches}, Categories=${matchStats.categoryMatches}`);
             if (packages.length > 0) {
                 // Find first non-excluded package to log
                 const firstLoggablePackage = packages.find(pkg =>
@@ -2870,6 +2888,16 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                 );
                 if (firstLoggablePackage) {
                     console.log(`[THUNDERSTORE] First matching package:`, firstLoggablePackage.name, firstLoggablePackage.full_name);
+                }
+                // Show a few example matches
+                const exampleMatches = packages.slice(0, 5).filter(pkg =>
+                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
+                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                    )
+                );
+                if (exampleMatches.length > 0) {
+                    console.log(`[THUNDERSTORE] Sample matches:`, exampleMatches.map(p => p.full_name));
                 }
             }
 
