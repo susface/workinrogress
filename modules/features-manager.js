@@ -184,17 +184,23 @@ class FeaturesManager {
      */
     setupThemeSwitcher() {
         console.log('[FEATURES] Setting up theme switcher...');
-        const themeBtn = document.getElementById('themes-btn');
+        const themeBtn = document.getElementById('themes-btn-menu');
         console.log('[FEATURES] Themes button element:', themeBtn);
 
         if (!themeBtn) {
-            console.warn('[FEATURES] Themes button not found in top bar');
+            console.warn('[FEATURES] Themes button not found in dropdown menu');
             return;
         }
 
         themeBtn.addEventListener('click', () => {
             console.log('[FEATURES] Themes button clicked');
             this.showThemesModal();
+
+            // Close dropdown menu after clicking
+            const dropdown = document.getElementById('more-dropdown');
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
         });
 
         console.log('[FEATURES] Theme switcher initialized');

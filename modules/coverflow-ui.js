@@ -4,6 +4,34 @@
  */
 
 class CoverFlowUI {
+    constructor() {
+        // Cache DOM elements for performance
+        this.cachedElements = null;
+    }
+
+    /**
+     * Cache DOM elements to avoid repeated getElementById calls
+     */
+    cacheElements() {
+        if (!this.cachedElements) {
+            this.cachedElements = {
+                title: document.getElementById('album-title'),
+                artist: document.getElementById('album-artist'),
+                year: document.getElementById('album-year'),
+                genre: document.getElementById('album-genre'),
+                description: document.getElementById('album-description'),
+                playtime: document.getElementById('playtime-display'),
+                lastPlayed: document.getElementById('last-played-display'),
+                launchCount: document.getElementById('launch-count-display'),
+                developer: document.getElementById('game-developer'),
+                publisher: document.getElementById('game-publisher'),
+                favoriteBtn: document.getElementById('favorite-btn'),
+                playBtn: document.getElementById('play-btn')
+            };
+        }
+        return this.cachedElements;
+    }
+
     /**
      * Update info panel with current album/game details
      */
@@ -11,35 +39,31 @@ class CoverFlowUI {
         if (this.filteredAlbums.length === 0) return;
 
         const album = this.filteredAlbums[this.currentIndex];
+        const el = this.cacheElements();
 
         // Update title
-        const titleEl = document.getElementById('album-title');
-        if (titleEl) titleEl.textContent = album.title || 'Unknown';
+        if (el.title) el.title.textContent = album.title || 'Unknown';
 
         // Update artist/platform
-        const artistEl = document.getElementById('album-artist');
-        if (artistEl) {
+        if (el.artist) {
             if (album.type === 'game') {
-                artistEl.textContent = album.developer || 'Unknown Developer';
+                el.artist.textContent = album.developer || 'Unknown Developer';
             } else {
-                artistEl.textContent = album.artist || 'Unknown Artist';
+                el.artist.textContent = album.artist || 'Unknown Artist';
             }
         }
 
         // Update year
-        const yearEl = document.getElementById('album-year');
-        if (yearEl) yearEl.textContent = album.year || '-';
+        if (el.year) el.year.textContent = album.year || '-';
 
         // Update genre
-        const genreEl = document.getElementById('album-genre');
-        if (genreEl) genreEl.textContent = album.genre || '-';
+        if (el.genre) el.genre.textContent = album.genre || '-';
 
         // Update description
-        const descEl = document.getElementById('album-description');
-        if (descEl) descEl.textContent = album.description || album.short_description || 'No description available.';
+        if (el.description) el.description.textContent = album.description || album.short_description || 'No description available.';
 
         // Display playtime for games
-        const playtimeEl = document.getElementById('playtime-display');
+        const playtimeEl = el.playtime;
         if (playtimeEl && album.type === 'game') {
             if (album.total_play_time && album.total_play_time > 0) {
                 const hours = Math.floor(album.total_play_time / 3600);
@@ -57,7 +81,7 @@ class CoverFlowUI {
         }
 
         // Display last played for games
-        const lastPlayedEl = document.getElementById('last-played-display');
+        const lastPlayedEl = el.lastPlayed;
         if (lastPlayedEl && album.type === 'game' && album.last_played) {
             const lastPlayedDate = new Date(album.last_played);
             const now = new Date();
@@ -82,8 +106,8 @@ class CoverFlowUI {
         }
 
         // Update developer/publisher for games
-        const developerEl = document.getElementById('game-developer');
-        const publisherEl = document.getElementById('game-publisher');
+        const developerEl = el.developer;
+        const publisherEl = el.publisher;
 
         if (album.type === 'game') {
             if (developerEl) {
@@ -100,7 +124,7 @@ class CoverFlowUI {
         }
 
         // Show/hide and setup play button for games AND audio files
-        const playBtn = document.getElementById('play-btn');
+        const playBtn = el.playBtn;
         if (playBtn && album.type === 'game') {
             playBtn.style.display = 'block';
             playBtn.innerHTML = '▶ Play Game';
@@ -154,7 +178,7 @@ class CoverFlowUI {
         }
 
         // Update favorite button for games
-        const favoriteBtn = document.getElementById('favorite-btn');
+        const favoriteBtn = el.favoriteBtn;
         if (favoriteBtn && album.type === 'game') {
             favoriteBtn.textContent = album.is_favorite ? '★' : '☆';
             favoriteBtn.classList.toggle('active', album.is_favorite);
@@ -167,7 +191,7 @@ class CoverFlowUI {
             };
         }
 
-        // Update position counter
+        // Update position counter (not cached as it's rarely accessed)
         const positionEl = document.getElementById('current-position');
         if (positionEl) {
             positionEl.textContent = this.currentIndex + 1;
