@@ -7,27 +7,29 @@ class CoverFlowUI {
     constructor() {
         // Cache DOM elements for performance
         this.cachedElements = null;
+    }
 
-        // Define cacheElements as an arrow function property so it gets copied by Object.assign
-        this.cacheElements = () => {
-            if (!this.cachedElements) {
-                this.cachedElements = {
-                    title: document.getElementById('album-title'),
-                    artist: document.getElementById('album-artist'),
-                    year: document.getElementById('album-year'),
-                    genre: document.getElementById('album-genre'),
-                    description: document.getElementById('album-description'),
-                    playtime: document.getElementById('playtime-display'),
-                    lastPlayed: document.getElementById('last-played-display'),
-                    launchCount: document.getElementById('launch-count-display'),
-                    developer: document.getElementById('game-developer'),
-                    publisher: document.getElementById('game-publisher'),
-                    favoriteBtn: document.getElementById('favorite-btn'),
-                    playBtn: document.getElementById('play-btn')
-                };
-            }
-            return this.cachedElements;
-        };
+    /**
+     * Cache DOM elements to avoid repeated getElementById calls
+     */
+    cacheElements() {
+        if (!this.cachedElements) {
+            this.cachedElements = {
+                title: document.getElementById('album-title'),
+                artist: document.getElementById('album-artist'),
+                year: document.getElementById('album-year'),
+                genre: document.getElementById('album-genre'),
+                description: document.getElementById('album-description'),
+                playtime: document.getElementById('playtime-display'),
+                lastPlayed: document.getElementById('last-played-display'),
+                launchCount: document.getElementById('launch-count-display'),
+                developer: document.getElementById('game-developer'),
+                publisher: document.getElementById('game-publisher'),
+                favoriteBtn: document.getElementById('favorite-btn'),
+                playBtn: document.getElementById('play-btn')
+            };
+        }
+        return this.cachedElements;
     }
 
     /**

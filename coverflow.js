@@ -55,6 +55,7 @@ class CoverFlow {
         // SURGICAL FIX: Override specific methods that need to come from modules
         // This is needed because Object.assign doesn't copy prototype methods
         // Only override the methods we specifically need from modules
+        this.cacheElements = coverFlowUI.cacheElements.bind(this);
         this.updateInfo = coverFlowUI.updateInfo.bind(this);
         this.toggleAudioPlayback = coverFlowUI.toggleAudioPlayback.bind(this);
         this.showVisualizer = coverFlowUI.showVisualizer.bind(this);
