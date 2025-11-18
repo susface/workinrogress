@@ -80,6 +80,39 @@
     DetailPrint "Python found: $1"
   ${EndIf}
 
+  ; Install Python dependencies if Python is available
+  DetailPrint "Checking for Python package dependencies..."
+  nsExec::ExecToStack 'python --version'
+  Pop $0
+  ${If} $0 == 0
+    DetailPrint "Installing Python packages from requirements.txt..."
+    nsExec::ExecToLog 'python -m pip install --upgrade pip'
+    nsExec::ExecToLog 'python -m pip install -r "$INSTDIR\resources\gameinfodownload-main\requirements.txt"'
+    Pop $0
+    ${If} $0 == 0
+      DetailPrint "Python packages installed successfully"
+    ${Else}
+      DetailPrint "Note: Python package installation failed. You may need to install them manually."
+    ${EndIf}
+  ${Else}
+    ; Try python3 command
+    nsExec::ExecToStack 'python3 --version'
+    Pop $0
+    ${If} $0 == 0
+      DetailPrint "Installing Python packages from requirements.txt..."
+      nsExec::ExecToLog 'python3 -m pip install --upgrade pip'
+      nsExec::ExecToLog 'python3 -m pip install -r "$INSTDIR\resources\gameinfodownload-main\requirements.txt"'
+      Pop $0
+      ${If} $0 == 0
+        DetailPrint "Python packages installed successfully"
+      ${Else}
+        DetailPrint "Note: Python package installation failed. You may need to install them manually."
+      ${EndIf}
+    ${Else}
+      DetailPrint "Python not available. Skipping package installation."
+    ${EndIf}
+  ${EndIf}
+
   ; Create application data directory
   CreateDirectory "$APPDATA\CoverFlow Game Launcher"
 !macroend
