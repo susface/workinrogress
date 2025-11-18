@@ -118,7 +118,9 @@ class SteamScanner:
             'publishers': [],
             'release_date': '',
             'genres': [],
-            'has_vr_support': 0
+            'has_vr_support': 0,
+            'has_workshop_support': 0,
+            'workshop_id': None
         }
 
         try:
@@ -164,10 +166,73 @@ class SteamScanner:
                     if has_vr:
                         metadata['has_vr_support'] = 1
 
+                    # Check for Steam Workshop support
+                    # Category ID 30 is for Steam Workshop in the categories list
+                    # Note: This is different from VR category 30, need to check for 'Steam Workshop' in description
+                    workshop_categories = [cat for cat in categories if cat.get('description') == 'Steam Workshop']
+                    if workshop_categories:
+                        metadata['has_workshop_support'] = 1
+                        metadata['workshop_id'] = app_id  # Workshop ID is same as app ID for Steam games
+
         except Exception as e:
             print(f"Error fetching metadata for app {app_id}: {e}")
 
         return metadata
+
+    def _detect_game_engine(self, install_dir: str) -> Optional[str]:
+        """
+        Detect which game engine was used to build the game
+
+        Args:
+            install_dir: Game installation directory
+
+        Returns:
+            Engine name or None
+        """
+        if not install_dir or not os.path.exists(install_dir):
+            return None
+
+        try:
+            install_path = Path(install_dir)
+
+            # Check for Unity engine
+            unity_indicators = [
+                'UnityPlayer.dll',
+                'UnityCrashHandler64.exe',
+                'UnityCrashHandler32.exe',
+                'UnityPlayer.so',  # Linux
+                'UnityPlayer.dylib'  # macOS
+            ]
+
+            for indicator in unity_indicators:
+                if (install_path / indicator).exists():
+                    return 'Unity'
+
+            # Check for Data folder with Unity characteristics
+            data_folder = install_path / 'Data'
+            if data_folder.exists():
+                # Unity games often have globalgamemanagers in the Data folder
+                if (data_folder / 'globalgamemanagers').exists():
+                    return 'Unity'
+
+            # Check for Unreal Engine
+            unreal_indicators = [
+                'Engine/Binaries',
+                'Engine/Content'
+            ]
+
+            for indicator in unreal_indicators:
+                if (install_path / indicator).exists():
+                    return 'Unreal'
+
+            # Check for other common engines
+            if (install_path / 'GodotSharp').exists():
+                return 'Godot'
+
+        except Exception as e:
+            print(f"Error detecting engine for {install_dir}: {e}")
+
+        return None
 
     def _download_icon(self, app_id: str, game_name: str) -> Optional[str]:
         """Download game icon"""
@@ -289,6 +354,13 @@ class SteamScanner:
                 print(f"  Fetching metadata for: {name}")
                 metadata = self._get_game_metadata(app_id)
                 game_info.update(metadata)
+
+                # Detect game engine
+                print(f"  Detecting engine for: {name}")
+                engine = self._detect_game_engine(game_info['install_directory'])
+                if engine:
+                    game_info['engine'] = engine
+                    print(f"  [OK] Detected {engine} engine")
 
                 # Convert lists to strings for database storage
                 if 'developers' in game_info and isinstance(game_info['developers'], list):

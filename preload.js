@@ -121,7 +121,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     scanGameMods: (gameId) => ipcRenderer.invoke('scan-game-mods', gameId),
     applyModChanges: (gameId, mods) => ipcRenderer.invoke('apply-mod-changes', gameId, mods),
     openModFolder: (gameId) => ipcRenderer.invoke('open-mod-folder', gameId),
-    deleteMod: (gameId, modId) => ipcRenderer.invoke('delete-mod', gameId, modId)
+    deleteMod: (gameId, modId) => ipcRenderer.invoke('delete-mod', gameId, modId),
+
+    // Thunderstore API
+    searchThunderstoreMods: (gameName) => ipcRenderer.invoke('search-thunderstore-mods', gameName),
+    installThunderstoreMod: (gameId, modPackage) => ipcRenderer.invoke('install-thunderstore-mod', gameId, modPackage)
 });
 
 console.log('Preload script loaded - Electron API exposed');
