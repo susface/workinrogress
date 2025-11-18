@@ -251,7 +251,7 @@ class ModManager {
         this.showToast('Searching Thunderstore...', 'info');
 
         try {
-            const result = await window.electronAPI.searchThunderstoreMods(this.currentGame.title);
+            const result = await window.electronAPI.searchThunderstoreMods(this.currentGame.id);
             if (result.success && result.mods) {
                 this.showThunderstoreResults(result.mods);
             } else {

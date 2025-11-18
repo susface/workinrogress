@@ -121,6 +121,13 @@ function initDatabase() {
     // Index for optimized duplicate detection
     db.exec('CREATE INDEX IF NOT EXISTS idx_title_normalized ON games(LOWER(TRIM(title)))');
 
+    // Add thunderstore_community column if it doesn't exist (migration)
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN thunderstore_community TEXT');
+    } catch (e) {
+        // Column already exists, ignore error
+    }
+
     // Create game sessions table
     db.exec(`
         CREATE TABLE IF NOT EXISTS game_sessions (
@@ -2739,9 +2746,22 @@ ipcMain.handle('delete-mod', async (event, gameId, modId) => {
 // ============================================
 
 // Search for mods on Thunderstore
-ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
+ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
     try {
         const https = require('https');
+
+        // Look up game to get title and thunderstore_community
+        const db = initDatabase();
+        const game = db.prepare('SELECT title, thunderstore_community FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // Use thunderstore_community if set, otherwise fall back to title
+        const gameName = game.thunderstore_community || game.title;
+        console.log(`[THUNDERSTORE] Game lookup: title="${game.title}", thunderstore_community="${game.thunderstore_community}", using="${gameName}"`);
 
         // Packages to exclude from verbose logging (mod managers, etc.)
         const LOG_EXCLUDE_PACKAGES = ['r2modman', 'thunderstore-cli'];
@@ -2931,6 +2951,31 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
         return { success: false, error: 'Failed to fetch from Thunderstore' };
     } catch (error) {
         console.error('Error searching Thunderstore:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Set the Thunderstore community name for a game
+ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName) => {
+    try {
+        const db = initDatabase();
+
+        // Validate game exists
+        const game = db.prepare('SELECT id FROM games WHERE id = ?').get(gameId);
+        if (!game) {
+            db.close();
+            return { success: false, error: 'Game not found' };
+        }
+
+        // Update thunderstore_community field
+        const normalizedCommunity = communityName ? communityName.trim().toLowerCase() : null;
+        db.prepare('UPDATE games SET thunderstore_community = ? WHERE id = ?').run(normalizedCommunity, gameId);
+        db.close();
+
+        console.log(`[THUNDERSTORE] Set community for game ${gameId} to: ${normalizedCommunity}`);
+        return { success: true };
+    } catch (error) {
+        console.error('Error setting Thunderstore community:', error);
         return { success: false, error: error.message };
     }
 });
