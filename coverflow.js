@@ -2767,7 +2767,7 @@ class CoverFlow {
                     // Open mod manager panel anyway, showing empty state
                     const panel = document.getElementById('mod-manager');
                     if (panel) {
-                        panel.classList.add('visible');
+                        panel.classList.add('active');
                     }
                 }
                 moreDropdown.style.display = 'none';
