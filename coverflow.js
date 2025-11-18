@@ -32,6 +32,8 @@ class CoverFlow {
         const youtubeIntegration = new YouTubeIntegration();
         const soundtrackPlayer = new SoundtrackPlayer();
         const videoPlayer = new VideoPlayer();
+        const vrMode = new VRMode();
+        const vrGameFilter = new VRGameFilter();
         const updateNotifications = new UpdateNotifications();
         const portableMode = new PortableMode();
         const modManager = new ModManager();
@@ -41,7 +43,9 @@ class CoverFlow {
             sessionInsights,
             modManager,
             youtubeIntegration,
-            videoPlayer
+            videoPlayer,
+            vrMode,
+            vrGameFilter
         };
 
         // Copy instance properties from modules
@@ -60,6 +64,8 @@ class CoverFlow {
         Object.assign(this, youtubeIntegration);
         Object.assign(this, soundtrackPlayer);
         Object.assign(this, videoPlayer);
+        Object.assign(this, vrMode);
+        Object.assign(this, vrGameFilter);
         Object.assign(this, updateNotifications);
         Object.assign(this, portableMode);
         Object.assign(this, modManager);
@@ -629,6 +635,14 @@ class CoverFlow {
         }
         if (typeof this.initializeVideoPlayer === 'function') {
             this.initializeVideoPlayer();
+        }
+        if (typeof this.initializeVRMode === 'function') {
+            this.initializeVRMode().catch(err => {
+                console.error('[INIT] Error initializing VR mode:', err);
+            });
+        }
+        if (typeof this.initializeVRGameFilter === 'function') {
+            this.initializeVRGameFilter();
         }
         if (typeof this.initializeUpdateNotifications === 'function') {
             this.initializeUpdateNotifications();
@@ -2148,7 +2162,7 @@ class CoverFlow {
             const subtitle = isGame ? (item.developer || 'Unknown Developer') :
                             isImage ? (item.category || 'Image') :
                             (item.artist || 'Unknown Artist');
-            this.visualEffects.updateVRUI(title, subtitle);
+            this.visualEffects.updateVRUI(title, subtitle, item);
         }
     }
 
