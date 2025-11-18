@@ -2743,6 +2743,9 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
     try {
         const https = require('https');
 
+        // Packages to exclude from verbose logging (mod managers, etc.)
+        const LOG_EXCLUDE_PACKAGES = ['r2modman', 'thunderstore-cli'];
+
         // Thunderstore API endpoint
         const apiUrl = 'https://thunderstore.io/api/v1/package/';
 
@@ -2785,7 +2788,12 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
             const packages = response.data.filter(pkg => {
                 // Debug first few packages
                 const pkgIndex = response.data.indexOf(pkg);
-                if (pkgIndex < 3) {
+                const shouldLogPackage = !LOG_EXCLUDE_PACKAGES.some(excluded =>
+                    pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
+                    pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                );
+
+                if (pkgIndex < 3 && shouldLogPackage) {
                     console.log(`[THUNDERSTORE] Checking package #${pkgIndex}:`, {
                         name: pkg.name,
                         full_name: pkg.full_name,
@@ -2804,7 +2812,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                         const communitySlug = communityMatch[1];
                         const communityNorm = communitySlug.replace(/[^a-z0-9]/g, '');
 
-                        if (pkgIndex < 3) {
+                        if (pkgIndex < 3 && shouldLogPackage) {
                             console.log(`[THUNDERSTORE] Package #${pkgIndex} community: "${communitySlug}" (normalized: "${communityNorm}"), game: "${gameNameLower}" (normalized: "${gameNameNorm}")`);
                         }
 
@@ -2813,7 +2821,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                             communitySlug === gameNameLower ||
                             communitySlug.includes(gameNameLower) ||
                             gameNameLower.includes(communitySlug)) {
-                            if (pkgIndex < 3) {
+                            if (pkgIndex < 3 && shouldLogPackage) {
                                 console.log(`[THUNDERSTORE] ✓ MATCH on package_url!`);
                             }
                             return true;
@@ -2826,7 +2834,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                     const fullNameLower = pkg.full_name.toLowerCase();
                     if (fullNameLower.includes(gameNameLower) ||
                         fullNameLower.replace(/[^a-z0-9]/g, '').includes(gameNameNorm)) {
-                        if (pkgIndex < 3) {
+                        if (pkgIndex < 3 && shouldLogPackage) {
                             console.log(`[THUNDERSTORE] ✓ MATCH on full_name!`);
                         }
                         return true;
@@ -2842,7 +2850,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                                catLower.includes(gameNameLower) ||
                                gameNameLower.includes(catLower);
                     });
-                    if (match && pkgIndex < 3) {
+                    if (match && pkgIndex < 3 && shouldLogPackage) {
                         console.log(`[THUNDERSTORE] ✓ MATCH on categories!`);
                     }
                     return match;
@@ -2853,7 +2861,16 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
 
             console.log(`[THUNDERSTORE] Found ${packages.length} packages for "${gameName}"`);
             if (packages.length > 0) {
-                console.log(`[THUNDERSTORE] First matching package:`, packages[0].name, packages[0].full_name);
+                // Find first non-excluded package to log
+                const firstLoggablePackage = packages.find(pkg =>
+                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
+                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                    )
+                );
+                if (firstLoggablePackage) {
+                    console.log(`[THUNDERSTORE] First matching package:`, firstLoggablePackage.name, firstLoggablePackage.full_name);
+                }
             }
 
             return {
