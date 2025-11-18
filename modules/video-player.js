@@ -132,15 +132,28 @@ class VideoPlayer {
         // Hide YouTube player
         if (this.youtubePlayer) {
             this.youtubePlayer.stopVideo();
-            youtubeContainer.style.display = 'none';
+            if (youtubeContainer) {
+                youtubeContainer.style.display = 'none';
+            }
         }
 
         // Show local video player
-        videoElement.style.display = 'block';
-        placeholder.style.display = 'none';
+        if (videoElement) {
+            videoElement.style.display = 'block';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
 
         // Normalize path for file:// protocol
         const normalizedPath = filePath.replace(/\\/g, '/');
+
+        if (!videoElement) {
+            console.error('[VIDEO] Video element not found');
+            this.showToast('Video player not initialized', 'error');
+            return;
+        }
+
         videoElement.src = `file:///${normalizedPath}`;
 
         videoElement.play().catch(error => {
@@ -167,11 +180,21 @@ class VideoPlayer {
         const youtubeContainer = document.getElementById('youtube-video-container');
         const placeholder = document.querySelector('.video-placeholder');
 
+        if (!youtubeContainer) {
+            console.error('[VIDEO] YouTube container not found');
+            this.showToast('Video player not initialized', 'error');
+            return;
+        }
+
         // Hide local video player
-        videoElement.pause();
-        videoElement.src = '';
-        videoElement.style.display = 'none';
-        placeholder.style.display = 'none';
+        if (videoElement) {
+            videoElement.pause();
+            videoElement.src = '';
+            videoElement.style.display = 'none';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
 
         // Show YouTube player
         youtubeContainer.style.display = 'block';
