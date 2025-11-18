@@ -2741,12 +2741,34 @@ ipcMain.handle('delete-mod', async (event, gameId, modId) => {
 // Search for mods on Thunderstore
 ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
     try {
-        const axios = require('axios');
+        const https = require('https');
 
         // Thunderstore API endpoint
         const apiUrl = 'https://thunderstore.io/api/v1/package/';
 
-        const response = await axios.get(apiUrl, { timeout: 10000 });
+        // Make HTTPS request
+        const response = await new Promise((resolve, reject) => {
+            https.get(apiUrl, { timeout: 10000 }, (res) => {
+                let data = '';
+
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+
+                res.on('end', () => {
+                    try {
+                        resolve({
+                            status: res.statusCode,
+                            data: JSON.parse(data)
+                        });
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            }).on('error', (err) => {
+                reject(err);
+            });
+        });
 
         if (response.status === 200 && response.data) {
             // Filter packages by game name (community name)
@@ -2771,7 +2793,9 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                     downloads: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].downloads : 0,
                     rating: pkg.rating_score || 0,
                     isDeprecated: pkg.is_deprecated || false,
-                    categories: pkg.categories || []
+                    categories: pkg.categories || [],
+                    iconUrl: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].icon : null,
+                    websiteUrl: pkg.website_url || ''
                 }))
             };
         }
@@ -2798,20 +2822,37 @@ ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => 
             return { success: false, error: 'Game installation directory not found' };
         }
 
-        const axios = require('axios');
+        const https = require('https');
         const AdmZip = require('adm-zip');
 
         // Get the latest version download URL
         const packageUrl = modPackage.packageUrl;
-        const response = await axios.get(packageUrl, { timeout: 10000 });
+        const response = await new Promise((resolve, reject) => {
+            https.get(packageUrl, { timeout: 10000 }, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        resolve({ status: res.statusCode, data: JSON.parse(data) });
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            }).on('error', reject);
+        });
 
         if (response.status === 200 && response.data.latest && response.data.latest.download_url) {
             const downloadUrl = response.data.latest.download_url;
 
             // Download the mod
-            const modResponse = await axios.get(downloadUrl, {
-                responseType: 'arraybuffer',
-                timeout: 30000
+            const modResponse = await new Promise((resolve, reject) => {
+                https.get(downloadUrl, { timeout: 30000 }, (res) => {
+                    const chunks = [];
+                    res.on('data', (chunk) => chunks.push(chunk));
+                    res.on('end', () => {
+                        resolve({ status: res.statusCode, data: Buffer.concat(chunks) });
+                    });
+                }).on('error', reject);
             });
 
             // Determine installation path based on mod loader

@@ -267,10 +267,228 @@ class ModManager {
      * Show Thunderstore search results
      */
     showThunderstoreResults(mods) {
-        // TODO: Create a modal to show Thunderstore mods
-        // For now, just show a count
         this.showToast(`Found ${mods.length} mods on Thunderstore!`, 'success');
-        console.log('[MOD_MANAGER] Thunderstore mods:', mods);
+
+        // Create Thunderstore browser modal
+        this.createThunderstoreBrowser(mods);
+    }
+
+    /**
+     * Create Thunderstore browser modal
+     */
+    createThunderstoreBrowser(mods) {
+        // Remove existing browser if present
+        let browser = document.getElementById('thunderstore-browser');
+        if (browser) {
+            browser.remove();
+        }
+
+        browser = document.createElement('div');
+        browser.id = 'thunderstore-browser';
+        browser.className = 'thunderstore-browser modal active';
+        browser.innerHTML = `
+            <div class="modal-content thunderstore-content">
+                <div class="modal-header">
+                    <h3>🌩️ Thunderstore Mod Browser</h3>
+                    <button class="close-thunderstore-btn close-btn">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="thunderstore-header">
+                        <input type="text" id="thunderstore-search" class="search-input" placeholder="Search mods...">
+                        <select id="thunderstore-sort" class="sort-select">
+                            <option value="downloads">Most Downloaded</option>
+                            <option value="rating">Highest Rated</option>
+                            <option value="name">Name (A-Z)</option>
+                            <option value="recent">Recently Updated</option>
+                        </select>
+                    </div>
+                    <div id="thunderstore-mod-list" class="thunderstore-mod-list">
+                        ${this.renderThunderstoreMods(mods)}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(browser);
+
+        // Event listeners
+        browser.querySelector('.close-thunderstore-btn').addEventListener('click', () => {
+            browser.classList.remove('active');
+            setTimeout(() => browser.remove(), 300);
+        });
+
+        // Click outside to close
+        browser.addEventListener('click', (e) => {
+            if (e.target === browser) {
+                browser.classList.remove('active');
+                setTimeout(() => browser.remove(), 300);
+            }
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('thunderstore-search');
+        searchInput.addEventListener('input', (e) => {
+            this.filterThunderstoreMods(mods, e.target.value);
+        });
+
+        // Sort functionality
+        const sortSelect = document.getElementById('thunderstore-sort');
+        sortSelect.addEventListener('change', (e) => {
+            this.sortThunderstoreMods(mods, e.target.value);
+        });
+
+        // Store mods for filtering/sorting
+        this.thunderstoreMods = mods;
+
+        // Attach install handlers
+        this.attachInstallHandlers();
+    }
+
+    /**
+     * Render Thunderstore mods
+     */
+    renderThunderstoreMods(mods) {
+        if (!mods || mods.length === 0) {
+            return '<div class="empty-state">No mods found for this game</div>';
+        }
+
+        return mods.map(mod => `
+            <div class="thunderstore-mod-card" data-mod-name="${mod.name.toLowerCase()}">
+                <div class="mod-icon">
+                    ${mod.iconUrl ? `<img src="${mod.iconUrl}" alt="${mod.name}" onerror="this.style.display='none'">` : '📦'}
+                </div>
+                <div class="mod-info-section">
+                    <div class="mod-title-row">
+                        <h4 class="mod-name">${mod.name}</h4>
+                        <span class="mod-version">v${mod.version}</span>
+                    </div>
+                    <div class="mod-author">by ${mod.owner}</div>
+                    <p class="mod-description">${mod.description || 'No description available'}</p>
+                    <div class="mod-stats">
+                        <span class="stat">⬇️ ${this.formatNumber(mod.downloads)} downloads</span>
+                        ${mod.rating ? `<span class="stat">⭐ ${mod.rating.toFixed(1)}</span>` : ''}
+                        ${mod.isDeprecated ? '<span class="deprecated-badge">⚠️ Deprecated</span>' : ''}
+                    </div>
+                </div>
+                <div class="mod-actions-section">
+                    <button class="install-mod-btn btn primary" data-mod='${JSON.stringify(mod).replace(/'/g, "&#39;")}'>
+                        Install
+                    </button>
+                    ${mod.websiteUrl ? `<a href="${mod.websiteUrl}" class="view-mod-btn btn" target="_blank">View Page</a>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * Filter Thunderstore mods
+     */
+    filterThunderstoreMods(mods, searchTerm) {
+        const cards = document.querySelectorAll('.thunderstore-mod-card');
+        const term = searchTerm.toLowerCase();
+
+        cards.forEach(card => {
+            const modName = card.dataset.modName;
+            const modDescription = card.querySelector('.mod-description').textContent.toLowerCase();
+            const modAuthor = card.querySelector('.mod-author').textContent.toLowerCase();
+
+            if (modName.includes(term) || modDescription.includes(term) || modAuthor.includes(term)) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    /**
+     * Sort Thunderstore mods
+     */
+    sortThunderstoreMods(mods, sortBy) {
+        let sortedMods = [...mods];
+
+        switch (sortBy) {
+            case 'downloads':
+                sortedMods.sort((a, b) => b.downloads - a.downloads);
+                break;
+            case 'rating':
+                sortedMods.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                break;
+            case 'name':
+                sortedMods.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            case 'recent':
+                // Assuming version field indicates recent updates
+                sortedMods.sort((a, b) => b.version.localeCompare(a.version));
+                break;
+        }
+
+        // Re-render the list
+        const container = document.getElementById('thunderstore-mod-list');
+        if (container) {
+            container.innerHTML = this.renderThunderstoreMods(sortedMods);
+            this.attachInstallHandlers();
+        }
+    }
+
+    /**
+     * Attach install button handlers
+     */
+    attachInstallHandlers() {
+        document.querySelectorAll('.install-mod-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const modData = JSON.parse(e.target.dataset.mod.replace(/&#39;/g, "'"));
+                await this.installThunderstoreMod(modData);
+            });
+        });
+    }
+
+    /**
+     * Install a Thunderstore mod
+     */
+    async installThunderstoreMod(modData) {
+        if (!this.currentGame || !window.electronAPI) return;
+
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = 'Installing...';
+
+        this.showToast(`Installing ${modData.name}...`, 'info');
+
+        try {
+            const result = await window.electronAPI.installThunderstoreMod(this.currentGame.id, modData);
+            if (result.success) {
+                this.showToast(`${modData.name} installed successfully!`, 'success');
+                btn.textContent = '✓ Installed';
+                btn.classList.add('installed');
+
+                // Refresh mod list
+                setTimeout(() => {
+                    this.loadModsForGame(this.currentGame.id);
+                }, 1000);
+            } else {
+                this.showToast(`Failed to install: ${result.error}`, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Install';
+            }
+        } catch (error) {
+            console.error('[MOD_MANAGER] Failed to install mod:', error);
+            this.showToast('Failed to install mod', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Install';
+        }
+    }
+
+    /**
+     * Format number with K/M suffixes
+     */
+    formatNumber(num) {
+        if (num >= 1000000) {
+            return (num / 1000000).toFixed(1) + 'M';
+        }
+        if (num >= 1000) {
+            return (num / 1000).toFixed(1) + 'K';
+        }
+        return num.toString();
     }
 
     /**
