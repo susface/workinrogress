@@ -124,7 +124,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteMod: (gameId, modId) => ipcRenderer.invoke('delete-mod', gameId, modId),
 
     // Thunderstore API
-    searchThunderstoreMods: (gameName) => ipcRenderer.invoke('search-thunderstore-mods', gameName),
+    searchThunderstoreMods: (gameId) => ipcRenderer.invoke('search-thunderstore-mods', gameId),
+    setThunderstoreCommunity: (gameId, communityName) => ipcRenderer.invoke('set-thunderstore-community', gameId, communityName),
     installThunderstoreMod: (gameId, modPackage) => ipcRenderer.invoke('install-thunderstore-mod', gameId, modPackage)
 });
 

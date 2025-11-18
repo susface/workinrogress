@@ -121,6 +121,13 @@ function initDatabase() {
     // Index for optimized duplicate detection
     db.exec('CREATE INDEX IF NOT EXISTS idx_title_normalized ON games(LOWER(TRIM(title)))');
 
+    // Add thunderstore_community column if it doesn't exist (migration)
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN thunderstore_community TEXT');
+    } catch (e) {
+        // Column already exists, ignore error
+    }
+
     // Create game sessions table
     db.exec(`
         CREATE TABLE IF NOT EXISTS game_sessions (
@@ -2739,9 +2746,25 @@ ipcMain.handle('delete-mod', async (event, gameId, modId) => {
 // ============================================
 
 // Search for mods on Thunderstore
-ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
+ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
     try {
         const https = require('https');
+
+        // Look up game to get title and thunderstore_community
+        const db = initDatabase();
+        const game = db.prepare('SELECT title, thunderstore_community FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // Use thunderstore_community if set, otherwise fall back to title
+        const gameName = game.thunderstore_community || game.title;
+        console.log(`[THUNDERSTORE] Game lookup: title="${game.title}", thunderstore_community="${game.thunderstore_community}", using="${gameName}"`);
+
+        // Packages to exclude from verbose logging (mod managers, etc.)
+        const LOG_EXCLUDE_PACKAGES = ['r2modman', 'thunderstore-cli'];
 
         // Thunderstore API endpoint
         const apiUrl = 'https://thunderstore.io/api/v1/package/';
@@ -2772,6 +2795,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
 
         if (response.status === 200 && response.data) {
             console.log(`[THUNDERSTORE] Fetched ${response.data.length} total packages from Thunderstore`);
+            console.log(`[THUNDERSTORE] Searching for game: "${gameName}" (normalized: "${gameName.toLowerCase().replace(/[^a-z0-9]/g, '')}")`);
 
             // Debug: Log first package structure
             if (response.data.length > 0) {
@@ -2782,10 +2806,23 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
             const gameNameLower = gameName.toLowerCase();
             const gameNameNorm = gameNameLower.replace(/[^a-z0-9]/g, '');
 
+            // Track matching statistics
+            let matchStats = {
+                urlMatches: 0,
+                fullNameMatches: 0,
+                categoryMatches: 0,
+                total: 0
+            };
+
             const packages = response.data.filter(pkg => {
                 // Debug first few packages
                 const pkgIndex = response.data.indexOf(pkg);
-                if (pkgIndex < 3) {
+                const shouldLogPackage = !LOG_EXCLUDE_PACKAGES.some(excluded =>
+                    pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
+                    pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                );
+
+                if (pkgIndex < 5 && shouldLogPackage) {
                     console.log(`[THUNDERSTORE] Checking package #${pkgIndex}:`, {
                         name: pkg.name,
                         full_name: pkg.full_name,
@@ -2804,7 +2841,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                         const communitySlug = communityMatch[1];
                         const communityNorm = communitySlug.replace(/[^a-z0-9]/g, '');
 
-                        if (pkgIndex < 3) {
+                        if (pkgIndex < 5 && shouldLogPackage) {
                             console.log(`[THUNDERSTORE] Package #${pkgIndex} community: "${communitySlug}" (normalized: "${communityNorm}"), game: "${gameNameLower}" (normalized: "${gameNameNorm}")`);
                         }
 
@@ -2813,9 +2850,11 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                             communitySlug === gameNameLower ||
                             communitySlug.includes(gameNameLower) ||
                             gameNameLower.includes(communitySlug)) {
-                            if (pkgIndex < 3) {
+                            if (pkgIndex < 5 && shouldLogPackage) {
                                 console.log(`[THUNDERSTORE] ✓ MATCH on package_url!`);
                             }
+                            matchStats.urlMatches++;
+                            matchStats.total++;
                             return true;
                         }
                     }
@@ -2826,9 +2865,11 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                     const fullNameLower = pkg.full_name.toLowerCase();
                     if (fullNameLower.includes(gameNameLower) ||
                         fullNameLower.replace(/[^a-z0-9]/g, '').includes(gameNameNorm)) {
-                        if (pkgIndex < 3) {
+                        if (pkgIndex < 5 && shouldLogPackage) {
                             console.log(`[THUNDERSTORE] ✓ MATCH on full_name!`);
                         }
+                        matchStats.fullNameMatches++;
+                        matchStats.total++;
                         return true;
                     }
                 }
@@ -2842,8 +2883,12 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                                catLower.includes(gameNameLower) ||
                                gameNameLower.includes(catLower);
                     });
-                    if (match && pkgIndex < 3) {
-                        console.log(`[THUNDERSTORE] ✓ MATCH on categories!`);
+                    if (match) {
+                        if (pkgIndex < 5 && shouldLogPackage) {
+                            console.log(`[THUNDERSTORE] ✓ MATCH on categories!`);
+                        }
+                        matchStats.categoryMatches++;
+                        matchStats.total++;
                     }
                     return match;
                 }
@@ -2852,8 +2897,28 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
             });
 
             console.log(`[THUNDERSTORE] Found ${packages.length} packages for "${gameName}"`);
+            console.log(`[THUNDERSTORE] Match breakdown: URL=${matchStats.urlMatches}, FullName=${matchStats.fullNameMatches}, Categories=${matchStats.categoryMatches}`);
             if (packages.length > 0) {
-                console.log(`[THUNDERSTORE] First matching package:`, packages[0].name, packages[0].full_name);
+                // Find first non-excluded package to log
+                const firstLoggablePackage = packages.find(pkg =>
+                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
+                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                    )
+                );
+                if (firstLoggablePackage) {
+                    console.log(`[THUNDERSTORE] First matching package:`, firstLoggablePackage.name, firstLoggablePackage.full_name);
+                }
+                // Show a few example matches
+                const exampleMatches = packages.slice(0, 5).filter(pkg =>
+                    !LOG_EXCLUDE_PACKAGES.some(excluded =>
+                        pkg.name?.toLowerCase().includes(excluded.toLowerCase()) ||
+                        pkg.full_name?.toLowerCase().includes(excluded.toLowerCase())
+                    )
+                );
+                if (exampleMatches.length > 0) {
+                    console.log(`[THUNDERSTORE] Sample matches:`, exampleMatches.map(p => p.full_name));
+                }
             }
 
             return {
@@ -2886,6 +2951,31 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
         return { success: false, error: 'Failed to fetch from Thunderstore' };
     } catch (error) {
         console.error('Error searching Thunderstore:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Set the Thunderstore community name for a game
+ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName) => {
+    try {
+        const db = initDatabase();
+
+        // Validate game exists
+        const game = db.prepare('SELECT id FROM games WHERE id = ?').get(gameId);
+        if (!game) {
+            db.close();
+            return { success: false, error: 'Game not found' };
+        }
+
+        // Update thunderstore_community field
+        const normalizedCommunity = communityName ? communityName.trim().toLowerCase() : null;
+        db.prepare('UPDATE games SET thunderstore_community = ? WHERE id = ?').run(normalizedCommunity, gameId);
+        db.close();
+
+        console.log(`[THUNDERSTORE] Set community for game ${gameId} to: ${normalizedCommunity}`);
+        return { success: true };
+    } catch (error) {
+        console.error('Error setting Thunderstore community:', error);
         return { success: false, error: error.message };
     }
 });
