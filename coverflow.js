@@ -2765,9 +2765,9 @@ class CoverFlow {
                     this.showModManager(currentGame);
                 } else {
                     // Open mod manager panel anyway, showing empty state
-                    const panel = document.getElementById('mod-manager-panel');
+                    const panel = document.getElementById('mod-manager');
                     if (panel) {
-                        panel.style.display = 'flex';
+                        panel.classList.add('visible');
                     }
                 }
                 moreDropdown.style.display = 'none';
