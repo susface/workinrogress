@@ -2771,19 +2771,42 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
         });
 
         if (response.status === 200 && response.data) {
-            // Filter packages by game name (community name)
+            console.log(`[THUNDERSTORE] Fetched ${response.data.length} total packages from Thunderstore`);
+
+            // Filter packages by game name (try multiple matching strategies)
+            const gameNameLower = gameName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
             const packages = response.data.filter(pkg => {
-                // Try to match game name with community names
-                // Common Unity game communities on Thunderstore:
-                // - Lethal Company, Risk of Rain 2, Valheim, etc.
-                return pkg.categories && pkg.categories.some(cat =>
-                    cat.toLowerCase().includes(gameName.toLowerCase())
-                );
+                // Check if package has a matching community
+                // Thunderstore communities are in the package URL
+                if (pkg.package_url) {
+                    const urlLower = pkg.package_url.toLowerCase();
+                    // Extract community from URL like: /c/lethal-company/p/...
+                    const communityMatch = urlLower.match(/\/c\/([^\/]+)\//);
+                    if (communityMatch) {
+                        const community = communityMatch[1].replace(/[^a-z0-9]/g, '');
+                        if (community.includes(gameNameLower) || gameNameLower.includes(community)) {
+                            return true;
+                        }
+                    }
+                }
+
+                // Also check categories as fallback
+                if (pkg.categories && pkg.categories.length > 0) {
+                    return pkg.categories.some(cat => {
+                        const catLower = cat.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return catLower.includes(gameNameLower) || gameNameLower.includes(catLower);
+                    });
+                }
+
+                return false;
             });
+
+            console.log(`[THUNDERSTORE] Found ${packages.length} packages for "${gameName}"`);
 
             return {
                 success: true,
-                mods: packages.slice(0, 50).map(pkg => ({
+                mods: packages.map(pkg => ({
                     name: pkg.name,
                     fullName: pkg.full_name,
                     owner: pkg.owner,
@@ -2793,9 +2816,17 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameName) => {
                     downloads: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].downloads : 0,
                     rating: pkg.rating_score || 0,
                     isDeprecated: pkg.is_deprecated || false,
+                    isPinned: pkg.is_pinned || false,
                     categories: pkg.categories || [],
                     iconUrl: pkg.versions && pkg.versions.length > 0 ? pkg.versions[0].icon : null,
-                    websiteUrl: pkg.website_url || ''
+                    websiteUrl: pkg.website_url || '',
+                    dateCreated: pkg.date_created || '',
+                    dateUpdated: pkg.date_updated || '',
+                    // Detect if it's a modpack (usually has "pack" in categories or name)
+                    isModpack: (pkg.categories && pkg.categories.some(cat =>
+                        cat.toLowerCase().includes('modpack') ||
+                        cat.toLowerCase().includes('pack')
+                    )) || pkg.name.toLowerCase().includes('pack')
                 }))
             };
         }

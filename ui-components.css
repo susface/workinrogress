@@ -1960,9 +1960,9 @@
    ============================================ */
 
 .thunderstore-browser .modal-content {
-    max-width: 900px;
-    width: 95%;
-    max-height: 90vh;
+    max-width: 1400px;
+    width: 98%;
+    max-height: 95vh;
 }
 
 .thunderstore-content {
@@ -2180,4 +2180,94 @@
 
 .mod-support-info {
     margin-bottom: 15px;
+}
+
+/* Thunderstore Tabs */
+.thunderstore-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.thunderstore-tabs .tab-btn {
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    color: #999;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.thunderstore-tabs .tab-btn:hover {
+    color: #4fc3f7;
+}
+
+.thunderstore-tabs .tab-btn.active {
+    color: #4fc3f7;
+    border-bottom-color: #4fc3f7;
+}
+
+.mod-count-badge {
+    padding: 4px 12px;
+    background: rgba(79, 195, 247, 0.2);
+    border-radius: 12px;
+    font-size: 13px;
+    color: #4fc3f7;
+    margin-left: auto;
+    margin-right: 10px;
+}
+
+.modpack-badge {
+    padding: 2px 8px;
+    background: rgba(156, 39, 176, 0.2);
+    border-radius: 4px;
+    font-size: 12px;
+    color: #ba68c8;
+}
+
+.pinned-badge {
+    padding: 2px 8px;
+    background: rgba(255, 193, 7, 0.2);
+    border-radius: 4px;
+    font-size: 12px;
+    color: #ffc107;
+}
+
+.thunderstore-mod-card .mod-description {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #ccc;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.thunderstore-mod-card .mod-description h2,
+.thunderstore-mod-card .mod-description h3,
+.thunderstore-mod-card .mod-description h4 {
+    margin: 8px 0 4px 0;
+    font-size: 14px;
+    color: #4fc3f7;
+}
+
+.thunderstore-mod-card .mod-description a {
+    color: #4fc3f7;
+    text-decoration: none;
+}
+
+.thunderstore-mod-card .mod-description a:hover {
+    text-decoration: underline;
+}
+
+.thunderstore-mod-card .mod-description strong {
+    color: #fff;
+}
+
+.thunderstore-mod-card .mod-description em {
+    color: #aaa;
 }
