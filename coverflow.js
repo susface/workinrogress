@@ -29,7 +29,9 @@ class CoverFlow {
         const touchGestures = new TouchGestures();
         const platformAnimations = new PlatformAnimations();
         const sessionInsights = new SessionInsights();
+        const youtubeIntegration = new YouTubeIntegration();
         const soundtrackPlayer = new SoundtrackPlayer();
+        const videoPlayer = new VideoPlayer();
         const updateNotifications = new UpdateNotifications();
         const portableMode = new PortableMode();
         const modManager = new ModManager();
@@ -37,7 +39,9 @@ class CoverFlow {
         // Store module instances for direct access
         this._modules = {
             sessionInsights,
-            modManager
+            modManager,
+            youtubeIntegration,
+            videoPlayer
         };
 
         // Copy instance properties from modules
@@ -53,7 +57,9 @@ class CoverFlow {
         Object.assign(this, touchGestures);
         Object.assign(this, platformAnimations);
         Object.assign(this, sessionInsights);
+        Object.assign(this, youtubeIntegration);
         Object.assign(this, soundtrackPlayer);
+        Object.assign(this, videoPlayer);
         Object.assign(this, updateNotifications);
         Object.assign(this, portableMode);
         Object.assign(this, modManager);
@@ -80,6 +86,8 @@ class CoverFlow {
         // Bind module initialization methods
         this.initializeSessionInsights = sessionInsights.initializeSessionInsights.bind(sessionInsights);
         this.initializeModManager = modManager.initializeModManager.bind(modManager);
+        this.initializeYouTubeAPI = youtubeIntegration.initializeYouTubeAPI.bind(youtubeIntegration);
+        this.initializeVideoPlayer = videoPlayer.initializeVideoPlayer.bind(videoPlayer);
 
         // Bind main class methods that are called from module code
         this.loadGames = this.loadGames.bind(this);
@@ -618,6 +626,9 @@ class CoverFlow {
         }
         if (typeof this.initializeSoundtrackPlayer === 'function') {
             this.initializeSoundtrackPlayer();
+        }
+        if (typeof this.initializeVideoPlayer === 'function') {
+            this.initializeVideoPlayer();
         }
         if (typeof this.initializeUpdateNotifications === 'function') {
             this.initializeUpdateNotifications();
@@ -1509,7 +1520,7 @@ class CoverFlow {
         }
     }
 
-    // Open media file in default Windows app
+    // Open media file - uses built-in player for videos
     openMediaFile(item) {
         let filePath = null;
 
@@ -1529,6 +1540,14 @@ class CoverFlow {
 
         console.log('Opening media file:', item.title, 'at path:', filePath);
 
+        // Use built-in video player for videos
+        if (item.type === 'video' && this._modules && this._modules.videoPlayer) {
+            this._modules.videoPlayer.playLocalVideo(filePath, item.title);
+            this.showToast(`Playing ${item.title}`, 'success');
+            return;
+        }
+
+        // For images and audio, use system default app
         if (this.isElectron) {
             // Use Electron shell API to open in default app
             window.electronAPI.openMediaFile(filePath).then(result => {
@@ -2783,6 +2802,27 @@ class CoverFlow {
                 } else {
                     this.showToast('Please select a game first', 'info');
                 }
+                moreDropdown.style.display = 'none';
+            });
+        }
+
+        const youtubeSoundtrackBtnMenu = document.getElementById('youtube-soundtrack-btn-menu');
+        if (youtubeSoundtrackBtnMenu && typeof this.loadYouTubeSoundtrack === 'function') {
+            youtubeSoundtrackBtnMenu.addEventListener('click', () => {
+                const currentGame = this.filteredAlbums[this.currentIndex];
+                if (currentGame && currentGame.type === 'game') {
+                    this.loadYouTubeSoundtrack(currentGame);
+                } else {
+                    this.showToast('Please select a game first', 'info');
+                }
+                moreDropdown.style.display = 'none';
+            });
+        }
+
+        const videoPlayerBtnMenu = document.getElementById('video-player-btn-menu');
+        if (videoPlayerBtnMenu && this._modules && this._modules.videoPlayer) {
+            videoPlayerBtnMenu.addEventListener('click', () => {
+                this._modules.videoPlayer.showPlayer();
                 moreDropdown.style.display = 'none';
             });
         }
