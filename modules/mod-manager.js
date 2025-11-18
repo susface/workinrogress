@@ -269,6 +269,10 @@ class ModManager {
     showThunderstoreResults(mods) {
         this.showToast(`Found ${mods.length} mods on Thunderstore!`, 'success');
 
+        // Initialize pagination
+        this.currentPage = 1;
+        this.itemsPerPage = 100;
+
         // Create Thunderstore browser modal
         this.createThunderstoreBrowser(mods);
     }
@@ -310,6 +314,9 @@ class ModManager {
                     </div>
                     <div id="thunderstore-mod-list" class="thunderstore-mod-list">
                         ${this.renderThunderstoreMods(mods)}
+                    </div>
+                    <div id="thunderstore-pagination" class="pagination-controls">
+                        <!-- Pagination will be rendered here -->
                     </div>
                 </div>
             </div>
@@ -356,6 +363,9 @@ class ModManager {
         this.thunderstoreMods = mods;
         this.currentTab = 'all';
 
+        // Render pagination controls
+        this.renderPagination(mods);
+
         // Attach install handlers
         this.attachInstallHandlers();
     }
@@ -365,26 +375,38 @@ class ModManager {
      */
     filterByTab(mods, tab) {
         this.currentTab = tab;
-        const cards = document.querySelectorAll('.thunderstore-mod-card');
 
-        cards.forEach(card => {
-            const isModpack = card.dataset.isModpack === 'true';
+        // Filter mods based on tab
+        let filteredMods;
+        switch (tab) {
+            case 'all':
+                filteredMods = mods;
+                break;
+            case 'mods':
+                filteredMods = mods.filter(m => !m.isModpack);
+                break;
+            case 'modpacks':
+                filteredMods = mods.filter(m => m.isModpack);
+                break;
+            default:
+                filteredMods = mods;
+        }
 
-            let show = false;
-            switch (tab) {
-                case 'all':
-                    show = true;
-                    break;
-                case 'mods':
-                    show = !isModpack;
-                    break;
-                case 'modpacks':
-                    show = isModpack;
-                    break;
-            }
+        // Reset to page 1 when changing tabs
+        this.currentPage = 1;
 
-            card.style.display = show ? 'flex' : 'none';
-        });
+        // Store filtered mods
+        this.currentFilteredMods = filteredMods;
+
+        // Re-render list
+        const container = document.getElementById('thunderstore-mod-list');
+        if (container) {
+            container.innerHTML = this.renderThunderstoreMods(filteredMods);
+            this.attachInstallHandlers();
+        }
+
+        // Update pagination
+        this.renderPagination(filteredMods);
     }
 
     /**
@@ -420,7 +442,12 @@ class ModManager {
             return '<div class="empty-state">No mods found for this game</div>';
         }
 
-        return mods.map(mod => `
+        // Calculate pagination
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+        const endIndex = startIndex + this.itemsPerPage;
+        const paginatedMods = mods.slice(startIndex, endIndex);
+
+        return paginatedMods.map(mod => `
             <div class="thunderstore-mod-card" data-mod-name="${mod.name.toLowerCase()}" data-is-modpack="${mod.isModpack}">
                 <div class="mod-icon">
                     ${mod.iconUrl ? `<img src="${mod.iconUrl}" alt="${mod.name}" onerror="this.parentElement.innerHTML='📦'">` : '📦'}
@@ -448,6 +475,102 @@ class ModManager {
                 </div>
             </div>
         `).join('');
+    }
+
+    /**
+     * Render pagination controls
+     */
+    renderPagination(mods) {
+        const totalPages = Math.ceil(mods.length / this.itemsPerPage);
+        const paginationContainer = document.getElementById('thunderstore-pagination');
+
+        if (!paginationContainer || totalPages <= 1) {
+            if (paginationContainer) paginationContainer.style.display = 'none';
+            return;
+        }
+
+        paginationContainer.style.display = 'flex';
+
+        // Calculate page range to display (show 7 page numbers max)
+        let startPage = Math.max(1, this.currentPage - 3);
+        let endPage = Math.min(totalPages, startPage + 6);
+
+        // Adjust if we're near the end
+        if (endPage - startPage < 6) {
+            startPage = Math.max(1, endPage - 6);
+        }
+
+        let paginationHTML = `
+            <div class="pagination-info">
+                Showing ${((this.currentPage - 1) * this.itemsPerPage) + 1}-${Math.min(this.currentPage * this.itemsPerPage, mods.length)} of ${mods.length} mods
+            </div>
+            <div class="pagination-buttons">
+                <button class="page-btn ${this.currentPage === 1 ? 'disabled' : ''}" data-page="1" ${this.currentPage === 1 ? 'disabled' : ''}>
+                    ⏮ First
+                </button>
+                <button class="page-btn ${this.currentPage === 1 ? 'disabled' : ''}" data-page="${this.currentPage - 1}" ${this.currentPage === 1 ? 'disabled' : ''}>
+                    ◀ Prev
+                </button>
+        `;
+
+        // Add page number buttons
+        if (startPage > 1) {
+            paginationHTML += `<span class="page-ellipsis">...</span>`;
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            paginationHTML += `
+                <button class="page-btn page-number ${i === this.currentPage ? 'active' : ''}" data-page="${i}">
+                    ${i}
+                </button>
+            `;
+        }
+
+        if (endPage < totalPages) {
+            paginationHTML += `<span class="page-ellipsis">...</span>`;
+        }
+
+        paginationHTML += `
+                <button class="page-btn ${this.currentPage === totalPages ? 'disabled' : ''}" data-page="${this.currentPage + 1}" ${this.currentPage === totalPages ? 'disabled' : ''}>
+                    Next ▶
+                </button>
+                <button class="page-btn ${this.currentPage === totalPages ? 'disabled' : ''}" data-page="${totalPages}" ${this.currentPage === totalPages ? 'disabled' : ''}>
+                    Last ⏭
+                </button>
+            </div>
+        `;
+
+        paginationContainer.innerHTML = paginationHTML;
+
+        // Attach click handlers to pagination buttons
+        paginationContainer.querySelectorAll('.page-btn:not(.disabled)').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const page = parseInt(e.target.dataset.page);
+                if (page && page !== this.currentPage) {
+                    this.goToPage(page, mods);
+                }
+            });
+        });
+    }
+
+    /**
+     * Go to specific page
+     */
+    goToPage(page, mods) {
+        this.currentPage = page;
+
+        // Re-render mod list
+        const container = document.getElementById('thunderstore-mod-list');
+        if (container) {
+            container.innerHTML = this.renderThunderstoreMods(mods);
+            container.scrollTop = 0; // Scroll to top
+        }
+
+        // Re-render pagination
+        this.renderPagination(mods);
+
+        // Re-attach install handlers
+        this.attachInstallHandlers();
     }
 
     /**
@@ -492,12 +615,21 @@ class ModManager {
                 break;
         }
 
+        // Reset to page 1 when sorting
+        this.currentPage = 1;
+
+        // Update the stored mods array
+        this.thunderstoreMods = sortedMods;
+
         // Re-render the list
         const container = document.getElementById('thunderstore-mod-list');
         if (container) {
             container.innerHTML = this.renderThunderstoreMods(sortedMods);
             this.attachInstallHandlers();
         }
+
+        // Update pagination
+        this.renderPagination(sortedMods);
     }
 
     /**
