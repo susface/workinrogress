@@ -638,8 +638,13 @@ class ModManager {
     attachInstallHandlers() {
         document.querySelectorAll('.install-mod-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                const modData = JSON.parse(e.target.dataset.mod.replace(/&#39;/g, "'"));
-                await this.installThunderstoreMod(modData);
+                try {
+                    const modData = JSON.parse(e.target.dataset.mod.replace(/&#39;/g, "'"));
+                    await this.installThunderstoreMod(modData, e.target);
+                } catch (error) {
+                    console.error('Error parsing mod data:', error);
+                    this.showToast('Failed to install mod: Invalid mod data', 'error');
+                }
             });
         });
     }
@@ -647,10 +652,15 @@ class ModManager {
     /**
      * Install a Thunderstore mod
      */
-    async installThunderstoreMod(modData) {
+    async installThunderstoreMod(modData, buttonElement) {
         if (!this.currentGame || !window.electronAPI) return;
 
-        const btn = event.target;
+        const btn = buttonElement;
+        if (!btn) {
+            console.error('Install button element not found');
+            return;
+        }
+
         btn.disabled = true;
         btn.textContent = 'Installing...';
 

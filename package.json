@@ -70,9 +70,18 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
         }
       ],
-      "icon": "icon.ico"
+      "icon": "icon.ico",
+      "publisherName": "CoverFlow Game Launcher",
+      "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,
@@ -84,7 +93,10 @@
       "include": "build/installer.nsh",
       "installerHeaderIcon": "icon.ico",
       "deleteAppDataOnUninstall": false,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "displayLanguageSelector": false,
+      "installerLanguages": ["en_US"],
+      "license": "LICENSE.txt"
     },
     "mac": {
       "target": [
