@@ -18,7 +18,7 @@ class ScreenshotGallery {
             if (saved) {
                 const data = JSON.parse(saved);
                 Object.entries(data).forEach(([gameId, screenshots]) => {
-                    this.screenshots.set(parseInt(gameId), screenshots);
+                    this.screenshots.set(parseInt(gameId, 10), screenshots);
                 });
                 console.log(`[SCREENSHOTS] Loaded ${this.getTotalCount()} screenshots`);
             }
@@ -461,8 +461,8 @@ class ScreenshotGallery {
 
         // Add click handlers
         container.querySelectorAll('.screenshot-card').forEach(card => {
-            const screenshotId = parseInt(card.getAttribute('data-screenshot-id'));
-            const gameId = parseInt(card.getAttribute('data-game-id'));
+            const screenshotId = parseInt(card.getAttribute('data-screenshot-id'), 10);
+            const gameId = parseInt(card.getAttribute('data-game-id'), 10);
 
             card.addEventListener('click', () => {
                 const screenshot = this.getGameScreenshots(gameId).find(s => s.id === screenshotId);

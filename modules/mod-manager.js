@@ -223,7 +223,7 @@ class ModManager {
         // Add event listeners to checkboxes and buttons
         container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
-                const index = parseInt(e.target.dataset.index);
+                const index = parseInt(e.target.dataset.index, 10);
                 this.mods[index].enabled = e.target.checked;
                 this.updateModItem(index);
             });
@@ -231,21 +231,21 @@ class ModManager {
 
         container.querySelectorAll('.mod-config-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const index = parseInt(e.currentTarget.dataset.index);
+                const index = parseInt(e.currentTarget.dataset.index, 10);
                 this.configureMod(this.mods[index]);
             });
         });
 
         container.querySelectorAll('.mod-info-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const index = parseInt(e.currentTarget.dataset.index);
+                const index = parseInt(e.currentTarget.dataset.index, 10);
                 this.showModInfo(this.mods[index]);
             });
         });
 
         container.querySelectorAll('.mod-delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const index = parseInt(e.currentTarget.dataset.index);
+                const index = parseInt(e.currentTarget.dataset.index, 10);
                 this.deleteMod(this.mods[index], index);
             });
         });

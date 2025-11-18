@@ -213,7 +213,7 @@ class UpdateNotifications {
         // Add click handlers to individual update buttons
         container.querySelectorAll('.update-game-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const index = parseInt(e.target.dataset.index);
+                const index = parseInt(e.target.dataset.index, 10);
                 this.updateGame(this.pendingUpdates[index]);
             });
         });

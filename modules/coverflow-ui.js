@@ -280,7 +280,7 @@ class CoverFlowUI {
             thumb.addEventListener('click', (e) => {
                 // Only navigate if not clicking play button
                 if (!e.target.closest('.thumbnail-play-btn')) {
-                    const targetIndex = parseInt(e.target.dataset.index);
+                    const targetIndex = parseInt(e.target.dataset.index, 10);
                     this.navigateTo(targetIndex);
                 }
             });

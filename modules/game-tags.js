@@ -32,7 +32,7 @@ class GameTags {
                 // Restore gameTags Map
                 if (data.gameTags) {
                     Object.entries(data.gameTags).forEach(([gameId, tags]) => {
-                        this.gameTags.set(parseInt(gameId), new Set(tags || []));
+                        this.gameTags.set(parseInt(gameId, 10), new Set(tags || []));
                     });
                 }
 
