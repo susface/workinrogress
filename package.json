@@ -84,8 +84,7 @@
       "include": "build/installer.nsh",
       "installerHeaderIcon": "icon.ico",
       "deleteAppDataOnUninstall": false,
-      "runAfterFinish": true,
-      "perMachineAccess": false
+      "runAfterFinish": true
     },
     "mac": {
       "target": [
