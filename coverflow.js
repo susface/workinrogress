@@ -34,6 +34,12 @@ class CoverFlow {
         const portableMode = new PortableMode();
         const modManager = new ModManager();
 
+        // Store module instances for direct access
+        this._modules = {
+            sessionInsights,
+            modManager
+        };
+
         // Copy instance properties from modules
         Object.assign(this, coverFlowSettings);
         Object.assign(this, coverFlowTextures);
@@ -70,6 +76,10 @@ class CoverFlow {
         // Bind module methods for dropdown menu items
         this.toggleInsights = sessionInsights.toggleInsights.bind(sessionInsights);
         this.showModManager = modManager.showModManager.bind(modManager);
+
+        // Bind module initialization methods
+        this.initializeSessionInsights = sessionInsights.initializeSessionInsights.bind(sessionInsights);
+        this.initializeModManager = modManager.initializeModManager.bind(modManager);
 
         // Bind main class methods that are called from module code
         this.loadGames = this.loadGames.bind(this);
