@@ -7,6 +7,7 @@ import re
 import json
 import subprocess
 import requests
+import string
 from pathlib import Path
 from typing import List, Dict, Optional
 import platform
@@ -33,6 +34,134 @@ class XboxScanner:
         self.icons_dir = icons_dir
         self.boxart_dir = boxart_dir
         self.is_windows = platform.system() == 'Windows'
+
+    def _get_available_drives(self) -> List[str]:
+        """Get all available drive letters on Windows"""
+        if not self.is_windows:
+            return []
+
+        drives = []
+        for letter in string.ascii_uppercase:
+            drive = f"{letter}:\\"
+            if os.path.exists(drive):
+                drives.append(drive)
+        return drives
+
+    def _scan_xboxgames_directories(self) -> List[Dict]:
+        """Scan XboxGames directories on all drives for installed games"""
+        games = []
+
+        if not self.is_windows:
+            return games
+
+        drives = self._get_available_drives()
+        print(f"Scanning for XboxGames directories on drives: {', '.join(drives)}")
+
+        for drive in drives:
+            xbox_games_path = Path(drive) / "XboxGames"
+
+            if not xbox_games_path.exists():
+                continue
+
+            print(f"  Found XboxGames directory: {xbox_games_path}")
+
+            try:
+                # Each game is in its own subdirectory
+                for game_dir in xbox_games_path.iterdir():
+                    if not game_dir.is_dir():
+                        continue
+
+                    # Look for executable files in the game directory
+                    exe_files = []
+                    try:
+                        # Search recursively for .exe files, up to 3 levels deep
+                        for root, dirs, files in os.walk(game_dir):
+                            # Limit depth to avoid scanning too deep
+                            depth = root[len(str(game_dir)):].count(os.sep)
+                            if depth > 3:
+                                dirs.clear()  # Don't go deeper
+                                continue
+
+                            for file in files:
+                                if file.lower().endswith('.exe'):
+                                    # Filter out gamelaunchhelper.exe
+                                    if file.lower() != 'gamelaunchhelper.exe':
+                                        exe_path = Path(root) / file
+                                        exe_files.append(exe_path)
+                    except PermissionError:
+                        continue
+
+                    # If we found executables, create a game entry
+                    if exe_files:
+                        # Prefer the first non-system executable
+                        main_exe = exe_files[0]
+
+                        # Try to find the most likely game executable
+                        # (prefer files in Content subdirectory or with game name)
+                        for exe in exe_files:
+                            if 'Content' in str(exe) or game_dir.name.lower() in exe.name.lower():
+                                main_exe = exe
+                                break
+
+                        # Use game directory name as title (clean it up)
+                        title = game_dir.name
+                        # Remove version numbers and IDs
+                        title = re.sub(r'_\d+\.\d+\.\d+\.\d+_x64__\w+$', '', title)
+                        title = title.replace('_', ' ')
+
+                        # Look for icon files in the game directory
+                        # Xbox games typically have .ico, splashscreen.png, logo.png files
+                        icon_file = None
+                        logo_file = None
+
+                        try:
+                            for root, dirs, files in os.walk(game_dir):
+                                depth = root[len(str(game_dir)):].count(os.sep)
+                                if depth > 2:  # Don't search too deep for icons
+                                    dirs.clear()
+                                    continue
+
+                                for file in files:
+                                    file_lower = file.lower()
+                                    file_path = Path(root) / file
+
+                                    # Look for .ico files
+                                    if file_lower.endswith('.ico') and not icon_file:
+                                        icon_file = file_path
+
+                                    # Look for PNG logos/splashscreens
+                                    if file_lower.endswith('.png'):
+                                        # Prefer files with "logo", "icon", or "splash" in name
+                                        if any(keyword in file_lower for keyword in ['logo', 'icon', 'splash']):
+                                            # Prefer larger files (often higher quality)
+                                            if not logo_file or file_path.stat().st_size > logo_file.stat().st_size:
+                                                logo_file = file_path
+                        except (PermissionError, OSError):
+                            pass
+
+                        game_info = {
+                            'title': title,
+                            'install_directory': str(game_dir),
+                            'launch_command': str(main_exe),
+                            'exe_path': str(main_exe),
+                            'platform': 'xbox',
+                            'source': 'xboxgames_directory',
+                            'local_icon_file': str(icon_file) if icon_file else None,
+                            'local_logo_file': str(logo_file) if logo_file else None
+                        }
+
+                        games.append(game_info)
+                        print(f"  Found game: {title}")
+                        print(f"    Executable: {main_exe}")
+                        if icon_file:
+                            print(f"    Icon: {icon_file.name}")
+                        if logo_file:
+                            print(f"    Logo: {logo_file.name}")
+
+            except Exception as e:
+                print(f"  Error scanning {xbox_games_path}: {e}")
+
+        return games
 
     def _get_uwp_apps_powershell(self) -> List[Dict]:
         """Get UWP apps using PowerShell (Windows only)"""
@@ -290,6 +419,75 @@ class XboxScanner:
             return []
 
         games = []
+
+        # Scan XboxGames directories on all drives
+        print("\n=== Scanning XboxGames directories ===")
+        xboxgames_games = self._scan_xboxgames_directories()
+
+        # Process games from XboxGames directories
+        for game_info in xboxgames_games:
+            title = game_info.get('title', '')
+            safe_name = re.sub(r'[<>:"/\\|?*]', '_', title)
+            icon_path = None
+            boxart_path = None
+
+            # Try to copy local icon files first (much faster than extraction)
+            local_icon_file = game_info.get('local_icon_file')
+            local_logo_file = game_info.get('local_logo_file')
+
+            # Prefer .ico file for icon
+            if local_icon_file and os.path.exists(local_icon_file):
+                try:
+                    import shutil
+                    icon_filename = f"xbox_{safe_name}_icon{Path(local_icon_file).suffix}"
+                    dest_path = self.icons_dir / icon_filename
+                    shutil.copy2(local_icon_file, dest_path)
+                    icon_path = f"game_data/icons/{icon_filename}"
+                    print(f"  Copied icon: {Path(local_icon_file).name}")
+                except Exception as e:
+                    print(f"  Error copying icon: {e}")
+
+            # Use PNG logo for boxart
+            if local_logo_file and os.path.exists(local_logo_file):
+                try:
+                    import shutil
+                    logo_filename = f"xbox_{safe_name}_boxart{Path(local_logo_file).suffix}"
+                    dest_path = self.boxart_dir / logo_filename
+                    shutil.copy2(local_logo_file, dest_path)
+                    boxart_path = f"game_data/boxart/{logo_filename}"
+                    print(f"  Copied logo: {Path(local_logo_file).name}")
+                except Exception as e:
+                    print(f"  Error copying logo: {e}")
+
+            # Fallback to icon extraction if no local files found
+            if not icon_path and not boxart_path and ICON_EXTRACTOR_AVAILABLE:
+                exe_path = game_info.get('exe_path', '')
+                if exe_path and os.path.exists(exe_path):
+                    print(f"  Extracting icon from executable...")
+                    icon_filename = f"xbox_{safe_name}_icon.png"
+                    icon_dest = self.icons_dir / icon_filename
+
+                    extracted_path = extract_game_icon(exe_path, title, str(icon_dest))
+                    if extracted_path:
+                        icon_path = f"game_data/icons/{icon_filename}"
+                        boxart_path = icon_path
+                        print(f"    [OK] Extracted icon from executable")
+
+            game_info['icon_path'] = icon_path
+            game_info['boxart_path'] = boxart_path
+
+            # Set default values for missing fields
+            game_info.setdefault('publisher', '')
+            game_info.setdefault('developer', '')
+            game_info.setdefault('description', '')
+            game_info.setdefault('genres', [])
+            game_info.setdefault('has_vr_support', 0)
+            game_info.setdefault('package_name', '')
+
+            games.append(game_info)
+
+        # Scan UWP apps via PowerShell
+        print("\n=== Scanning UWP/Microsoft Store apps ===")
         uwp_apps = self._get_uwp_apps_powershell()
 
         for app in uwp_apps:
@@ -312,7 +510,8 @@ class XboxScanner:
                 'launch_command': f"shell:AppsFolder\\{package_name}!App",
                 'publisher': manifest_info.get('publisher', ''),
                 'description': manifest_info.get('description', ''),
-                'has_vr_support': 0  # Xbox doesn't provide VR metadata in their API
+                'has_vr_support': 0,  # Xbox doesn't provide VR metadata in their API
+                'source': 'uwp_store_app'
             }
 
             # Get online metadata
