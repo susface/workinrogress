@@ -214,6 +214,12 @@ class AnalyticsDashboard {
         window.logger?.debug('ANALYTICS', 'Fetching analytics data');
 
         try {
+            // Check if Electron API is available
+            if (!window.electronAPI) {
+                console.warn('Electron API not available, using default data');
+                return this.getDefaultData();
+            }
+
             // Get all games and playtime data
             const games = await window.electronAPI.getGames();
             const recentlyPlayed = await window.electronAPI.getRecentlyPlayed(100);

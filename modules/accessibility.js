@@ -208,7 +208,8 @@ class AccessibilityFeatures {
         const modes = ['none', 'protanopia', 'deuteranopia', 'tritanopia', 'achromatopsia'];
         const currentIndex = modes.indexOf(this.settings.colorblindMode || 'none');
         const nextIndex = (currentIndex + 1) % modes.length;
-        this.settings.colorblindMode = modes[nextIndex];
+        const newMode = modes[nextIndex];
+        this.settings.colorblindMode = newMode;
         this.saveSettings();
 
         // Remove all colorblind classes
@@ -217,16 +218,16 @@ class AccessibilityFeatures {
         });
 
         // Add new class
-        if (this.settings.colorblindMode !== 'none') {
-            document.body.classList.add(`colorblind-${this.settings.colorblindMode}`);
-            this.announce(`Colorblind mode: ${this.settings.colorblindMode}`);
+        if (newMode !== 'none') {
+            document.body.classList.add(`colorblind-${newMode}`);
+            this.announce(`Colorblind mode: ${newMode}`);
         } else {
             this.announce('Colorblind mode disabled');
         }
 
         this.updateToolbar();
 
-        window.logger?.debug('ACCESSIBILITY', 'Colorblind mode:', this.settings.colorblindMode);
+        window.logger?.debug('ACCESSIBILITY', 'Colorblind mode:', newMode);
     }
 
     /**
@@ -364,17 +365,20 @@ class AccessibilityFeatures {
         // Update button states
         const buttons = toolbar.querySelectorAll('.toolbar-btn');
         buttons.forEach(btn => {
-            if (btn.textContent.includes('High Contrast')) {
+            const btnText = btn.textContent || '';
+            if (btnText.includes('High Contrast')) {
                 btn.classList.toggle('active', this.settings.highContrast);
-            } else if (btn.textContent.includes('Large Text')) {
+            } else if (btnText.includes('Large Text')) {
                 btn.classList.toggle('active', this.settings.largeText);
-            } else if (btn.textContent.includes('Colorblind')) {
+            } else if (btnText.includes('Colorblind')) {
                 btn.classList.toggle('active', this.settings.colorblindMode !== 'none');
-                btn.innerHTML = `🎨 Colorblind: ${this.settings.colorblindMode}`;
-            } else if (btn.textContent.includes('Animations')) {
+                // Use textContent to prevent XSS (settings are from localStorage but still safer)
+                const safeMode = String(this.settings.colorblindMode).replace(/[<>&'"]/g, '');
+                btn.textContent = `🎨 Colorblind: ${safeMode}`;
+            } else if (btnText.includes('Animations')) {
                 btn.classList.toggle('active', this.settings.reducedMotion);
-                btn.innerHTML = `🎬 ${this.settings.reducedMotion ? 'Animations Off' : 'Animations On'}`;
-            } else if (btn.textContent.includes('Screen Reader')) {
+                btn.textContent = `🎬 ${this.settings.reducedMotion ? 'Animations Off' : 'Animations On'}`;
+            } else if (btnText.includes('Screen Reader')) {
                 btn.classList.toggle('active', this.settings.screenReader);
             }
         });
