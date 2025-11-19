@@ -71,8 +71,13 @@ class SearchEnhancements {
             return;
         }
 
-        // Get all albums
-        const allAlbums = this.albums || [];
+        // Get all albums - check if they exist
+        if (!this.albums || !Array.isArray(this.albums)) {
+            console.warn('No albums available for search');
+            return;
+        }
+
+        const allAlbums = this.albums;
 
         // Perform fuzzy matching
         const results = allAlbums.filter(album => {
@@ -294,6 +299,12 @@ class SearchEnhancements {
         const modal = document.getElementById('info-modal');
         if (!modal) return;
 
+        // Check if albums exist
+        if (!this.albums || !Array.isArray(this.albums)) {
+            console.warn('No albums available for filtering');
+            return;
+        }
+
         // Get unique platforms and genres
         const platforms = [...new Set(this.albums.map(a => a.platform))];
         const allGenres = new Set();
@@ -419,6 +430,11 @@ class SearchEnhancements {
      * Apply advanced filters
      */
     applyAdvancedFilters() {
+        if (!this.albums || !Array.isArray(this.albums)) {
+            console.warn('No albums available for filtering');
+            return;
+        }
+
         let filtered = [...this.albums];
 
         // Apply platform filters

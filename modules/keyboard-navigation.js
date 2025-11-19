@@ -143,9 +143,8 @@ class KeyboardNavigation {
         if (event.altKey) parts.push('Alt');
         if (event.metaKey) parts.push('Meta');
 
-        // Add the key (convert to lowercase for letters)
-        const key = event.key.length === 1 ? event.key : event.key;
-        parts.push(key);
+        // Add the key
+        parts.push(event.key);
 
         return parts.join('+');
     }
@@ -209,13 +208,21 @@ class KeyboardNavigation {
      * Navigate through games
      */
     navigate(direction) {
+        if (!this.filteredAlbums || this.filteredAlbums.length === 0) {
+            return;
+        }
+
         if (typeof this.navigateCovers === 'function') {
             if (direction === -9999) {
                 this.currentIndex = 0;
-                this.updateCoverflow();
+                if (typeof this.updateCoverflow === 'function') {
+                    this.updateCoverflow();
+                }
             } else if (direction === 9999) {
                 this.currentIndex = this.filteredAlbums.length - 1;
-                this.updateCoverflow();
+                if (typeof this.updateCoverflow === 'function') {
+                    this.updateCoverflow();
+                }
             } else {
                 this.navigateCovers(direction);
             }
@@ -439,15 +446,19 @@ class KeyboardNavigation {
         if (!currentAlbum) return;
 
         try {
-            await window.electronAPI.setRating(currentAlbum.id, rating);
-            currentAlbum.user_rating = rating;
+            if (window.electronAPI && typeof window.electronAPI.setRating === 'function') {
+                await window.electronAPI.setRating(currentAlbum.id, rating);
+                currentAlbum.user_rating = rating;
 
-            // Show toast
-            if (typeof this.showToast === 'function') {
-                this.showToast(`Rated "${currentAlbum.title}" ${rating} star${rating > 1 ? 's' : ''}`, 'success');
+                // Show toast
+                if (typeof this.showToast === 'function') {
+                    this.showToast(`Rated "${currentAlbum.title}" ${rating} star${rating > 1 ? 's' : ''}`, 'success');
+                }
+
+                window.logger?.debug('KEYBOARD', `Rated ${currentAlbum.title} with ${rating} stars`);
+            } else {
+                console.warn('Electron API not available for rating');
             }
-
-            window.logger?.debug('KEYBOARD', `Rated ${currentAlbum.title} with ${rating} stars`);
         } catch (error) {
             console.error('Error setting rating:', error);
         }
@@ -577,14 +588,18 @@ class KeyboardNavigation {
         if (!currentAlbum) return;
 
         try {
-            const result = await window.electronAPI.toggleFavorite(currentAlbum.id);
-            currentAlbum.is_favorite = result ? 1 : 0;
+            if (window.electronAPI && typeof window.electronAPI.toggleFavorite === 'function') {
+                const result = await window.electronAPI.toggleFavorite(currentAlbum.id);
+                currentAlbum.is_favorite = result ? 1 : 0;
 
-            if (typeof this.showToast === 'function') {
-                this.showToast(
-                    result ? `Added "${currentAlbum.title}" to favorites` : `Removed "${currentAlbum.title}" from favorites`,
-                    'success'
-                );
+                if (typeof this.showToast === 'function') {
+                    this.showToast(
+                        result ? `Added "${currentAlbum.title}" to favorites` : `Removed "${currentAlbum.title}" from favorites`,
+                        'success'
+                    );
+                }
+            } else {
+                console.warn('Electron API not available for favorites');
             }
         } catch (error) {
             console.error('Error toggling favorite:', error);
@@ -599,19 +614,23 @@ class KeyboardNavigation {
         if (!currentAlbum) return;
 
         try {
-            const result = await window.electronAPI.toggleHidden(currentAlbum.id);
-            currentAlbum.is_hidden = result ? 1 : 0;
+            if (window.electronAPI && typeof window.electronAPI.toggleHidden === 'function') {
+                const result = await window.electronAPI.toggleHidden(currentAlbum.id);
+                currentAlbum.is_hidden = result ? 1 : 0;
 
-            if (typeof this.showToast === 'function') {
-                this.showToast(
-                    result ? `Hid "${currentAlbum.title}"` : `Unhid "${currentAlbum.title}"`,
-                    'success'
-                );
-            }
+                if (typeof this.showToast === 'function') {
+                    this.showToast(
+                        result ? `Hid "${currentAlbum.title}"` : `Unhid "${currentAlbum.title}"`,
+                        'success'
+                    );
+                }
 
-            // Reload filtered albums
-            if (typeof this.applyFilters === 'function') {
-                this.applyFilters();
+                // Reload filtered albums
+                if (typeof this.applyFilters === 'function') {
+                    this.applyFilters();
+                }
+            } else {
+                console.warn('Electron API not available for hidden status');
             }
         } catch (error) {
             console.error('Error toggling hidden:', error);
