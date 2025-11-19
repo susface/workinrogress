@@ -54,6 +54,7 @@
       "icon.png",
       "icon_512.png",
       "modules/**/*.js",
+      "modules/**/*.css",
       "!modules/**/*.md",
       "gameinfodownload-main/**/*",
       "!gameinfodownload-main/__pycache__",
