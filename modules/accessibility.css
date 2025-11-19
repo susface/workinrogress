@@ -1,0 +1,344 @@
+/**
+ * Accessibility Features Styles
+ */
+
+/* Accessibility Toolbar */
+.accessibility-toolbar {
+    position: fixed;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 9999;
+    transition: all 0.3s ease;
+}
+
+.accessibility-toolbar .toolbar-toggle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
+    border-radius: 8px 0 0 8px;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.accessibility-toolbar .toolbar-toggle:hover {
+    transform: translateX(-5px);
+}
+
+.accessibility-toolbar .toolbar-content {
+    position: absolute;
+    right: 50px;
+    top: 0;
+    background: rgba(20, 20, 30, 0.98);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px 0 0 12px;
+    padding: 20px;
+    min-width: 250px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.accessibility-toolbar.expanded .toolbar-content {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+}
+
+.accessibility-toolbar .toolbar-content h3 {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.toolbar-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toolbar-btn {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.toolbar-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateX(-5px);
+}
+
+.toolbar-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: transparent;
+}
+
+/* High Contrast Mode */
+body.high-contrast {
+    filter: contrast(1.5);
+}
+
+body.high-contrast * {
+    border-color: #fff !important;
+}
+
+body.high-contrast button,
+body.high-contrast a {
+    background: #000 !important;
+    color: #fff !important;
+    border: 2px solid #fff !important;
+}
+
+body.high-contrast button:hover,
+body.high-contrast a:hover {
+    background: #fff !important;
+    color: #000 !important;
+}
+
+/* Large Text Mode */
+body.large-text {
+    font-size: 120%;
+}
+
+body.large-text h1 {
+    font-size: 2.5rem;
+}
+
+body.large-text h2 {
+    font-size: 2rem;
+}
+
+body.large-text h3 {
+    font-size: 1.75rem;
+}
+
+body.large-text p,
+body.large-text span,
+body.large-text button {
+    font-size: 1.1rem;
+}
+
+/* Colorblind Modes */
+/* Protanopia (Red-blind) */
+body.colorblind-protanopia {
+    filter: url(#protanopia);
+}
+
+/* Deuteranopia (Green-blind) */
+body.colorblind-deuteranopia {
+    filter: url(#deuteranopia);
+}
+
+/* Tritanopia (Blue-blind) */
+body.colorblind-tritanopia {
+    filter: url(#tritanopia);
+}
+
+/* Achromatopsia (Total color blindness) */
+body.colorblind-achromatopsia {
+    filter: grayscale(100%);
+}
+
+/* Reduced Motion */
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* Screen Reader Mode */
+body.screen-reader-mode .sr-only {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+}
+
+/* Skip to Content Link */
+.skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #667eea;
+    color: #fff;
+    padding: 12px 24px;
+    text-decoration: none;
+    font-weight: 600;
+    border-radius: 0 0 8px 0;
+    z-index: 100000;
+    transition: top 0.3s ease;
+}
+
+.skip-to-content:focus {
+    top: 0;
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+}
+
+/* Focus Indicators */
+*:focus-visible {
+    outline: 3px solid #667eea !important;
+    outline-offset: 3px !important;
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline: 3px solid #667eea !important;
+    outline-offset: 3px !important;
+}
+
+/* Screen Reader Only Content */
+.sr-only {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+/* ARIA Live Region */
+[role="status"],
+[aria-live] {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+/* Tooltips for Accessibility */
+.a11y-tooltip {
+    position: relative;
+}
+
+.a11y-tooltip::after {
+    content: attr(aria-label);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    z-index: 10000;
+}
+
+.a11y-tooltip:hover::after,
+.a11y-tooltip:focus::after {
+    opacity: 1;
+    visibility: visible;
+    bottom: calc(100% + 8px);
+}
+
+/* High Contrast Focus Indicators */
+body.high-contrast *:focus {
+    outline: 4px solid #ffff00 !important;
+    outline-offset: 4px !important;
+}
+
+/* Colorblind SVG Filters */
+#colorblind-filters {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+/* Keyboard Navigation Focus Ring */
+.keyboard-user *:focus {
+    outline: 3px solid #667eea;
+    outline-offset: 3px;
+}
+
+.mouse-user *:focus {
+    outline: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .accessibility-toolbar .toolbar-content {
+        min-width: 200px;
+        padding: 15px;
+    }
+
+    .toolbar-btn {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .accessibility-toolbar .toolbar-toggle {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+}
+
+/* Prefers Reduced Motion (System Setting) */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Prefers Contrast (System Setting) */
+@media (prefers-contrast: high) {
+    * {
+        border-width: 2px !important;
+    }
+
+    button,
+    a {
+        border: 2px solid currentColor !important;
+    }
+}
+
+/* Print Styles for Accessibility */
+@media print {
+    .accessibility-toolbar,
+    .skip-to-content,
+    #sr-announcer {
+        display: none !important;
+    }
+
+    * {
+        background: #fff !important;
+        color: #000 !important;
+    }
+}
