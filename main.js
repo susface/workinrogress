@@ -464,7 +464,9 @@ ipcMain.handle('get-games', async () => {
                 try {
                     const meta = JSON.parse(game.metadata);
                     Object.assign(parsed, meta);
-                } catch (e) {}
+                } catch (e) {
+                    console.error('Error parsing game metadata:', e.message);
+                }
             }
 
             // Convert relative image paths to absolute paths

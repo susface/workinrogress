@@ -78,16 +78,16 @@ def extract_icon_from_exe(exe_path: str, output_path: str, size: int = 256) -> O
                 for icon in large:
                     try:
                         win32gui.DestroyIcon(icon)
-                    except:
-                        pass  # Handle already destroyed
+                    except Exception as e:
+                        print(f"Warning: Failed to destroy large icon handle: {e}")
             if small:
                 for icon in small:
                     try:
                         win32gui.DestroyIcon(icon)
-                    except:
-                        pass  # Handle already destroyed
-        except:
-            pass  # Cleanup failed, but we already saved the image
+                    except Exception as e:
+                        print(f"Warning: Failed to destroy small icon handle: {e}")
+        except Exception as e:
+            print(f"Warning: Icon cleanup failed (image already saved): {e}")
 
         return output_path
 
