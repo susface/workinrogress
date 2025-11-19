@@ -41,7 +41,12 @@ class YouTubeIntegration {
             };
 
             const firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            if (firstScriptTag && firstScriptTag.parentNode) {
+                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            } else {
+                // Fallback: append to document head
+                document.head.appendChild(tag);
+            }
         });
     }
 
