@@ -129,6 +129,13 @@ class VideoPlayer {
         const youtubeContainer = document.getElementById('youtube-video-container');
         const placeholder = document.querySelector('.video-placeholder');
 
+        // Check if video element exists first
+        if (!videoElement) {
+            window.logger?.error('VIDEO', 'Video element not found');
+            this.showToast('Video player not initialized', 'error');
+            return;
+        }
+
         // Hide YouTube player
         if (this.youtubePlayer) {
             this.youtubePlayer.stopVideo();
@@ -138,22 +145,13 @@ class VideoPlayer {
         }
 
         // Show local video player
-        if (videoElement) {
-            videoElement.style.display = 'block';
-        }
+        videoElement.style.display = 'block';
         if (placeholder) {
             placeholder.style.display = 'none';
         }
 
         // Normalize path for file:// protocol
         const normalizedPath = filePath.replace(/\\/g, '/');
-
-        if (!videoElement) {
-            window.logger?.error('VIDEO', 'Video element not found');
-            this.showToast('Video player not initialized', 'error');
-            return;
-        }
-
         videoElement.src = `file:///${normalizedPath}`;
 
         videoElement.play().catch(error => {

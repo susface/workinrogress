@@ -8,6 +8,7 @@ import json
 import subprocess
 import requests
 import string
+import shutil
 from pathlib import Path
 from typing import List, Dict, Optional
 import platform
@@ -396,7 +397,6 @@ class XboxScanner:
             filename = f"xbox_{safe_name}_icon.png"
             dest_path = self.icons_dir / filename
 
-            import shutil
             shutil.copy2(logo_path, dest_path)
 
             # Return relative path for URL construction
@@ -438,7 +438,6 @@ class XboxScanner:
             # Prefer .ico file for icon
             if local_icon_file and os.path.exists(local_icon_file):
                 try:
-                    import shutil
                     icon_filename = f"xbox_{safe_name}_icon{Path(local_icon_file).suffix}"
                     dest_path = self.icons_dir / icon_filename
                     shutil.copy2(local_icon_file, dest_path)
@@ -450,7 +449,6 @@ class XboxScanner:
             # Use PNG logo for boxart
             if local_logo_file and os.path.exists(local_logo_file):
                 try:
-                    import shutil
                     logo_filename = f"xbox_{safe_name}_boxart{Path(local_logo_file).suffix}"
                     dest_path = self.boxart_dir / logo_filename
                     shutil.copy2(local_logo_file, dest_path)

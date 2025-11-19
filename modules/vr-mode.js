@@ -156,7 +156,7 @@ class VRMode {
      */
     setupVRControllers(scene) {
         // Get controller models
-        const visualEffects = window.coverflow.visualEffects;
+        const visualEffects = window.coverflow && window.coverflow.visualEffects;
         if (!visualEffects || !visualEffects.renderer) return;
 
         const renderer = visualEffects.renderer;
@@ -344,9 +344,18 @@ class VRMode {
             const iframe = document.getElementById('youtube-player-iframe');
             if (iframe) {
                 texture = new THREE.VideoTexture(iframe);
+            } else {
+                window.logger?.error('VR', 'YouTube iframe not found for theater mode');
+                this.showToast('YouTube player not ready', 'error');
+                return;
             }
         } else {
             // Local video element
+            if (!videoElement) {
+                window.logger?.error('VR', 'Video element not found for theater mode');
+                this.showToast('Video element not ready', 'error');
+                return;
+            }
             texture = new THREE.VideoTexture(videoElement);
         }
 
