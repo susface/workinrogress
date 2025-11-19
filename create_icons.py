@@ -29,10 +29,10 @@ def create_app_icon():
         font_size = 300
         try:
             font = ImageFont.truetype("seguiemj.ttf", font_size)  # Windows emoji font
-        except:
+        except (OSError, IOError):
             try:
                 font = ImageFont.truetype("/System/Library/Fonts/Apple Color Emoji.ttc", font_size)  # Mac
-            except:
+            except (OSError, IOError):
                 font = ImageFont.truetype("NotoColorEmoji.ttf", font_size)  # Linux
 
         text = "🎮"
@@ -42,11 +42,12 @@ def create_app_icon():
         x = (size - text_width) // 2 - bbox[0]
         y = (size - text_height) // 2 - bbox[1]
         draw.text((x, y), text, font=font, embedded_color=True)
-    except:
+    except (OSError, IOError, AttributeError) as e:
         # Fallback: draw "CF" text
+        print(f"Warning: Could not load emoji font ({e}), using fallback text")
         try:
             font = ImageFont.truetype("arial.ttf", 200)
-        except:
+        except (OSError, IOError):
             font = ImageFont.load_default()
 
         text = "CF"
@@ -75,10 +76,10 @@ def create_placeholder_image():
         font_size = 200
         try:
             font = ImageFont.truetype("seguiemj.ttf", font_size)
-        except:
+        except (OSError, IOError):
             try:
                 font = ImageFont.truetype("/System/Library/Fonts/Apple Color Emoji.ttc", font_size)
-            except:
+            except (OSError, IOError):
                 font = ImageFont.truetype("NotoColorEmoji.ttf", font_size)
 
         text = "🎮"
@@ -88,11 +89,12 @@ def create_placeholder_image():
         x = (size - text_width) // 2 - bbox[0]
         y = (size - text_height) // 2 - bbox[1]
         draw.text((x, y), text, font=font, embedded_color=True)
-    except:
+    except (OSError, IOError, AttributeError) as e:
         # Fallback
+        print(f"Warning: Could not load emoji font ({e}), using fallback text")
         try:
             font = ImageFont.truetype("arial.ttf", 60)
-        except:
+        except (OSError, IOError):
             font = ImageFont.load_default()
 
         text = "No Cover\nAvailable"
