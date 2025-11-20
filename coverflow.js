@@ -94,6 +94,11 @@ class CoverFlow {
         this.initializeModManager = modManager.initializeModManager.bind(modManager);
         this.initializeYouTubeAPI = youtubeIntegration.initializeYouTubeAPI.bind(youtubeIntegration);
         this.initializeVideoPlayer = videoPlayer.initializeVideoPlayer.bind(videoPlayer);
+        this.initializeSoundtrackPlayer = soundtrackPlayer.initializeSoundtrackPlayer.bind(soundtrackPlayer);
+
+        // Bind soundtrack player methods
+        this.loadGameSoundtrack = soundtrackPlayer.loadGameSoundtrack.bind(soundtrackPlayer);
+        this.loadYouTubeSoundtrack = soundtrackPlayer.loadYouTubeSoundtrack.bind(soundtrackPlayer);
 
         // Bind main class methods that are called from module code
         this.loadGames = this.loadGames.bind(this);
