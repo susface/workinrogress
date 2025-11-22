@@ -47,7 +47,11 @@ class CoverFlowSettings {
             zoomOnSelect: true,
             depthOfField: false,
             dofFocus: 9.0,
-            dofAperture: 0.025
+            dofAperture: 0.025,
+            // Background music
+            backgroundMusicEnabled: true,
+            backgroundMusicVolume: 0.3,
+            backgroundMusicPath: 'Pinolino s Great Grand Adventure in the Tower OST In Da Crib Secret Select World 6_CBR_320k.mp3'
         };
     }
 
@@ -490,8 +494,8 @@ class CoverFlowSettings {
         const resetBgMusicBtn = document.getElementById('reset-bg-music-btn');
         if (resetBgMusicBtn) {
             resetBgMusicBtn.addEventListener('click', () => {
-                if (typeof this.resetToDefault === 'function') {
-                    this.resetToDefault();
+                if (typeof this.resetBackgroundMusicToDefault === 'function') {
+                    this.resetBackgroundMusicToDefault();
                 }
             });
         }

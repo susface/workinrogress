@@ -10,6 +10,8 @@ class BackgroundMusic {
         this.volume = 0.3;
         this.currentTrackPath = null;
         this.defaultTrackPath = 'Pinolino s Great Grand Adventure in the Tower OST In Da Crib Secret Select World 6_CBR_320k.mp3';
+        this.errorHandler = null;
+        this.canPlayHandler = null;
     }
 
     /**
@@ -38,20 +40,27 @@ class BackgroundMusic {
         this.audio.loop = true;
         this.audio.volume = this.volume;
 
-        // Event listeners
-        this.audio.addEventListener('error', (e) => {
+        // Event listeners - store handlers for cleanup
+        this.errorHandler = (e) => {
             console.error('[BACKGROUND_MUSIC] Audio playback error:', e);
-            this.showToast('Failed to load background music', 'error');
-        });
-
-        this.audio.addEventListener('canplay', () => {
+            this.showToastMessage('Failed to load background music', 'error');
+        };
+        this.canPlayHandler = () => {
             console.log('[BACKGROUND_MUSIC] Audio loaded and ready to play');
-        });
+        };
+
+        this.audio.addEventListener('error', this.errorHandler);
+        this.audio.addEventListener('canplay', this.canPlayHandler);
 
         // Auto-start if enabled
         if (this.enabled) {
             this.loadAndPlay();
         }
+
+        // Add cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            this.cleanup();
+        });
 
         console.log('[BACKGROUND_MUSIC] Background music initialized');
     }
@@ -64,14 +73,25 @@ class BackgroundMusic {
 
         try {
             // Convert path to appropriate format
-            if (this.currentTrackPath.startsWith('http')) {
+            if (this.currentTrackPath.startsWith('http') || this.currentTrackPath.startsWith('blob:')) {
+                // URL or blob URL - use as-is
                 this.audio.src = this.currentTrackPath;
-            } else {
-                // For Electron mode, use file:// protocol
-                // For local files in the app directory, use relative path
+            } else if (this.currentTrackPath.startsWith('file://')) {
+                // Already a file:// URL
+                this.audio.src = this.currentTrackPath;
+            } else if (this.currentTrackPath.match(/^[a-zA-Z]:/)) {
+                // Windows absolute path (e.g., C:\path\to\file.mp3)
                 const normalizedPath = this.currentTrackPath.replace(/\\/g, '/');
-                this.audio.src = normalizedPath;
+                this.audio.src = `file:///${normalizedPath}`;
+            } else if (this.currentTrackPath.startsWith('/')) {
+                // Unix/Mac absolute path
+                this.audio.src = `file://${this.currentTrackPath}`;
+            } else {
+                // Relative path - use as-is
+                this.audio.src = this.currentTrackPath;
             }
+
+            console.log('[BACKGROUND_MUSIC] Loading audio from:', this.audio.src);
 
             // Play with user gesture handling
             const playPromise = this.audio.play();
@@ -87,7 +107,7 @@ class BackgroundMusic {
             }
         } catch (error) {
             console.error('[BACKGROUND_MUSIC] Failed to load track:', error);
-            this.showToast('Failed to load background music', 'error');
+            this.showToastMessage('Failed to load background music', 'error');
         }
     }
 
@@ -105,7 +125,7 @@ class BackgroundMusic {
                 })
                 .catch(error => {
                     console.error('[BACKGROUND_MUSIC] Playback failed:', error);
-                    this.showToast('Failed to play background music', 'error');
+                    this.showToastMessage('Failed to play background music', 'error');
                 });
         }
     }
@@ -138,11 +158,12 @@ class BackgroundMusic {
         this.saveSettings();
 
         if (this.enabled) {
-            this.play();
-            this.showToast('Background music enabled', 'success');
+            // Use loadAndPlay to ensure music is loaded and playing
+            this.loadAndPlay();
+            this.showToastMessage('Background music enabled', 'success');
         } else {
             this.pause();
-            this.showToast('Background music disabled', 'info');
+            this.showToastMessage('Background music disabled', 'info');
         }
 
         // Update UI toggle if it exists
@@ -177,15 +198,15 @@ class BackgroundMusic {
                 const result = await window.electronAPI.selectBackgroundMusic();
                 if (result.success && result.filePath) {
                     this.setBackgroundMusicFile(result.filePath);
-                    this.showToast('Background music file loaded', 'success');
+                    this.showToastMessage('Background music file loaded', 'success');
                 } else if (result.canceled) {
                     console.log('[BACKGROUND_MUSIC] File selection canceled');
                 } else {
-                    this.showToast(result.error || 'Failed to select file', 'error');
+                    this.showToastMessage(result.error || 'Failed to select file', 'error');
                 }
             } catch (error) {
                 console.error('[BACKGROUND_MUSIC] Failed to select file:', error);
-                this.showToast('Failed to select background music file', 'error');
+                this.showToastMessage('Failed to select background music file', 'error');
             }
         } else {
             // Fallback for non-Electron mode - use file input
@@ -206,7 +227,7 @@ class BackgroundMusic {
                 // Create object URL for the file
                 const url = URL.createObjectURL(file);
                 this.setBackgroundMusicFile(url);
-                this.showToast('Background music file loaded', 'success');
+                this.showToastMessage('Background music file loaded', 'success');
             }
         };
         input.click();
@@ -234,9 +255,9 @@ class BackgroundMusic {
     /**
      * Reset to default background music
      */
-    resetToDefault() {
+    resetBackgroundMusicToDefault() {
         this.setBackgroundMusicFile(this.defaultTrackPath);
-        this.showToast('Reset to default background music', 'info');
+        this.showToastMessage('Reset to default background music', 'info');
     }
 
     /**
@@ -246,17 +267,31 @@ class BackgroundMusic {
         if (this.audio) {
             this.audio.pause();
             this.audio.src = '';
+            // Remove event listeners
+            if (this.errorHandler) {
+                this.audio.removeEventListener('error', this.errorHandler);
+            }
+            if (this.canPlayHandler) {
+                this.audio.removeEventListener('canplay', this.canPlayHandler);
+            }
             this.audio = null;
         }
+        this.errorHandler = null;
+        this.canPlayHandler = null;
         console.log('[BACKGROUND_MUSIC] Cleaned up');
     }
 
     /**
-     * Show toast notification
+     * Show toast notification (internal method to avoid conflicts)
      */
-    showToast(message, type = 'info') {
-        if (window.coverflow && typeof window.coverflow.showToast === 'function') {
+    showToastMessage(message, type = 'info') {
+        // Use the mixed-in showToast from CoverFlowUIUtils if available
+        if (typeof this.showToast === 'function') {
+            this.showToast(message, type);
+        } else if (window.coverflow && typeof window.coverflow.showToast === 'function') {
             window.coverflow.showToast(message, type);
+        } else {
+            console.log(`[BACKGROUND_MUSIC] ${type.toUpperCase()}: ${message}`);
         }
     }
 }
