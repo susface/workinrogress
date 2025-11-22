@@ -26,6 +26,7 @@ class CoverFlow {
         // Enhancement modules
         const coverFlowEnhancements = new CoverFlowEnhancements();
         const soundEffects = new SoundEffects();
+        const backgroundMusic = new BackgroundMusic();
         const touchGestures = new TouchGestures();
         const platformAnimations = new PlatformAnimations();
         const sessionInsights = new SessionInsights();
@@ -58,6 +59,7 @@ class CoverFlow {
         // Copy enhancement module properties
         Object.assign(this, coverFlowEnhancements);
         Object.assign(this, soundEffects);
+        Object.assign(this, backgroundMusic);
         Object.assign(this, touchGestures);
         Object.assign(this, platformAnimations);
         Object.assign(this, sessionInsights);
@@ -628,6 +630,9 @@ class CoverFlow {
         // Initialize enhancement modules
         if (typeof this.initializeSoundEffects === 'function') {
             this.initializeSoundEffects();
+        }
+        if (typeof this.initializeBackgroundMusic === 'function') {
+            this.initializeBackgroundMusic();
         }
         if (typeof this.initializeTouchGestures === 'function') {
             this.initializeTouchGestures();

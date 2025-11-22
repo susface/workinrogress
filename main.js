@@ -1751,6 +1751,30 @@ ipcMain.handle('select-media-folder', async () => {
     }
 });
 
+// Background music file selection
+ipcMain.handle('select-background-music', async () => {
+    try {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            properties: ['openFile'],
+            title: 'Select Background Music',
+            message: 'Choose an audio file for background music',
+            filters: [
+                { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+
+        if (result.canceled) {
+            return { success: false, canceled: true };
+        }
+
+        return { success: true, filePath: result.filePaths[0] };
+    } catch (error) {
+        console.error('Error selecting background music:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // Scan media folder for images/videos/music
 ipcMain.handle('scan-media-folder', async (event, folderPath) => {
     try {
