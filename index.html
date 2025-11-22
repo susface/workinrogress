@@ -237,6 +237,27 @@
                 </div>
                 <div class="setting-group">
                     <label>
+                        <input type="checkbox" id="background-music-toggle">
+                        Background Music
+                    </label>
+                    <small class="setting-info">Play continuous background music in the launcher</small>
+                </div>
+                <div class="setting-group">
+                    <label>Background Music Volume</label>
+                    <input type="range" id="background-music-volume" min="0" max="100" value="30">
+                    <span id="bg-music-volume-value">30%</span>
+                    <small class="setting-info">Adjust background music volume</small>
+                </div>
+                <div class="setting-group">
+                    <button id="select-bg-music-btn" class="btn">Select Background Music File</button>
+                    <small class="setting-info">Choose a custom audio file for background music</small>
+                </div>
+                <div class="setting-group">
+                    <button id="reset-bg-music-btn" class="btn secondary">Reset to Default Music</button>
+                    <small class="setting-info">Restore the default background music track</small>
+                </div>
+                <div class="setting-group">
+                    <label>
                         <input type="checkbox" id="touch-gestures-toggle">
                         Touch Gestures
                     </label>
@@ -596,6 +617,7 @@
     <!-- Coverflow enhancement modules -->
     <script src="modules/coverflow-enhancements.js"></script>
     <script src="modules/sound-effects.js"></script>
+    <script src="modules/background-music.js"></script>
     <script src="modules/touch-gestures.js"></script>
     <script src="modules/platform-animations.js"></script>
     <script src="modules/session-insights.js"></script>

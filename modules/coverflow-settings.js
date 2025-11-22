@@ -47,7 +47,11 @@ class CoverFlowSettings {
             zoomOnSelect: true,
             depthOfField: false,
             dofFocus: 9.0,
-            dofAperture: 0.025
+            dofAperture: 0.025,
+            // Background music
+            backgroundMusicEnabled: true,
+            backgroundMusicVolume: 0.3,
+            backgroundMusicPath: 'Pinolino s Great Grand Adventure in the Tower OST In Da Crib Secret Select World 6_CBR_320k.mp3'
         };
     }
 
@@ -449,6 +453,50 @@ class CoverFlowSettings {
             soundEffectsToggle.checked = this.settings.soundEffects;
             soundEffectsToggle.addEventListener('change', () => {
                 this.toggleSoundEffects();
+            });
+        }
+
+        // Background music controls
+        const backgroundMusicToggle = document.getElementById('background-music-toggle');
+        if (backgroundMusicToggle) {
+            backgroundMusicToggle.checked = this.settings.backgroundMusicEnabled !== false;
+            backgroundMusicToggle.addEventListener('change', () => {
+                if (typeof this.toggleBackgroundMusic === 'function') {
+                    this.toggleBackgroundMusic();
+                }
+            });
+        }
+
+        const backgroundMusicVolume = document.getElementById('background-music-volume');
+        const bgMusicVolumeValue = document.getElementById('bg-music-volume-value');
+        if (backgroundMusicVolume && bgMusicVolumeValue) {
+            backgroundMusicVolume.value = (this.settings.backgroundMusicVolume || 0.3) * 100;
+            bgMusicVolumeValue.textContent = Math.round((this.settings.backgroundMusicVolume || 0.3) * 100) + '%';
+
+            backgroundMusicVolume.addEventListener('input', (e) => {
+                const volume = parseFloat(e.target.value) / 100;
+                bgMusicVolumeValue.textContent = e.target.value + '%';
+                if (typeof this.setBackgroundMusicVolume === 'function') {
+                    this.setBackgroundMusicVolume(volume);
+                }
+            });
+        }
+
+        const selectBgMusicBtn = document.getElementById('select-bg-music-btn');
+        if (selectBgMusicBtn) {
+            selectBgMusicBtn.addEventListener('click', () => {
+                if (typeof this.loadCustomBackgroundMusic === 'function') {
+                    this.loadCustomBackgroundMusic();
+                }
+            });
+        }
+
+        const resetBgMusicBtn = document.getElementById('reset-bg-music-btn');
+        if (resetBgMusicBtn) {
+            resetBgMusicBtn.addEventListener('click', () => {
+                if (typeof this.resetBackgroundMusicToDefault === 'function') {
+                    this.resetBackgroundMusicToDefault();
+                }
             });
         }
 

@@ -68,6 +68,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getMediaFolders: () => ipcRenderer.invoke('get-media-folders'),
     loadAllMediaFolders: () => ipcRenderer.invoke('load-all-media-folders'),
 
+    // Background music
+    selectBackgroundMusic: () => ipcRenderer.invoke('select-background-music'),
+
     // Platform info
     platform: process.platform,
     isElectron: true,

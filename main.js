@@ -27,6 +27,11 @@ const TASKBAR_PROGRESS = {
 // Windows-specific features flag
 const isWindows = process.platform === 'win32';
 
+// Debug mode flag - check for -debug or --debug command line argument
+// Usage: app.exe -debug (or app.exe --debug)
+// This will open the Developer Tools console for debugging
+const isDebugMode = process.argv.includes('-debug') || process.argv.includes('--debug');
+
 let mainWindow;
 let tray = null;
 let scanningProcess = null;
@@ -296,6 +301,19 @@ function initDatabase() {
 }
 
 function createWindow() {
+    if (isDebugMode) {
+        console.log('='.repeat(60));
+        console.log('[DEBUG] Debug mode ENABLED');
+        console.log('[DEBUG] Command line arguments:', process.argv);
+        console.log('[DEBUG] App path:', app.getAppPath());
+        console.log('[DEBUG] User data path:', app.getPath('userData'));
+        console.log('[DEBUG] Platform:', process.platform);
+        console.log('[DEBUG] Electron version:', process.versions.electron);
+        console.log('[DEBUG] Node version:', process.versions.node);
+        console.log('[DEBUG] Chrome version:', process.versions.chrome);
+        console.log('='.repeat(60));
+    }
+
     mainWindow = new BrowserWindow({
         width: WINDOW_CONFIG.WIDTH,
         height: WINDOW_CONFIG.HEIGHT,
@@ -316,6 +334,12 @@ function createWindow() {
 
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
+
+        // Open DevTools if in debug mode
+        if (isDebugMode) {
+            console.log('[DEBUG] Opening Developer Tools...');
+            mainWindow.webContents.openDevTools();
+        }
     });
 
     // Open DevTools in development
@@ -412,13 +436,29 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
+    if (isDebugMode) {
+        console.log('[DEBUG] App ready - initializing...');
+    }
+
     ensureDirectories();
+
+    if (isDebugMode) {
+        console.log('[DEBUG] Directories ensured');
+    }
+
     createWindow();
     createTray();
+
+    if (isDebugMode) {
+        console.log('[DEBUG] Window and tray created');
+    }
 
     // Initialize process tracker for accurate playtime monitoring
     // Wait a bit for the window to be ready
     setTimeout(() => {
+        if (isDebugMode) {
+            console.log('[DEBUG] Initializing process tracker...');
+        }
         initProcessTracker();
     }, 2000);
 
@@ -1747,6 +1787,30 @@ ipcMain.handle('select-media-folder', async () => {
         return { success: true, folderPath: result.filePaths[0] };
     } catch (error) {
         console.error('Error selecting folder:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Background music file selection
+ipcMain.handle('select-background-music', async () => {
+    try {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            properties: ['openFile'],
+            title: 'Select Background Music',
+            message: 'Choose an audio file for background music',
+            filters: [
+                { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+
+        if (result.canceled) {
+            return { success: false, canceled: true };
+        }
+
+        return { success: true, filePath: result.filePaths[0] };
+    } catch (error) {
+        console.error('Error selecting background music:', error);
         return { success: false, error: error.message };
     }
 });
