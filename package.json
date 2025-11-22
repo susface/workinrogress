@@ -53,6 +53,7 @@
       "placeholder.png",
       "icon.png",
       "icon_512.png",
+      "*.mp3",
       "modules/**/*.js",
       "modules/**/*.css",
       "!modules/**/*.md",

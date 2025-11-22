@@ -364,12 +364,37 @@ Optimizations applied:
 
 ## 🐛 Troubleshooting
 
+### Debug Mode
+
+For troubleshooting issues, you can run the application in debug mode:
+
+**Desktop App (Built .exe):**
+```bash
+# Windows Command Prompt or PowerShell
+"CoverFlow Game Launcher.exe" -debug
+# or
+"CoverFlow Game Launcher.exe" --debug
+```
+
+**During Development:**
+```bash
+npm start -- -debug
+```
+
+**What Debug Mode Does:**
+- Opens Developer Tools console automatically
+- Shows detailed startup information (app paths, versions, platform)
+- Displays all console logs and errors
+- Helps diagnose loading, scanning, and runtime issues
+
+**Note:** You must run the .exe from a command prompt/terminal to see console output. The debug flag will open the Developer Tools within the application window.
+
 ### Games Not Detected
 
 1. Check game is installed and has run at least once
 2. Verify platform is supported
 3. Try manual "Reload Games" button
-4. Check console for errors (F12)
+4. Check console for errors (F12 or use -debug flag)
 
 ### Performance Issues
 
