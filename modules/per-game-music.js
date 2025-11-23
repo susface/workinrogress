@@ -11,6 +11,8 @@ class PerGameMusicManager {
         this.crossfadeDuration = 2000; // 2 seconds
         this.volume = 0.5;
         this.isCrossfading = false;
+        this.ytPlayer = null;
+        this.ytPlayerReady = false;
 
         // Common soundtrack folder patterns
         this.soundtrackPaths = [
@@ -20,6 +22,52 @@ class PerGameMusicManager {
             'OST',
             'bgm'
         ];
+
+        // Initialize YouTube API when ready
+        this.initYouTubeAPI();
+    }
+
+    initYouTubeAPI() {
+        // Check if YouTube IFrame API is loaded
+        if (typeof YT !== 'undefined' && YT.Player) {
+            this.createYouTubePlayer();
+        } else {
+            // Wait for API to load
+            window.onYouTubeIframeAPIReady = () => {
+                this.createYouTubePlayer();
+            };
+        }
+    }
+
+    createYouTubePlayer() {
+        try {
+            // Create a hidden div for the player
+            let playerDiv = document.getElementById('yt-music-player');
+            if (!playerDiv) {
+                playerDiv = document.createElement('div');
+                playerDiv.id = 'yt-music-player';
+                playerDiv.style.display = 'none';
+                document.body.appendChild(playerDiv);
+            }
+
+            this.ytPlayer = new YT.Player('yt-music-player', {
+                height: '0',
+                width: '0',
+                events: {
+                    'onReady': () => {
+                        this.ytPlayerReady = true;
+                        console.log('[PER-GAME-MUSIC] YouTube player ready');
+                    },
+                    'onStateChange': (event) => {
+                        if (event.data === YT.PlayerState.ENDED) {
+                            this.playNextTrack();
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('[PER-GAME-MUSIC] Failed to create YouTube player:', error);
+        }
     }
 
     loadSettings() {
@@ -196,8 +244,11 @@ class PerGameMusicManager {
 
     // Play next track in playlist
     playNextTrack() {
-        const currentGame = window.coverflowManager?.getCurrentGame();
-        if (!currentGame) return;
+        const currentGame = window.coverflow?.getCurrentGame?.() || window.coverflowManager?.getCurrentGame?.();
+        if (!currentGame) {
+            console.warn('[PER-GAME-MUSIC] No current game found for playNextTrack');
+            return;
+        }
 
         const musicData = this.musicLibrary.get(currentGame.id);
         if (!musicData || musicData.files.length === 0) return;
@@ -215,14 +266,107 @@ class PerGameMusicManager {
 
     // YouTube OST integration
     async playYouTubeOST(gameName) {
-        // This would require YouTube API integration
-        // For now, just log the intent
-        console.log(`Would search YouTube for: ${gameName} OST`);
+        if (!this.settings.youtubeIntegration) {
+            console.log('[PER-GAME-MUSIC] YouTube integration disabled');
+            return;
+        }
 
-        // In a full implementation:
-        // 1. Search YouTube for "{gameName} soundtrack" or "{gameName} OST"
-        // 2. Get top results
-        // 3. Use YouTube Player API to play in background
+        if (!this.ytPlayerReady || !this.ytPlayer) {
+            console.warn('[PER-GAME-MUSIC] YouTube player not ready');
+            return;
+        }
+
+        try {
+            // Search for game OST on YouTube
+            const searchQuery = `${gameName} soundtrack OST`;
+            console.log(`[PER-GAME-MUSIC] Searching YouTube for: ${searchQuery}`);
+
+            // Note: Full implementation would use YouTube Data API to search
+            // For now, we'll use a direct video load if we have a videoId
+            // In production, you'd need to:
+            // 1. Make API request to YouTube Data API v3
+            // 2. Search for videos with the query
+            // 3. Get the first result's video ID
+            // 4. Load that video
+
+            // Example video load (you would replace this with actual search results)
+            // this.ytPlayer.loadVideoById('VIDEO_ID_HERE');
+
+            console.log('[PER-GAME-MUSIC] YouTube search requires YouTube Data API key');
+            console.log('[PER-GAME-MUSIC] Add your API key in settings to enable this feature');
+
+        } catch (error) {
+            console.error('[PER-GAME-MUSIC] YouTube playback error:', error);
+        }
+    }
+
+    // Search YouTube for game OST
+    async searchYouTubeForOST(gameName) {
+        // This requires YouTube Data API v3 key
+        const apiKey = this.settings.youtubeAPIKey;
+
+        if (!apiKey) {
+            throw new Error('YouTube API key not configured');
+        }
+
+        const searchQuery = encodeURIComponent(`${gameName} soundtrack OST`);
+        const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&maxResults=1&key=${apiKey}`;
+
+        try {
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+
+            if (data.items && data.items.length > 0) {
+                const videoId = data.items[0].id.videoId;
+                return videoId;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('[PER-GAME-MUSIC] YouTube search error:', error);
+            return null;
+        }
+    }
+
+    // Load and play YouTube video
+    playYouTubeVideo(videoId) {
+        if (!this.ytPlayerReady || !this.ytPlayer) {
+            console.warn('[PER-GAME-MUSIC] YouTube player not ready');
+            return;
+        }
+
+        try {
+            // Stop current local audio
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+                this.currentAudio.src = '';
+                this.currentAudio = null;
+            }
+
+            // Load and play YouTube video
+            this.ytPlayer.loadVideoById({
+                videoId: videoId,
+                startSeconds: 0
+            });
+
+            // Set volume
+            this.ytPlayer.setVolume(this.settings.volume * 100);
+
+            console.log(`[PER-GAME-MUSIC] Playing YouTube video: ${videoId}`);
+        } catch (error) {
+            console.error('[PER-GAME-MUSIC] YouTube playback error:', error);
+        }
+    }
+
+    // Stop YouTube playback
+    stopYouTubePlayback() {
+        if (this.ytPlayer && this.ytPlayerReady) {
+            try {
+                this.ytPlayer.stopVideo();
+            } catch (error) {
+                console.error('[PER-GAME-MUSIC] Failed to stop YouTube:', error);
+            }
+        }
     }
 
     // Stop current music
@@ -232,6 +376,9 @@ class PerGameMusicManager {
             this.currentAudio.src = '';
             this.currentAudio = null;
         }
+
+        // Also stop YouTube if playing
+        this.stopYouTubePlayback();
     }
 
     // Set volume
@@ -253,7 +400,7 @@ class PerGameMusicManager {
 
     // Get current playing info
     getCurrentTrackInfo() {
-        const currentGame = window.coverflowManager?.getCurrentGame();
+        const currentGame = window.coverflow?.getCurrentGame?.() || window.coverflowManager?.getCurrentGame?.();
         if (!currentGame) return null;
 
         const musicData = this.musicLibrary.get(currentGame.id);
@@ -384,7 +531,7 @@ class PerGameMusicManager {
     }
 
     playPreviousTrack() {
-        const currentGame = window.coverflowManager?.getCurrentGame();
+        const currentGame = window.coverflow?.getCurrentGame?.() || window.coverflowManager?.getCurrentGame?.();
         if (!currentGame) return;
 
         const musicData = this.musicLibrary.get(currentGame.id);
@@ -402,27 +549,46 @@ class PerGameMusicManager {
             } else {
                 this.currentAudio.pause();
             }
+        } else if (this.ytPlayer && this.ytPlayerReady) {
+            // Handle YouTube playback
+            const state = this.ytPlayer.getPlayerState();
+            if (state === YT.PlayerState.PLAYING) {
+                this.ytPlayer.pauseVideo();
+            } else if (state === YT.PlayerState.PAUSED) {
+                this.ytPlayer.playVideo();
+            }
         }
     }
 
     updateTrackDisplay(container) {
+        if (!container) return;
+
+        const trackNameElem = container.querySelector('#pgm-track-name');
+        const gameNameElem = container.querySelector('#pgm-game-name');
+        const trackNumberElem = container.querySelector('#pgm-track-number');
+
+        if (!trackNameElem || !gameNameElem || !trackNumberElem) return;
+
         const info = this.getCurrentTrackInfo();
 
         if (info) {
-            container.querySelector('#pgm-track-name').textContent = info.trackName;
-            container.querySelector('#pgm-game-name').textContent = info.gameName;
-            container.querySelector('#pgm-track-number').textContent = `${info.trackNumber} / ${info.totalTracks}`;
+            trackNameElem.textContent = info.trackName;
+            gameNameElem.textContent = info.gameName;
+            trackNumberElem.textContent = `${info.trackNumber} / ${info.totalTracks}`;
         } else {
-            container.querySelector('#pgm-track-name').textContent = 'None';
-            container.querySelector('#pgm-game-name').textContent = '-';
-            container.querySelector('#pgm-track-number').textContent = '-';
+            trackNameElem.textContent = 'None';
+            gameNameElem.textContent = '-';
+            trackNumberElem.textContent = '-';
         }
     }
 
     async scanAllGames() {
-        if (!window.coverflowManager) return;
+        const games = window.coverflow?.games || window.coverflowManager?.games || [];
+        if (games.length === 0) {
+            alert('No games found to scan.');
+            return;
+        }
 
-        const games = window.coverflowManager.games || [];
         let foundCount = 0;
 
         for (const game of games) {
