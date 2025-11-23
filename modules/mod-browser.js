@@ -7,6 +7,7 @@ class ModBrowserManager {
         this.installedMods = this.loadInstalledMods();
         this.modProfiles = this.loadModProfiles();
         this.apiKeys = this.loadAPIKeys();
+        this.activeModal = null; // Track active modal for cleanup
     }
 
     loadInstalledMods() {
@@ -69,9 +70,15 @@ class ModBrowserManager {
     }
 
     showModBrowserModal() {
+        // Close existing modal if any
+        if (this.activeModal) {
+            this.closeModBrowser();
+        }
+
         const modal = document.createElement('div');
         modal.id = 'mod-browser-modal';
         modal.className = 'modal-overlay';
+        this.activeModal = modal;
         modal.style.cssText = `
             position: fixed;
             top: 0;
@@ -127,7 +134,7 @@ class ModBrowserManager {
 
         // Setup event listeners
         modal.querySelector('#close-mod-browser').addEventListener('click', () => {
-            modal.remove();
+            this.closeModBrowser();
         });
 
         // Tab switching
@@ -623,6 +630,25 @@ class ModBrowserManager {
             return (num / 1000).toFixed(1) + 'K';
         }
         return num.toString();
+    }
+
+    // Close mod browser
+    closeModBrowser() {
+        if (this.activeModal) {
+            this.activeModal.remove();
+            this.activeModal = null;
+        }
+    }
+
+    // Cleanup method to prevent memory leaks
+    destroy() {
+        console.log('[MOD-BROWSER] Destroying mod browser...');
+
+        // Close any open modal
+        this.closeModBrowser();
+
+        // Clear current game reference
+        this.currentGame = null;
     }
 }
 

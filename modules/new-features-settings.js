@@ -587,6 +587,40 @@ class NewFeaturesSettings {
         };
         return names[featureKey] || featureKey;
     }
+
+    // Cleanup method to prevent memory leaks
+    destroy() {
+        console.log('[NEW-FEATURES] Destroying new features settings...');
+
+        // Destroy all feature managers
+        if (window.perGameMusicManager && typeof window.perGameMusicManager.destroy === 'function') {
+            window.perGameMusicManager.destroy();
+        }
+
+        if (window.gamingHeatmapManager && typeof window.gamingHeatmapManager.destroy === 'function') {
+            window.gamingHeatmapManager.destroy();
+        }
+
+        if (window.dynamicBackgroundManager && typeof window.dynamicBackgroundManager.destroy === 'function') {
+            window.dynamicBackgroundManager.destroy();
+        }
+
+        if (window.coverArtEditor && typeof window.coverArtEditor.destroy === 'function') {
+            window.coverArtEditor.destroy();
+        }
+
+        if (window.modBrowserManager && typeof window.modBrowserManager.destroy === 'function') {
+            window.modBrowserManager.destroy();
+        }
+
+        // Remove menu button
+        const menuButton = document.getElementById('new-features-btn-menu');
+        if (menuButton && menuButton.parentNode) {
+            menuButton.parentNode.removeChild(menuButton);
+        }
+
+        this.initialized = false;
+    }
 }
 
 // Initialize on load
@@ -605,4 +639,11 @@ if (typeof window !== 'undefined') {
             window.newFeaturesSettings.init();
         }, 1500);
     }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (window.newFeaturesSettings) {
+            window.newFeaturesSettings.destroy();
+        }
+    });
 }

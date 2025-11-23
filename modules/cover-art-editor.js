@@ -8,8 +8,10 @@ class CoverArtEditor {
         this.currentGame = null;
         this.history = [];
         this.historyIndex = -1;
+        this.MAX_HISTORY_SIZE = 20; // Limit undo history
         this.templates = this.loadTemplates();
         this.customCovers = this.loadCustomCovers();
+        this.activeModal = null; // Track active modal for cleanup
     }
 
     loadTemplates() {
@@ -83,10 +85,16 @@ class CoverArtEditor {
     }
 
     showEditorModal() {
+        // Close existing modal if any
+        if (this.activeModal) {
+            this.closeEditor();
+        }
+
         // Create modal
         const modal = document.createElement('div');
         modal.id = 'cover-art-editor-modal';
         modal.className = 'modal-overlay';
+        this.activeModal = modal;
         modal.style.cssText = `
             position: fixed;
             top: 0;
@@ -250,7 +258,7 @@ class CoverArtEditor {
     setupEventListeners(modal) {
         // Close button
         modal.querySelector('#close-editor').addEventListener('click', () => {
-            modal.remove();
+            this.closeEditor();
         });
 
         // Template selection
@@ -353,7 +361,7 @@ class CoverArtEditor {
 
     render() {
         const modal = document.getElementById('cover-art-editor-modal');
-        if (!modal) return;
+        if (!modal || !this.ctx || !this.canvas) return;
 
         const ctx = this.ctx;
         const width = this.canvas.width;
@@ -394,12 +402,13 @@ class CoverArtEditor {
             }
         }
 
-        // Effects - Grain
+        // Effects - Grain (optimized - skip pixels for performance)
         if (modal.querySelector('#effect-grain').checked) {
             const imageData = ctx.getImageData(0, 0, width, height);
             const data = imageData.data;
 
-            for (let i = 0; i < data.length; i += 4) {
+            // Apply grain to every 4th pixel for better performance
+            for (let i = 0; i < data.length; i += 16) {
                 const noise = (Math.random() - 0.5) * 30;
                 data[i] += noise;
                 data[i + 1] += noise;
@@ -496,16 +505,22 @@ class CoverArtEditor {
     }
 
     saveState() {
-        // Save current canvas state for undo/redo
-        const dataUrl = this.canvas.toDataURL();
-        this.history = this.history.slice(0, this.historyIndex + 1);
-        this.history.push(dataUrl);
-        this.historyIndex++;
+        if (!this.canvas) return;
 
-        // Limit history size
-        if (this.history.length > 20) {
-            this.history.shift();
-            this.historyIndex--;
+        try {
+            // Save current canvas state for undo/redo
+            const dataUrl = this.canvas.toDataURL();
+            this.history = this.history.slice(0, this.historyIndex + 1);
+            this.history.push(dataUrl);
+            this.historyIndex++;
+
+            // Limit history size to prevent memory bloat
+            if (this.history.length > this.MAX_HISTORY_SIZE) {
+                this.history.shift();
+                this.historyIndex--;
+            }
+        } catch (error) {
+            console.error('[COVER-EDITOR] Failed to save state:', error);
         }
     }
 
@@ -540,6 +555,37 @@ class CoverArtEditor {
     // Check if game has custom cover
     hasCustomCover(gameId) {
         return !!this.customCovers[gameId];
+    }
+
+    // Close editor and cleanup
+    closeEditor() {
+        if (this.activeModal) {
+            this.activeModal.remove();
+            this.activeModal = null;
+        }
+
+        // Clear canvas to free memory
+        if (this.canvas) {
+            this.canvas.width = 0;
+            this.canvas.height = 0;
+            this.canvas = null;
+            this.ctx = null;
+        }
+    }
+
+    // Cleanup method to prevent memory leaks
+    destroy() {
+        console.log('[COVER-EDITOR] Destroying cover art editor...');
+
+        // Close any open modal
+        this.closeEditor();
+
+        // Clear history
+        this.history = [];
+        this.historyIndex = -1;
+
+        // Clear custom covers from memory (but keep in localStorage)
+        this.customCovers = {};
     }
 }
 
