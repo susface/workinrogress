@@ -385,6 +385,10 @@ class GamingHeatmapManager {
 
     getGameName(gameId) {
         // Try to get game name from coverflow manager
+        if (window.coverflow) {
+            const game = window.coverflow.games?.find(g => g.id === gameId);
+            if (game) return game.name;
+        }
         if (window.coverflowManager) {
             const game = window.coverflowManager.games?.find(g => g.id === gameId);
             if (game) return game.name;
@@ -393,7 +397,11 @@ class GamingHeatmapManager {
     }
 
     updateLegend(container) {
+        if (!container) return;
+
         const legend = container.querySelector('.heatmap-legend');
+        if (!legend) return;
+
         legend.innerHTML = `
             <span>Less</span>
             ${this.colorSchemes[this.currentColorScheme].map(color =>

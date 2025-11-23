@@ -87,10 +87,11 @@ class NewFeaturesSettings {
             console.log('[NEW-FEATURES] Dynamic background enabled');
 
             // Hook into coverflow game selection change
-            if (window.coverflow) {
-                const originalUpdateInfo = window.coverflow.updateInfo;
+            const coverflowObj = window.coverflow || window.coverflowManager;
+            if (coverflowObj) {
+                const originalUpdateInfo = coverflowObj.updateInfo;
                 if (originalUpdateInfo) {
-                    window.coverflow.updateInfo = function() {
+                    coverflowObj.updateInfo = function() {
                         originalUpdateInfo.call(this);
 
                         // Apply dynamic background when game changes
@@ -271,21 +272,27 @@ class NewFeaturesSettings {
         });
 
         modal.querySelector('#open-cover-editor')?.addEventListener('click', () => {
-            if (window.coverArtEditor && window.coverflow) {
-                const currentGame = window.coverflow.getCurrentGame?.();
+            if (window.coverArtEditor) {
+                const coverflowObj = window.coverflow || window.coverflowManager;
+                const currentGame = coverflowObj?.getCurrentGame?.();
                 if (currentGame) {
                     modal.remove();
                     window.coverArtEditor.openEditor(currentGame);
+                } else {
+                    alert('Please select a game first.');
                 }
             }
         });
 
         modal.querySelector('#open-mod-browser')?.addEventListener('click', () => {
-            if (window.modBrowserManager && window.coverflow) {
-                const currentGame = window.coverflow.getCurrentGame?.();
+            if (window.modBrowserManager) {
+                const coverflowObj = window.coverflow || window.coverflowManager;
+                const currentGame = coverflowObj?.getCurrentGame?.();
                 if (currentGame) {
                     modal.remove();
                     window.modBrowserManager.openModBrowser(currentGame);
+                } else {
+                    alert('Please select a game first.');
                 }
             }
         });
@@ -426,8 +433,9 @@ class NewFeaturesSettings {
                 break;
 
             case 'coverArtEditor':
-                if (window.coverArtEditor && window.coverflow) {
-                    const currentGame = window.coverflow.getCurrentGame?.();
+                if (window.coverArtEditor) {
+                    const coverflowObj = window.coverflow || window.coverflowManager;
+                    const currentGame = coverflowObj?.getCurrentGame?.();
                     if (currentGame) {
                         window.coverArtEditor.openEditor(currentGame);
                     } else {
@@ -437,8 +445,9 @@ class NewFeaturesSettings {
                 break;
 
             case 'modBrowser':
-                if (window.modBrowserManager && window.coverflow) {
-                    const currentGame = window.coverflow.getCurrentGame?.();
+                if (window.modBrowserManager) {
+                    const coverflowObj = window.coverflow || window.coverflowManager;
+                    const currentGame = coverflowObj?.getCurrentGame?.();
                     if (currentGame) {
                         window.modBrowserManager.openModBrowser(currentGame);
                     } else {

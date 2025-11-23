@@ -478,7 +478,10 @@ class CoverArtEditor {
         alert('Cover art saved! The custom cover will be used in the launcher.');
 
         // Update the game's image if possible
-        if (window.coverflowManager) {
+        if (window.coverflow && window.coverflow.updateGame) {
+            this.currentGame.image = dataUrl;
+            window.coverflow.updateGame(this.currentGame);
+        } else if (window.coverflowManager && window.coverflowManager.updateGame) {
             this.currentGame.image = dataUrl;
             window.coverflowManager.updateGame(this.currentGame);
         }
