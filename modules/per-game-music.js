@@ -13,6 +13,10 @@ class PerGameMusicManager {
         this.isCrossfading = false;
         this.ytPlayer = null;
         this.ytPlayerReady = false;
+        this.spotifyPlayer = null;
+        this.spotifyReady = false;
+        this.spotifyDeviceId = null;
+        this.spotifyAccessToken = null;
 
         // Common soundtrack folder patterns
         this.soundtrackPaths = [
@@ -25,6 +29,9 @@ class PerGameMusicManager {
 
         // Initialize YouTube API when ready
         this.initYouTubeAPI();
+
+        // Initialize Spotify Web Playback SDK
+        this.initSpotifySDK();
     }
 
     initYouTubeAPI() {
@@ -369,6 +376,200 @@ class PerGameMusicManager {
         }
     }
 
+    // Initialize Spotify Web Playback SDK
+    initSpotifySDK() {
+        window.onSpotifyWebPlaybackSDKReady = () => {
+            console.log('[PER-GAME-MUSIC] Spotify SDK loaded');
+        };
+
+        // Check if SDK is already loaded
+        if (typeof Spotify !== 'undefined') {
+            console.log('[PER-GAME-MUSIC] Spotify SDK already available');
+        }
+    }
+
+    // Initialize Spotify Player with access token
+    async initializeSpotifyPlayer(accessToken) {
+        if (!accessToken) {
+            console.error('[PER-GAME-MUSIC] No Spotify access token provided');
+            return false;
+        }
+
+        this.spotifyAccessToken = accessToken;
+
+        if (typeof Spotify === 'undefined' || !Spotify.Player) {
+            console.error('[PER-GAME-MUSIC] Spotify SDK not loaded');
+            return false;
+        }
+
+        try {
+            this.spotifyPlayer = new Spotify.Player({
+                name: 'CoverFlow Game Launcher',
+                getOAuthToken: cb => { cb(accessToken); },
+                volume: this.settings.volume
+            });
+
+            // Error handling
+            this.spotifyPlayer.addListener('initialization_error', ({ message }) => {
+                console.error('[PER-GAME-MUSIC] Spotify init error:', message);
+            });
+
+            this.spotifyPlayer.addListener('authentication_error', ({ message }) => {
+                console.error('[PER-GAME-MUSIC] Spotify auth error:', message);
+                this.spotifyReady = false;
+            });
+
+            this.spotifyPlayer.addListener('account_error', ({ message }) => {
+                console.error('[PER-GAME-MUSIC] Spotify account error:', message);
+            });
+
+            this.spotifyPlayer.addListener('playback_error', ({ message }) => {
+                console.error('[PER-GAME-MUSIC] Spotify playback error:', message);
+            });
+
+            // Playback status updates
+            this.spotifyPlayer.addListener('player_state_changed', state => {
+                if (!state) return;
+
+                console.log('[PER-GAME-MUSIC] Spotify state:', state);
+
+                // Check if track ended
+                if (state.paused && state.position === 0 && state.duration > 0) {
+                    this.playNextTrack();
+                }
+            });
+
+            // Ready
+            this.spotifyPlayer.addListener('ready', ({ device_id }) => {
+                console.log('[PER-GAME-MUSIC] Spotify player ready! Device ID:', device_id);
+                this.spotifyDeviceId = device_id;
+                this.spotifyReady = true;
+            });
+
+            // Not Ready
+            this.spotifyPlayer.addListener('not_ready', ({ device_id }) => {
+                console.log('[PER-GAME-MUSIC] Spotify device has gone offline:', device_id);
+                this.spotifyReady = false;
+            });
+
+            // Connect to the player
+            const connected = await this.spotifyPlayer.connect();
+
+            if (connected) {
+                console.log('[PER-GAME-MUSIC] Spotify connected successfully');
+                return true;
+            } else {
+                console.error('[PER-GAME-MUSIC] Spotify connection failed');
+                return false;
+            }
+        } catch (error) {
+            console.error('[PER-GAME-MUSIC] Failed to initialize Spotify player:', error);
+            return false;
+        }
+    }
+
+    // Search Spotify for game OST
+    async searchSpotifyForOST(gameName) {
+        if (!this.spotifyAccessToken) {
+            console.error('[PER-GAME-MUSIC] No Spotify access token');
+            return null;
+        }
+
+        const searchQuery = encodeURIComponent(`${gameName} soundtrack`);
+        const apiUrl = `https://api.spotify.com/v1/search?q=${searchQuery}&type=track,album&limit=5`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                headers: {
+                    'Authorization': `Bearer ${this.spotifyAccessToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Spotify API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Return tracks or albums
+            if (data.tracks && data.tracks.items.length > 0) {
+                return data.tracks.items;
+            } else if (data.albums && data.albums.items.length > 0) {
+                return data.albums.items;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('[PER-GAME-MUSIC] Spotify search error:', error);
+            return null;
+        }
+    }
+
+    // Play track on Spotify
+    async playSpotifyTrack(trackUri) {
+        if (!this.spotifyReady || !this.spotifyDeviceId) {
+            console.warn('[PER-GAME-MUSIC] Spotify player not ready');
+            return false;
+        }
+
+        try {
+            // Stop local audio
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+                this.currentAudio.src = '';
+                this.currentAudio = null;
+            }
+
+            // Stop YouTube
+            this.stopYouTubePlayback();
+
+            // Play on Spotify
+            const playUrl = `https://api.spotify.com/v1/me/player/play?device_id=${this.spotifyDeviceId}`;
+
+            const response = await fetch(playUrl, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${this.spotifyAccessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    uris: [trackUri]
+                })
+            });
+
+            if (response.ok || response.status === 204) {
+                console.log('[PER-GAME-MUSIC] Playing Spotify track:', trackUri);
+                return true;
+            } else {
+                console.error('[PER-GAME-MUSIC] Spotify play failed:', response.status);
+                return false;
+            }
+        } catch (error) {
+            console.error('[PER-GAME-MUSIC] Failed to play Spotify track:', error);
+            return false;
+        }
+    }
+
+    // Stop Spotify playback
+    stopSpotifyPlayback() {
+        if (this.spotifyPlayer && this.spotifyReady) {
+            try {
+                this.spotifyPlayer.pause();
+            } catch (error) {
+                console.error('[PER-GAME-MUSIC] Failed to stop Spotify:', error);
+            }
+        }
+    }
+
+    // Get Spotify OAuth URL for user authentication
+    getSpotifyAuthURL() {
+        const clientId = this.settings.spotifyClientId || '';
+        const redirectUri = encodeURIComponent(window.location.origin + '/spotify-callback');
+        const scopes = encodeURIComponent('streaming user-read-email user-read-private user-modify-playback-state');
+
+        return `https://accounts.spotify.com/authorize?response_type=token&client_id=${clientId}&scope=${scopes}&redirect_uri=${redirectUri}`;
+    }
+
     // Stop current music
     stop() {
         if (this.currentAudio) {
@@ -379,6 +580,9 @@ class PerGameMusicManager {
 
         // Also stop YouTube if playing
         this.stopYouTubePlayback();
+
+        // Also stop Spotify if playing
+        this.stopSpotifyPlayback();
     }
 
     // Set volume
