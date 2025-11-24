@@ -7,6 +7,8 @@ class DynamicBackgroundManager {
         this.currentBackground = null;
         this.colorCache = new Map(); // gameId -> colors
         this.transitionDuration = 1000; // 1 second
+        this.MAX_CACHE_SIZE = 50; // Limit cache to 50 games
+        this.pendingExtractions = new Map(); // Prevent duplicate extractions
     }
 
     loadSettings() {
@@ -37,48 +39,76 @@ class DynamicBackgroundManager {
         }
     }
 
-    // Extract dominant colors from image
+    // Extract dominant colors from image with deduplication
     async extractColors(imageUrl, numColors = 5) {
-        return new Promise((resolve, reject) => {
+        // Check if already extracting this image
+        if (this.pendingExtractions.has(imageUrl)) {
+            return this.pendingExtractions.get(imageUrl);
+        }
+
+        const extractionPromise = new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'Anonymous';
 
+            // Add timeout to prevent hanging
+            const timeout = setTimeout(() => {
+                reject(new Error('Color extraction timeout'));
+            }, 5000);
+
             img.onload = () => {
+                clearTimeout(timeout);
                 try {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
 
-                    // Resize for faster processing
-                    const maxSize = 200;
+                    // Resize for faster processing - smaller is faster
+                    const maxSize = 100; // Reduced from 200 for better performance
                     const scale = Math.min(maxSize / img.width, maxSize / img.height);
-                    canvas.width = img.width * scale;
-                    canvas.height = img.height * scale;
+                    canvas.width = Math.floor(img.width * scale);
+                    canvas.height = Math.floor(img.height * scale);
 
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
                     const colors = this.quantizeColors(imageData, numColors);
+
+                    // Cleanup canvas to free memory
+                    canvas.width = 0;
+                    canvas.height = 0;
+
                     resolve(colors);
                 } catch (error) {
                     reject(error);
+                } finally {
+                    this.pendingExtractions.delete(imageUrl);
                 }
             };
 
-            img.onerror = reject;
+            img.onerror = () => {
+                clearTimeout(timeout);
+                this.pendingExtractions.delete(imageUrl);
+                reject(new Error('Failed to load image'));
+            };
+
             img.src = imageUrl;
         });
+
+        this.pendingExtractions.set(imageUrl, extractionPromise);
+        return extractionPromise;
     }
 
-    // Simple color quantization using median cut algorithm
+    // Simple color quantization using median cut algorithm - optimized
     quantizeColors(imageData, numColors) {
         const pixels = [];
+        const data = imageData.data;
+        const length = data.length;
 
-        // Sample pixels (skip some for performance)
-        for (let i = 0; i < imageData.data.length; i += 4 * 5) {
-            const r = imageData.data[i];
-            const g = imageData.data[i + 1];
-            const b = imageData.data[i + 2];
-            const a = imageData.data[i + 3];
+        // Sample pixels (skip more for better performance)
+        for (let i = 0; i < length; i += 4 * 10) { // Increased skip from 5 to 10
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
 
             // Skip transparent and very dark pixels
             if (a > 125 && (r + g + b) > 30) {
@@ -87,13 +117,25 @@ class DynamicBackgroundManager {
         }
 
         if (pixels.length === 0) {
-            return ['#000000'];
+            return ['#1a1a2e', '#16213e', '#0f3460']; // Default fallback
+        }
+
+        // Limit pixel count for performance
+        if (pixels.length > 1000) {
+            const step = Math.floor(pixels.length / 1000);
+            const sampledPixels = [];
+            for (let i = 0; i < pixels.length; i += step) {
+                sampledPixels.push(pixels[i]);
+            }
+            pixels.length = 0; // Clear original array
+            pixels.push(...sampledPixels);
         }
 
         // Simple color clustering
         const buckets = this.medianCut(pixels, numColors);
 
         return buckets.map(bucket => {
+            if (!bucket || bucket.length === 0) return '#1a1a2e';
             const avg = this.averageColor(bucket);
             return this.rgbToHex(avg[0], avg[1], avg[2]);
         });
@@ -151,9 +193,16 @@ class DynamicBackgroundManager {
         if (!colors && game.image) {
             try {
                 colors = await this.extractColors(game.image);
+
+                // Enforce cache size limit (LRU-style)
+                if (this.colorCache.size >= this.MAX_CACHE_SIZE) {
+                    const firstKey = this.colorCache.keys().next().value;
+                    this.colorCache.delete(firstKey);
+                }
+
                 this.colorCache.set(game.id, colors);
             } catch (error) {
-                console.error('Failed to extract colors:', error);
+                console.error('[DYNAMIC-BG] Failed to extract colors:', error);
                 colors = ['#1a1a2e', '#16213e', '#0f3460'];
             }
         }
@@ -243,8 +292,14 @@ class DynamicBackgroundManager {
         const bg = this.getOrCreateBackground();
         bg.innerHTML = ''; // Clear previous particles
 
+        // Use DocumentFragment for better performance
+        const fragment = document.createDocumentFragment();
+
+        // Limit particle count for performance
+        const particleCount = Math.min(this.settings.particleCount, 100);
+
         // Create particle system
-        for (let i = 0; i < this.settings.particleCount; i++) {
+        for (let i = 0; i < particleCount; i++) {
             const particle = document.createElement('div');
             particle.className = 'bg-particle';
             particle.style.cssText = `
@@ -258,9 +313,12 @@ class DynamicBackgroundManager {
                 opacity: ${Math.random() * 0.5 + 0.2};
                 animation: float ${Math.random() * 10 + 10}s infinite ease-in-out;
                 animation-delay: ${Math.random() * 5}s;
+                will-change: transform;
             `;
-            bg.appendChild(particle);
+            fragment.appendChild(particle);
         }
+
+        bg.appendChild(fragment);
 
         // Add animation
         if (!document.getElementById('particle-float-style')) {
@@ -506,6 +564,35 @@ class DynamicBackgroundManager {
 
         preview.style.opacity = this.settings.intensity;
         preview.style.filter = `blur(${Math.min(this.settings.blur, 10)}px)`;
+    }
+
+    // Cleanup method to prevent memory leaks
+    destroy() {
+        console.log('[DYNAMIC-BG] Destroying background manager...');
+
+        // Clear the background
+        this.clear();
+
+        // Clear all caches
+        this.colorCache.clear();
+        this.pendingExtractions.clear();
+
+        // Remove background element
+        const bg = document.getElementById('dynamic-background');
+        if (bg && bg.parentNode) {
+            bg.parentNode.removeChild(bg);
+        }
+
+        // Remove animation styles
+        const particleStyle = document.getElementById('particle-float-style');
+        if (particleStyle && particleStyle.parentNode) {
+            particleStyle.parentNode.removeChild(particleStyle);
+        }
+
+        const gradientStyle = document.getElementById('gradient-animation-style');
+        if (gradientStyle && gradientStyle.parentNode) {
+            gradientStyle.parentNode.removeChild(gradientStyle);
+        }
     }
 }
 

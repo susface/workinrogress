@@ -12,6 +12,9 @@ class GamingHeatmapManager {
             red: ['#ffebee', '#ef9a9a', '#e57373', '#ef5350', '#f44336']
         };
         this.currentColorScheme = 'github';
+        this.heatmapCache = null; // Cache generated heatmap data
+        this.lastCacheDate = null;
+        this.MAX_ACTIVITY_DAYS = 730; // Limit to 2 years of data
     }
 
     loadActivityData() {
@@ -26,9 +29,41 @@ class GamingHeatmapManager {
 
     saveActivityData() {
         try {
+            // Prune old data before saving to prevent unlimited growth
+            this.pruneOldActivity();
             localStorage.setItem('gaming-activity-data', JSON.stringify(this.activityData));
         } catch (error) {
-            console.error('Failed to save activity data:', error);
+            console.error('[HEATMAP] Failed to save activity data:', error);
+            // If localStorage is full, try pruning more aggressively
+            if (error.name === 'QuotaExceededError') {
+                this.MAX_ACTIVITY_DAYS = 365; // Reduce to 1 year
+                this.pruneOldActivity();
+                try {
+                    localStorage.setItem('gaming-activity-data', JSON.stringify(this.activityData));
+                } catch (retryError) {
+                    console.error('[HEATMAP] Still failed after pruning:', retryError);
+                }
+            }
+        }
+    }
+
+    // Prune activity data older than MAX_ACTIVITY_DAYS
+    pruneOldActivity() {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - this.MAX_ACTIVITY_DAYS);
+        const cutoffString = this.getDateString(cutoffDate);
+
+        const prunedData = {};
+        for (const [dateString, data] of Object.entries(this.activityData)) {
+            if (dateString >= cutoffString) {
+                prunedData[dateString] = data;
+            }
+        }
+
+        const removed = Object.keys(this.activityData).length - Object.keys(prunedData).length;
+        if (removed > 0) {
+            console.log(`[HEATMAP] Pruned ${removed} old activity entries`);
+            this.activityData = prunedData;
         }
     }
 
@@ -50,6 +85,10 @@ class GamingHeatmapManager {
         }
 
         this.activityData[today].games[gameId] += minutes;
+
+        // Invalidate cache when data changes
+        this.heatmapCache = null;
+
         this.saveActivityData();
     }
 
@@ -82,13 +121,20 @@ class GamingHeatmapManager {
         return colors[Math.min(level, colors.length - 1)];
     }
 
-    // Generate heatmap for last N days
+    // Generate heatmap for last N days with caching
     generateHeatmap(days = 365) {
+        const today = this.getDateString(new Date());
+
+        // Return cached data if available and current
+        if (this.heatmapCache && this.lastCacheDate === today && this.heatmapCache.length === days) {
+            return this.heatmapCache;
+        }
+
         const heatmapData = [];
-        const today = new Date();
+        const todayDate = new Date();
 
         for (let i = days - 1; i >= 0; i--) {
-            const date = new Date(today);
+            const date = new Date(todayDate);
             date.setDate(date.getDate() - i);
             const dateString = this.getDateString(date);
 
@@ -99,6 +145,10 @@ class GamingHeatmapManager {
                 games: this.activityData[dateString]?.games || {}
             });
         }
+
+        // Cache the result
+        this.heatmapCache = heatmapData;
+        this.lastCacheDate = today;
 
         return heatmapData;
     }
@@ -270,6 +320,8 @@ class GamingHeatmapManager {
     }
 
     renderGrid(gridContainer) {
+        if (!gridContainer) return;
+
         const heatmapData = this.generateHeatmap(365);
 
         // Group by weeks
@@ -302,8 +354,10 @@ class GamingHeatmapManager {
             weeks.push(currentWeek);
         }
 
-        // Render grid
-        gridContainer.innerHTML = '';
+        // Use DocumentFragment for better performance
+        const fragment = document.createDocumentFragment();
+
+        // Pre-calculate grid styles
         gridContainer.style.cssText = `
             display: grid;
             grid-template-columns: repeat(${weeks.length}, 15px);
@@ -317,6 +371,7 @@ class GamingHeatmapManager {
 
             week.forEach(day => {
                 const cell = document.createElement('div');
+                cell.className = 'heatmap-cell';
                 cell.style.cssText = `
                     width: 15px;
                     height: 15px;
@@ -330,16 +385,23 @@ class GamingHeatmapManager {
                     cell.style.background = color;
                     cell.style.border = '1px solid #444';
 
-                    // Hover effect
-                    cell.addEventListener('mouseenter', (e) => {
-                        cell.style.transform = 'scale(1.5)';
-                        this.showTooltip(e, day);
-                    });
+                    // Store day data on element to avoid closure
+                    cell.dataset.dayData = JSON.stringify(day);
 
-                    cell.addEventListener('mouseleave', () => {
+                    // Use event delegation would be better, but for now optimize with arrow functions
+                    const mouseEnterHandler = (e) => {
+                        cell.style.transform = 'scale(1.5)';
+                        const dayData = JSON.parse(cell.dataset.dayData);
+                        this.showTooltip(e, dayData);
+                    };
+
+                    const mouseLeaveHandler = () => {
                         cell.style.transform = 'scale(1)';
                         this.hideTooltip();
-                    });
+                    };
+
+                    cell.addEventListener('mouseenter', mouseEnterHandler);
+                    cell.addEventListener('mouseleave', mouseLeaveHandler);
                 } else {
                     cell.style.background = 'transparent';
                 }
@@ -347,8 +409,12 @@ class GamingHeatmapManager {
                 weekColumn.appendChild(cell);
             });
 
-            gridContainer.appendChild(weekColumn);
+            fragment.appendChild(weekColumn);
         });
+
+        // Single DOM update
+        gridContainer.innerHTML = '';
+        gridContainer.appendChild(fragment);
     }
 
     showTooltip(event, dayData) {
@@ -432,10 +498,25 @@ class GamingHeatmapManager {
     // Import activity data from play time database
     async importFromPlayTimeDB(db) {
         // This would integrate with the existing play time tracking system
-        console.log('Importing activity data from play time database...');
+        console.log('[HEATMAP] Importing activity data from play time database...');
 
         // Example: query all sessions and aggregate by date
         // The actual implementation would depend on your database schema
+    }
+
+    // Cleanup method to prevent memory leaks
+    destroy() {
+        console.log('[HEATMAP] Destroying heatmap manager...');
+
+        // Clear caches
+        this.heatmapCache = null;
+        this.activityData = {};
+
+        // Remove any tooltips that might still be in DOM
+        const tooltip = document.getElementById('day-tooltip');
+        if (tooltip && tooltip.parentNode) {
+            tooltip.parentNode.removeChild(tooltip);
+        }
     }
 }
 

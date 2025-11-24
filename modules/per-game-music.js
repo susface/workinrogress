@@ -17,6 +17,8 @@ class PerGameMusicManager {
         this.spotifyReady = false;
         this.spotifyDeviceId = null;
         this.spotifyAccessToken = null;
+        this.trackUpdateInterval = null;
+        this.audioEventListeners = new Map(); // Track event listeners for cleanup
 
         // Common soundtrack folder patterns
         this.soundtrackPaths = [
@@ -27,11 +29,15 @@ class PerGameMusicManager {
             'bgm'
         ];
 
-        // Initialize YouTube API when ready
-        this.initYouTubeAPI();
+        // Initialize YouTube API when ready (only if enabled)
+        if (this.settings.youtubeIntegration) {
+            this.initYouTubeAPI();
+        }
 
-        // Initialize Spotify Web Playback SDK
-        this.initSpotifySDK();
+        // Initialize Spotify Web Playback SDK (only if enabled)
+        if (this.settings.spotifyIntegration) {
+            this.initSpotifySDK();
+        }
     }
 
     initYouTubeAPI() {
@@ -188,12 +194,19 @@ class PerGameMusicManager {
         newAudio.loop = false;
 
         // Handle end of track
-        newAudio.addEventListener('ended', () => {
+        const endedHandler = () => {
             this.playNextTrack();
-        });
+        };
+        newAudio.addEventListener('ended', endedHandler);
+
+        // Track listener for cleanup
+        this.audioEventListeners.set(newAudio, { ended: endedHandler });
 
         try {
-            await newAudio.play();
+            const playPromise = newAudio.play();
+            if (playPromise !== undefined) {
+                await playPromise;
+            }
 
             if (this.currentAudio) {
                 await this.crossfade(this.currentAudio, newAudio);
@@ -204,7 +217,9 @@ class PerGameMusicManager {
 
             this.currentAudio = newAudio;
         } catch (error) {
-            console.error('Failed to play audio:', error);
+            console.error('[PER-GAME-MUSIC] Failed to play audio:', error);
+            // Clean up failed audio
+            this.disposeAudio(newAudio);
         }
     }
 
@@ -573,8 +588,7 @@ class PerGameMusicManager {
     // Stop current music
     stop() {
         if (this.currentAudio) {
-            this.currentAudio.pause();
-            this.currentAudio.src = '';
+            this.disposeAudio(this.currentAudio);
             this.currentAudio = null;
         }
 
@@ -583,6 +597,30 @@ class PerGameMusicManager {
 
         // Also stop Spotify if playing
         this.stopSpotifyPlayback();
+    }
+
+    // Properly dispose of audio element
+    disposeAudio(audio) {
+        if (!audio) return;
+
+        try {
+            audio.pause();
+            audio.src = '';
+
+            // Remove tracked event listeners
+            const listeners = this.audioEventListeners.get(audio);
+            if (listeners) {
+                if (listeners.ended) {
+                    audio.removeEventListener('ended', listeners.ended);
+                }
+                this.audioEventListeners.delete(audio);
+            }
+
+            // Force garbage collection by removing all references
+            audio.load();
+        } catch (error) {
+            console.error('[PER-GAME-MUSIC] Error disposing audio:', error);
+        }
     }
 
     // Set volume
@@ -728,8 +766,11 @@ class PerGameMusicManager {
             }
         });
 
-        // Update track info periodically
-        setInterval(() => this.updateTrackDisplay(container), 1000);
+        // Update track info periodically - store interval ID for cleanup
+        if (this.trackUpdateInterval) {
+            clearInterval(this.trackUpdateInterval);
+        }
+        this.trackUpdateInterval = setInterval(() => this.updateTrackDisplay(container), 1000);
 
         return container;
     }
@@ -749,17 +790,26 @@ class PerGameMusicManager {
     togglePlayPause() {
         if (this.currentAudio) {
             if (this.currentAudio.paused) {
-                this.currentAudio.play();
+                const playPromise = this.currentAudio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.error('[PER-GAME-MUSIC] Play failed:', error);
+                    });
+                }
             } else {
                 this.currentAudio.pause();
             }
         } else if (this.ytPlayer && this.ytPlayerReady) {
-            // Handle YouTube playback
-            const state = this.ytPlayer.getPlayerState();
-            if (state === YT.PlayerState.PLAYING) {
-                this.ytPlayer.pauseVideo();
-            } else if (state === YT.PlayerState.PAUSED) {
-                this.ytPlayer.playVideo();
+            try {
+                // Handle YouTube playback
+                const state = this.ytPlayer.getPlayerState();
+                if (state === YT.PlayerState.PLAYING) {
+                    this.ytPlayer.pauseVideo();
+                } else if (state === YT.PlayerState.PAUSED) {
+                    this.ytPlayer.playVideo();
+                }
+            } catch (error) {
+                console.error('[PER-GAME-MUSIC] YouTube control error:', error);
             }
         }
     }
@@ -801,6 +851,46 @@ class PerGameMusicManager {
         }
 
         alert(`Scanned ${games.length} games. Found soundtracks in ${foundCount} games.`);
+    }
+
+    // Cleanup method to prevent memory leaks
+    destroy() {
+        console.log('[PER-GAME-MUSIC] Destroying music manager...');
+
+        // Clear interval
+        if (this.trackUpdateInterval) {
+            clearInterval(this.trackUpdateInterval);
+            this.trackUpdateInterval = null;
+        }
+
+        // Stop and dispose all audio
+        this.stop();
+
+        // Disconnect Spotify
+        if (this.spotifyPlayer) {
+            try {
+                this.spotifyPlayer.disconnect();
+            } catch (error) {
+                console.error('[PER-GAME-MUSIC] Error disconnecting Spotify:', error);
+            }
+            this.spotifyPlayer = null;
+        }
+
+        // Destroy YouTube player
+        if (this.ytPlayer) {
+            try {
+                this.ytPlayer.destroy();
+            } catch (error) {
+                console.error('[PER-GAME-MUSIC] Error destroying YouTube player:', error);
+            }
+            this.ytPlayer = null;
+        }
+
+        // Clear all event listeners
+        this.audioEventListeners.clear();
+
+        // Clear music library
+        this.musicLibrary.clear();
     }
 }
 
