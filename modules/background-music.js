@@ -77,18 +77,21 @@ class BackgroundMusic {
                 // URL or blob URL - use as-is
                 this.audio.src = this.currentTrackPath;
             } else if (this.currentTrackPath.startsWith('file://')) {
-                // Already a file:// URL
-                this.audio.src = this.currentTrackPath;
+                // Already a file:// URL - ensure it's encoded
+                const url = new URL(this.currentTrackPath);
+                this.audio.src = url.href;
             } else if (this.currentTrackPath.match(/^[a-zA-Z]:/)) {
                 // Windows absolute path (e.g., C:\path\to\file.mp3)
                 const normalizedPath = this.currentTrackPath.replace(/\\/g, '/');
-                this.audio.src = `file:///${normalizedPath}`;
+                // FIXED: Encode URI to handle spaces in paths
+                this.audio.src = `file:///${encodeURI(normalizedPath)}`;
             } else if (this.currentTrackPath.startsWith('/')) {
                 // Unix/Mac absolute path
-                this.audio.src = `file://${this.currentTrackPath}`;
+                // FIXED: Encode URI to handle spaces in paths
+                this.audio.src = `file://${encodeURI(this.currentTrackPath)}`;
             } else {
-                // Relative path - use as-is
-                this.audio.src = this.currentTrackPath;
+                // Relative path - encode it to be safe
+                this.audio.src = encodeURI(this.currentTrackPath);
             }
 
             console.log('[BACKGROUND_MUSIC] Loading audio from:', this.audio.src);

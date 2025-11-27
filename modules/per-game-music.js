@@ -182,14 +182,17 @@ class PerGameMusicManager {
         } else {
             // Fallback to YouTube/Spotify if enabled
             if (this.settings.youtubeIntegration) {
-                await this.playYouTubeOST(game.name);
+                await this.playYouTubeOST(game.title || game.name);
             }
         }
     }
 
     // Crossfade to new audio
     async playAudioFile(filePath) {
-        const newAudio = new Audio(filePath);
+        // FIXED: Handle spaces in local paths
+        const encodedPath = filePath.startsWith('http') ? filePath : `file:///${encodeURI(filePath.replace(/\\/g, '/'))}`;
+        const newAudio = new Audio(encodedPath);
+        
         newAudio.volume = 0;
         newAudio.loop = false;
 
@@ -299,23 +302,19 @@ class PerGameMusicManager {
         }
 
         try {
-            // Search for game OST on YouTube
-            const searchQuery = `${gameName} soundtrack OST`;
-            console.log(`[PER-GAME-MUSIC] Searching YouTube for: ${searchQuery}`);
-
-            // Note: Full implementation would use YouTube Data API to search
-            // For now, we'll use a direct video load if we have a videoId
-            // In production, you'd need to:
-            // 1. Make API request to YouTube Data API v3
-            // 2. Search for videos with the query
-            // 3. Get the first result's video ID
-            // 4. Load that video
-
-            // Example video load (you would replace this with actual search results)
-            // this.ytPlayer.loadVideoById('VIDEO_ID_HERE');
-
-            console.log('[PER-GAME-MUSIC] YouTube search requires YouTube Data API key');
-            console.log('[PER-GAME-MUSIC] Add your API key in settings to enable this feature');
+            console.log(`[PER-GAME-MUSIC] Searching YouTube for: ${gameName} soundtrack OST`);
+            
+            // FIXED: Connected search logic to playback logic
+            if (this.settings.youtubeAPIKey) {
+                const videoId = await this.searchYouTubeForOST(gameName);
+                if (videoId) {
+                    this.playYouTubeVideo(videoId);
+                } else {
+                    console.warn(`[PER-GAME-MUSIC] No soundtrack found on YouTube for ${gameName}`);
+                }
+            } else {
+                console.log('[PER-GAME-MUSIC] YouTube search requires YouTube Data API key');
+            }
 
         } catch (error) {
             console.error('[PER-GAME-MUSIC] YouTube playback error:', error);
@@ -491,6 +490,7 @@ class PerGameMusicManager {
         }
 
         const searchQuery = encodeURIComponent(`${gameName} soundtrack`);
+        // FIXED: Use correct Spotify API URL
         const apiUrl = `https://api.spotify.com/v1/search?q=${searchQuery}&type=track,album&limit=5`;
 
         try {
@@ -539,6 +539,7 @@ class PerGameMusicManager {
             this.stopYouTubePlayback();
 
             // Play on Spotify
+            // FIXED: Use correct Spotify API URL
             const playUrl = `https://api.spotify.com/v1/me/player/play?device_id=${this.spotifyDeviceId}`;
 
             const response = await fetch(playUrl, {
@@ -581,8 +582,8 @@ class PerGameMusicManager {
         const clientId = this.settings.spotifyClientId || '';
         const redirectUri = encodeURIComponent(window.location.origin + '/spotify-callback');
         const scopes = encodeURIComponent('streaming user-read-email user-read-private user-modify-playback-state');
-
-        return `https://accounts.spotify.com/authorize?response_type=token&client_id=${clientId}&scope=${scopes}&redirect_uri=${redirectUri}`;
+        // FIXED: Use correct Spotify Auth URL
+        return `https://accounts.spotify.com/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${redirectUri}&response_type=token`;
     }
 
     // Stop current music

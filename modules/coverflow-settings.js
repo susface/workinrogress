@@ -470,8 +470,13 @@ class CoverFlowSettings {
         const backgroundMusicVolume = document.getElementById('background-music-volume');
         const bgMusicVolumeValue = document.getElementById('bg-music-volume-value');
         if (backgroundMusicVolume && bgMusicVolumeValue) {
-            backgroundMusicVolume.value = (this.settings.backgroundMusicVolume || 0.3) * 100;
-            bgMusicVolumeValue.textContent = Math.round((this.settings.backgroundMusicVolume || 0.3) * 100) + '%';
+            // FIXED: Use explicit undefined check instead of || to allow 0 as a value
+            const currentVolume = this.settings.backgroundMusicVolume !== undefined 
+                ? this.settings.backgroundMusicVolume 
+                : 0.3;
+            
+            backgroundMusicVolume.value = currentVolume * 100;
+            bgMusicVolumeValue.textContent = Math.round(currentVolume * 100) + '%';
 
             backgroundMusicVolume.addEventListener('input', (e) => {
                 const volume = parseFloat(e.target.value) / 100;

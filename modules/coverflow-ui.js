@@ -313,11 +313,6 @@ class CoverFlowUI {
 
             // For games, prioritize exe icon for thumbnails
             if (album.type === 'game' && (album.exe_icon_path || album.icon_path)) {
-                console.log(`[THUMBNAIL] Loading thumbnail for "${album.title}"`);
-                console.log(`[THUMBNAIL]   exe_icon_path: ${album.exe_icon_path || 'null'}`);
-                console.log(`[THUMBNAIL]   icon_path: ${album.icon_path || 'null'}`);
-                console.log(`[THUMBNAIL]   boxart_path: ${album.boxart_path || 'null'}`);
-
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
 
@@ -332,10 +327,8 @@ class CoverFlowUI {
                 let fallbackPath = album.exe_icon_path ? album.icon_path : null;
 
                 const primarySrc = this.getImageSrc(primaryPath, 'placeholder.png');
-                console.log(`[THUMBNAIL]   Primary source: ${primarySrc}`);
 
                 img.onload = () => {
-                    console.log(`[THUMBNAIL] ✓ Successfully loaded thumbnail for "${album.title}"`);
                     // Only draw if this canvas is still in the DOM
                     if (thumb.isConnected) {
                         ctx.clearRect(0, 0, 60, 60);
@@ -344,22 +337,18 @@ class CoverFlowUI {
                 };
 
                 img.onerror = (error) => {
-                    console.warn(`[THUMBNAIL] ✗ Failed to load primary thumbnail for "${album.title}":`, error);
                     if (fallbackPath) {
                         const fallbackSrc = this.getImageSrc(fallbackPath, 'placeholder.png');
-                        console.log(`[THUMBNAIL]   Trying fallback: ${fallbackSrc}`);
 
                         const fallbackImg = new Image();
                         fallbackImg.crossOrigin = 'anonymous';
                         fallbackImg.onload = () => {
-                            console.log(`[THUMBNAIL] ✓ Loaded fallback thumbnail for "${album.title}"`);
                             if (thumb.isConnected) {
                                 ctx.clearRect(0, 0, 60, 60);
                                 ctx.drawImage(fallbackImg, 0, 0, 60, 60);
                             }
                         };
                         fallbackImg.onerror = (fallbackError) => {
-                            console.warn(`[THUMBNAIL] ✗ Fallback also failed for "${album.title}":`, fallbackError);
                             if (thumb.isConnected) {
                                 ctx.clearRect(0, 0, 60, 60);
                                 this.createFileTypeThumbnail(ctx, album, 60, 60);
@@ -367,7 +356,6 @@ class CoverFlowUI {
                         };
                         fallbackImg.src = fallbackSrc;
                     } else {
-                        console.warn(`[THUMBNAIL] No fallback available for "${album.title}"`);
                         if (thumb.isConnected) {
                             ctx.clearRect(0, 0, 60, 60);
                             this.createFileTypeThumbnail(ctx, album, 60, 60);
@@ -592,7 +580,25 @@ class CoverFlowUI {
         // If playing a different file, stop it and start the new one
         if (this.currentAudioFile !== album.audio) {
             this.audioPlayer.pause();
-            this.audioPlayer.src = album.audio;
+            
+            // FIXED: Handle local file path encoding properly
+            let audioSrc = album.audio;
+            if (!audioSrc.startsWith('http') && !audioSrc.startsWith('blob:')) {
+                // Convert file path to valid file:// URL
+                if (!audioSrc.startsWith('file://')) {
+                    // Normalize Windows paths if needed
+                    if (audioSrc.match(/^[a-zA-Z]:/)) {
+                        audioSrc = `file:///${audioSrc.replace(/\\/g, '/')}`;
+                    } else if (audioSrc.startsWith('/')) {
+                        // Unix/Mac absolute path
+                        audioSrc = `file://${audioSrc}`;
+                    }
+                }
+                // Encode URI to handle spaces and special characters
+                audioSrc = encodeURI(audioSrc);
+            }
+            
+            this.audioPlayer.src = audioSrc;
             this.currentAudioFile = album.audio;
             this.currentAudioTitle = album.title;
 

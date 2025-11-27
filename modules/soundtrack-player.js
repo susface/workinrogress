@@ -395,9 +395,9 @@ class SoundtrackPlayer {
         if (this.currentTrack.path.startsWith('http')) {
             this.audio.src = this.currentTrack.path;
         } else {
-            // Convert file path to file:// URL for Electron (normalize Windows paths)
+            // FIXED: Proper URI encoding for local files
             const normalizedPath = this.currentTrack.path.replace(/\\/g, '/');
-            this.audio.src = `file:///${normalizedPath}`;
+            this.audio.src = `file:///${encodeURI(normalizedPath)}`;
         }
 
         this.audio.play().catch(error => {
@@ -765,4 +765,8 @@ class SoundtrackPlayer {
         div.textContent = text;
         return div.innerHTML;
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = SoundtrackPlayer;
 }

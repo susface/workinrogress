@@ -150,9 +150,10 @@ class VideoPlayer {
             placeholder.style.display = 'none';
         }
 
-        // Normalize path for file:// protocol
+        // FIXED: Normalize and Encode path for file:// protocol
         const normalizedPath = filePath.replace(/\\/g, '/');
-        videoElement.src = `file:///${normalizedPath}`;
+        // encodeURI ensures spaces and special chars don't break the URL
+        videoElement.src = `file:///${encodeURI(normalizedPath)}`;
 
         videoElement.play().catch(error => {
             window.logger?.error('VIDEO', 'Playback failed:', error);
@@ -470,4 +471,8 @@ class VideoPlayer {
             window.coverflow.showToast(message, type);
         }
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = VideoPlayer;
 }
