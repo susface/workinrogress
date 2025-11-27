@@ -1002,6 +1002,15 @@ function handleProcessTrackerNotification(message) {
             }
         }
 
+        // RESTORE WINDOW ON GAME CLOSE
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) {
+                mainWindow.restore();
+            }
+            mainWindow.show();
+            mainWindow.focus();
+        }
+
         if (gameId) {
             console.log(`[PROCESS_TRACKER] Game ${gameId} process ended, runtime: ${runtime}s`);
 
@@ -1132,6 +1141,11 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
     try {
         // Start game session if gameId provided
         if (gameId) {
+            // MINIMIZE WINDOW ON GAME LAUNCH
+            if (mainWindow) {
+                mainWindow.minimize();
+            }
+
             const db = initDatabase();
 
             // Check if there's already an active session for this game
