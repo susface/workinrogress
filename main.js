@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Tray, Menu } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -482,6 +483,90 @@ function createTray() {
     }
 }
 
+// Auto-updater configuration
+function setupAutoUpdater() {
+    // Configure auto-updater
+    autoUpdater.autoDownload = false; // Don't auto-download, let user decide
+    autoUpdater.autoInstallOnAppQuit = true; // Install when app quits
+
+    // Disable in development mode
+    if (isDev) {
+        autoUpdater.updateConfigPath = null;
+        console.log('[AUTO-UPDATE] Disabled in development mode');
+        return;
+    }
+
+    // Log events for debugging
+    autoUpdater.logger = require('electron-log');
+    autoUpdater.logger.transports.file.level = 'info';
+
+    // Event handlers
+    autoUpdater.on('checking-for-update', () => {
+        console.log('[AUTO-UPDATE] Checking for updates...');
+        if (mainWindow) {
+            mainWindow.webContents.send('update-checking');
+        }
+    });
+
+    autoUpdater.on('update-available', (info) => {
+        console.log('[AUTO-UPDATE] Update available:', info.version);
+        if (mainWindow) {
+            mainWindow.webContents.send('update-available', {
+                version: info.version,
+                releaseNotes: info.releaseNotes,
+                releaseDate: info.releaseDate
+            });
+        }
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+        console.log('[AUTO-UPDATE] Update not available. Current version:', info.version);
+        if (mainWindow) {
+            mainWindow.webContents.send('update-not-available', {
+                version: info.version
+            });
+        }
+    });
+
+    autoUpdater.on('error', (err) => {
+        console.error('[AUTO-UPDATE] Error:', err);
+        if (mainWindow) {
+            mainWindow.webContents.send('update-error', {
+                message: err.message
+            });
+        }
+    });
+
+    autoUpdater.on('download-progress', (progressObj) => {
+        console.log(`[AUTO-UPDATE] Download progress: ${progressObj.percent.toFixed(2)}%`);
+        if (mainWindow) {
+            mainWindow.webContents.send('update-download-progress', {
+                percent: progressObj.percent,
+                bytesPerSecond: progressObj.bytesPerSecond,
+                transferred: progressObj.transferred,
+                total: progressObj.total
+            });
+        }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        console.log('[AUTO-UPDATE] Update downloaded:', info.version);
+        if (mainWindow) {
+            mainWindow.webContents.send('update-downloaded', {
+                version: info.version
+            });
+        }
+    });
+
+    // Check for updates on app startup (after a delay)
+    safeSetTimeout(() => {
+        console.log('[AUTO-UPDATE] Checking for updates on startup...');
+        autoUpdater.checkForUpdates().catch(err => {
+            console.error('[AUTO-UPDATE] Failed to check for updates:', err);
+        });
+    }, 5000); // Wait 5 seconds after app starts
+}
+
 app.whenReady().then(() => {
     if (isDebugMode) {
         console.log('[DEBUG] App ready - initializing...');
@@ -495,6 +580,7 @@ app.whenReady().then(() => {
 
     createWindow();
     createTray();
+    setupAutoUpdater();
 
     if (isDebugMode) {
         console.log('[DEBUG] Window and tray created');
@@ -560,6 +646,54 @@ ipcMain.on('toggle-fullscreen', () => {
     if (mainWindow) {
         mainWindow.setFullScreen(!mainWindow.isFullScreen());
     }
+});
+
+// Auto-updater IPC handlers
+ipcMain.handle('check-for-app-updates', async () => {
+    try {
+        if (isDev) {
+            return { available: false, message: 'Auto-update disabled in development mode' };
+        }
+        const result = await autoUpdater.checkForUpdates();
+        return {
+            available: result && result.updateInfo,
+            updateInfo: result ? result.updateInfo : null
+        };
+    } catch (error) {
+        console.error('[AUTO-UPDATE] Error checking for updates:', error);
+        return { available: false, error: error.message };
+    }
+});
+
+ipcMain.handle('download-app-update', async () => {
+    try {
+        if (isDev) {
+            return { success: false, message: 'Auto-update disabled in development mode' };
+        }
+        await autoUpdater.downloadUpdate();
+        return { success: true };
+    } catch (error) {
+        console.error('[AUTO-UPDATE] Error downloading update:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('install-app-update', async () => {
+    try {
+        if (isDev) {
+            return { success: false, message: 'Auto-update disabled in development mode' };
+        }
+        // This will quit the app and install the update
+        autoUpdater.quitAndInstall(false, true);
+        return { success: true };
+    } catch (error) {
+        console.error('[AUTO-UPDATE] Error installing update:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-app-version', async () => {
+    return app.getVersion();
 });
 
 // Get all games from database

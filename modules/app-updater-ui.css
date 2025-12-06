@@ -1,0 +1,236 @@
+/**
+ * App Updater UI Styles
+ */
+
+.app-update-dialog {
+    max-width: 600px;
+    width: 90%;
+}
+
+.app-update-dialog .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px 8px 0 0;
+}
+
+.app-update-dialog .modal-header h2 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.app-update-dialog .modal-body {
+    padding: 30px;
+}
+
+.update-info {
+    text-align: left;
+}
+
+.update-version {
+    font-size: 18px;
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 20px;
+}
+
+.update-success {
+    font-size: 18px;
+    font-weight: bold;
+    color: #10b981;
+    margin-bottom: 15px;
+}
+
+.release-notes {
+    margin: 20px 0;
+    padding: 20px;
+    background: rgba(102, 126, 234, 0.05);
+    border-left: 4px solid #667eea;
+    border-radius: 4px;
+}
+
+.release-notes h3 {
+    margin-top: 0;
+    color: #667eea;
+    font-size: 16px;
+}
+
+.release-notes-content {
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+}
+
+.release-notes-content li {
+    margin-bottom: 8px;
+}
+
+.release-notes-content h4 {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    color: #667eea;
+}
+
+.release-notes-content p {
+    margin: 8px 0;
+}
+
+.release-date {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    margin-top: 15px;
+}
+
+.update-progress {
+    text-align: center;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    transition: width 0.3s ease;
+    border-radius: 15px;
+}
+
+.progress-text {
+    font-size: 18px;
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 10px;
+}
+
+.progress-details {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+}
+
+.app-update-dialog .modal-footer {
+    padding: 20px 30px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app-update-dialog .btn-primary,
+.app-update-dialog .btn-secondary {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.app-update-dialog .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.app-update-dialog .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.app-update-dialog .btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.app-update-dialog .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.app-update-dialog .modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 32px;
+    cursor: pointer;
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.app-update-dialog .modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Settings section for app updates */
+.settings-section h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.setting-item label {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+}
+
+.setting-item span {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+}
+
+.setting-item button {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.setting-item button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Modal overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(5px);
+}
+
+.modal-dialog {
+    background: #1a1a2e;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    max-height: 90vh;
+    overflow-y: auto;
+}

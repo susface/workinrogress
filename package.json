@@ -20,13 +20,15 @@
   "author": "Susface",
   "license": "MIT",
   "devDependencies": {
+    "@electron/rebuild": "^3.7.0",
     "electron": "^33.0.0",
-    "electron-builder": "^25.1.8",
-    "@electron/rebuild": "^3.7.0"
+    "electron-builder": "^25.1.8"
   },
   "dependencies": {
+    "adm-zip": "^0.5.10",
     "better-sqlite3": "^11.7.0",
-    "adm-zip": "^0.5.10"
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.6.2"
   },
   "overrides": {
     "glob": "^11.0.0",
@@ -35,6 +37,13 @@
   "build": {
     "appId": "com.coverflow.gamelauncher",
     "productName": "CoverFlow Game Launcher",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "susface",
+        "repo": "workinrogress"
+      }
+    ],
     "directories": {
       "output": "dist"
     },
@@ -100,7 +109,9 @@
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
       "displayLanguageSelector": false,
-      "installerLanguages": ["en_US"],
+      "installerLanguages": [
+        "en_US"
+      ],
       "license": "LICENSE.txt"
     },
     "mac": {

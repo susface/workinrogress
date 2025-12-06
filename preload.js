@@ -117,9 +117,47 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Soundtrack
     scanGameSoundtrack: (gameId) => ipcRenderer.invoke('scan-game-soundtrack', gameId),
 
-    // Updates
+    // Game Updates
     checkGameUpdates: () => ipcRenderer.invoke('check-game-updates'),
     updateGame: (gameId) => ipcRenderer.invoke('update-game', gameId),
+
+    // App Auto-Updates
+    checkForAppUpdates: () => ipcRenderer.invoke('check-for-app-updates'),
+    downloadAppUpdate: () => ipcRenderer.invoke('download-app-update'),
+    installAppUpdate: () => ipcRenderer.invoke('install-app-update'),
+    getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+    // App update event listeners
+    onUpdateChecking: (callback) => {
+        const listener = () => callback();
+        ipcRenderer.on('update-checking', listener);
+        return () => ipcRenderer.removeListener('update-checking', listener);
+    },
+    onUpdateAvailable: (callback) => {
+        const listener = (event, info) => callback(info);
+        ipcRenderer.on('update-available', listener);
+        return () => ipcRenderer.removeListener('update-available', listener);
+    },
+    onUpdateNotAvailable: (callback) => {
+        const listener = (event, info) => callback(info);
+        ipcRenderer.on('update-not-available', listener);
+        return () => ipcRenderer.removeListener('update-not-available', listener);
+    },
+    onUpdateError: (callback) => {
+        const listener = (event, error) => callback(error);
+        ipcRenderer.on('update-error', listener);
+        return () => ipcRenderer.removeListener('update-error', listener);
+    },
+    onUpdateDownloadProgress: (callback) => {
+        const listener = (event, progress) => callback(progress);
+        ipcRenderer.on('update-download-progress', listener);
+        return () => ipcRenderer.removeListener('update-download-progress', listener);
+    },
+    onUpdateDownloaded: (callback) => {
+        const listener = (event, info) => callback(info);
+        ipcRenderer.on('update-downloaded', listener);
+        return () => ipcRenderer.removeListener('update-downloaded', listener);
+    },
 
     // Portable mode
     isPortableMode: () => ipcRenderer.invoke('is-portable-mode'),
