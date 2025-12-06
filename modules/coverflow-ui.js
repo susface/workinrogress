@@ -681,7 +681,13 @@ class CoverFlowUI {
      * Initialize Web Audio API visualizer
      */
     initializeVisualizer(canvas) {
-        if (!this.audioPlayer) return;
+        // Use background music if available, otherwise use soundtrack player
+        const audioElement = window.backgroundMusicAudio || this.audioPlayer;
+
+        if (!audioElement) {
+            console.warn('[VISUALIZER] No audio source available');
+            return;
+        }
 
         // Only initialize once
         if (this.audioContext && this.analyser) {
@@ -696,14 +702,28 @@ class CoverFlowUI {
             this.analyser.fftSize = 256;
 
             // Create source from audio element
-            const source = this.audioContext.createMediaElementSource(this.audioPlayer);
-            source.connect(this.analyser);
-            this.analyser.connect(this.audioContext.destination);
+            // Check if this audio element already has a source node
+            if (!audioElement._sourceNode) {
+                const source = this.audioContext.createMediaElementSource(audioElement);
+                source.connect(this.analyser);
+                this.analyser.connect(this.audioContext.destination);
+                audioElement._sourceNode = source; // Mark as connected
+                console.log('[VISUALIZER] Connected to audio source');
+            } else {
+                // Already connected, just connect the existing source to analyser
+                audioElement._sourceNode.connect(this.analyser);
+                this.analyser.connect(this.audioContext.destination);
+            }
 
             // Start animation
             this.startVisualizerAnimation(canvas);
         } catch (error) {
             console.error('[VISUALIZER] Failed to initialize:', error);
+            // If already connected error, just start animation anyway
+            if (error.name === 'InvalidStateError') {
+                console.log('[VISUALIZER] Audio already connected, starting animation');
+                this.startVisualizerAnimation(canvas);
+            }
         }
     }
 

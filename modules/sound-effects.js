@@ -62,6 +62,12 @@ class SoundEffects {
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + 0.15);
+
+        // Clean up to prevent memory leak
+        osc.onended = () => {
+            osc.disconnect();
+            gain.disconnect();
+        };
     }
 
     /**
@@ -87,6 +93,12 @@ class SoundEffects {
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + 0.1);
+
+        // Clean up to prevent memory leak
+        osc.onended = () => {
+            osc.disconnect();
+            gain.disconnect();
+        };
     }
 
     /**
@@ -113,6 +125,12 @@ class SoundEffects {
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + 0.4);
+
+        // Clean up to prevent memory leak
+        osc.onended = () => {
+            osc.disconnect();
+            gain.disconnect();
+        };
     }
 
     /**
@@ -144,6 +162,12 @@ class SoundEffects {
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + 0.2);
+
+        // Clean up to prevent memory leak
+        osc.onended = () => {
+            osc.disconnect();
+            gain.disconnect();
+        };
     }
 
     /**
@@ -168,6 +192,12 @@ class SoundEffects {
         gain.connect(ctx.destination);
         osc.start(now);
         osc.stop(now + 0.25);
+
+        // Clean up to prevent memory leak
+        osc.onended = () => {
+            osc.disconnect();
+            gain.disconnect();
+        };
     }
 
     /**
@@ -194,7 +224,23 @@ class SoundEffects {
             gain.connect(ctx.destination);
             osc.start(now + i * 0.08);
             osc.stop(now + i * 0.08 + 0.2);
+
+            // Clean up to prevent memory leak
+            osc.onended = () => {
+                osc.disconnect();
+                gain.disconnect();
+            };
         });
+    }
+
+    /**
+     * Cleanup method to prevent memory leaks
+     */
+    destroy() {
+        if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+        }
     }
 
     /**

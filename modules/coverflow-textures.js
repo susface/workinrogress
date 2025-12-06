@@ -4,6 +4,13 @@
  */
 
 class CoverFlowTextures {
+    constructor() {
+        // Initialize properties for Electron vs Browser detection
+        this.isElectron = typeof window !== 'undefined' && window.electronAPI;
+        this.appPaths = (typeof window !== 'undefined' && window.appPaths) || null;
+        this.serverURL = (typeof window !== 'undefined' && window.serverURL) || null;
+    }
+
     /**
      * Get image source path with proper handling for Electron vs Browser
      * @param {string} imagePath - Relative or absolute image path
@@ -56,6 +63,12 @@ class CoverFlowTextures {
      * @returns {THREE.CanvasTexture} Error placeholder texture
      */
     createErrorPlaceholder(title = 'Image Not Found') {
+        // Check if THREE.js is loaded
+        if (typeof THREE === 'undefined') {
+            console.error('[TEXTURE] THREE.js not loaded');
+            return null;
+        }
+
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
@@ -124,9 +137,21 @@ class CoverFlowTextures {
         /**
          * Fallback order: primary image -> boxart -> icon -> exe_icon -> error placeholder
          */
+        // Validate album object
+        if (!album) {
+            console.error('[TEXTURE] Invalid album object');
+            return Promise.resolve(this.createErrorPlaceholder('Invalid Album'));
+        }
+
+        // Check if THREE.js is loaded
+        if (typeof THREE === 'undefined') {
+            console.error('[TEXTURE] THREE.js not loaded');
+            return Promise.reject(new Error('THREE.js not loaded'));
+        }
+
         return new Promise((resolve) => {
             const loader = new THREE.TextureLoader();
-            console.log(`[TEXTURE] Loading texture for "${album.title}" from: ${imageSrc}`);
+            console.log(`[TEXTURE] Loading texture for "${album.title || 'Unknown'}" from: ${imageSrc}`);
 
             const tryLoad = (src, nextFallback) => {
                 loader.load(

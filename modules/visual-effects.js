@@ -98,6 +98,10 @@ class VisualEffectsManager {
 
             // Micro-interactions
             smoothTransitionsEnabled: true,
+
+            // UI Appearance
+            frostedGlassUI: false,
+            glassOpacity: 50, // 0-100, controls transparency level
             hoverEffectsEnabled: true,
 
             // Gesture trails
@@ -239,6 +243,31 @@ class VisualEffectsManager {
                 }
             }
 
+            // Apply frosted glass UI if enabled
+            if (this.settings.frostedGlassUI) {
+                try {
+                    document.body.classList.add('frosted-glass-mode');
+                    // Make THREE.js scene background transparent
+                    if (this.scene) {
+                        this.scene.background = null;
+                    }
+                    // Make renderer transparent
+                    if (this.renderer) {
+                        this.renderer.setClearColor(0x000000, 0);
+                    }
+                    // Hide window controls in transparent mode
+                    const windowControls = document.getElementById('window-controls');
+                    if (windowControls && window.electronAPI) {
+                        windowControls.classList.add('hidden');
+                    }
+                    // Apply saved opacity
+                    this.applyGlassOpacity(this.settings.glassOpacity || 50);
+                    console.log('[VISUAL_FX] Frosted glass UI applied on init');
+                } catch (error) {
+                    console.error('[VISUAL_FX] Failed to apply frosted glass UI:', error);
+                }
+            }
+
             console.log('[VISUAL_FX] Initialized with settings:', this.settings);
         } catch (error) {
             console.error('[VISUAL_FX] Critical error during initialization:', error);
@@ -285,6 +314,17 @@ class VisualEffectsManager {
     initParticleSystem() {
         if (this.particleSystem) {
             this.scene.remove(this.particleSystem);
+            // Properly dispose of old particle system to prevent memory leak
+            if (this.particleSystem.geometry) {
+                this.particleSystem.geometry.dispose();
+            }
+            if (this.particleSystem.material) {
+                if (Array.isArray(this.particleSystem.material)) {
+                    this.particleSystem.material.forEach(m => m.dispose());
+                } else {
+                    this.particleSystem.material.dispose();
+                }
+            }
         }
 
         const particles = this.createParticles(this.settings.particlePreset);
@@ -505,7 +545,15 @@ class VisualEffectsManager {
      * Clear parallax layers
      */
     clearParallaxLayers() {
-        this.parallaxLayers.forEach(layer => this.scene.remove(layer));
+        this.parallaxLayers.forEach(layer => {
+            this.scene.remove(layer);
+            // Properly dispose of geometry, material, and texture to prevent memory leak
+            if (layer.geometry) layer.geometry.dispose();
+            if (layer.material) {
+                if (layer.material.map) layer.material.map.dispose();
+                layer.material.dispose();
+            }
+        });
         this.parallaxLayers = [];
     }
 
@@ -2292,6 +2340,56 @@ class VisualEffectsManager {
                     }
                 }
                 break;
+
+            case 'frostedGlassUI':
+                // Get window controls element
+                const windowControls = document.getElementById('window-controls');
+
+                // Apply or remove the frosted glass class from body
+                if (enabled) {
+                    document.body.classList.add('frosted-glass-mode');
+                    // Make THREE.js scene background transparent
+                    if (this.scene) {
+                        this.scene.background = null;
+                    }
+                    // Make renderer transparent
+                    if (this.renderer) {
+                        this.renderer.setClearColor(0x000000, 0); // Transparent
+                    }
+                    // Apply saved opacity
+                    this.applyGlassOpacity(this.settings.glassOpacity || 50);
+                    // Hide window controls in transparent mode
+                    if (windowControls && window.electronAPI) {
+                        windowControls.classList.add('hidden');
+                    }
+                } else {
+                    document.body.classList.remove('frosted-glass-mode');
+                    // Restore background color from coverflow settings
+                    const bgColor = (this.coverflow && this.coverflow.settings && this.coverflow.settings.backgroundColor)
+                        ? this.coverflow.settings.backgroundColor
+                        : '#1a1a2e';
+                    if (this.scene) {
+                        this.scene.background = new THREE.Color(bgColor);
+                    }
+                    // Restore renderer opaque
+                    if (this.renderer) {
+                        this.renderer.setClearColor(bgColor, 1);
+                    }
+                    // Remove dynamic opacity styles
+                    document.getElementById('dynamic-glass-opacity')?.remove();
+                    // Show window controls in normal mode
+                    if (windowControls && window.electronAPI) {
+                        windowControls.classList.remove('hidden');
+                    }
+                }
+                // Also update the coverflow settings if available
+                if (this.coverflow && typeof this.coverflow.settings !== 'undefined') {
+                    this.coverflow.settings.frostedGlassUI = enabled;
+                    if (typeof this.coverflow.saveSettings === 'function') {
+                        this.coverflow.saveSettings();
+                    }
+                }
+                break;
             }
 
             console.log(`[VISUAL_FX] ${effectName} = ${enabled}`);
@@ -2334,6 +2432,86 @@ class VisualEffectsManager {
     }
 
     /**
+     * Apply glass opacity dynamically
+     */
+    applyGlassOpacity(opacity) {
+        try {
+            // Convert 0-100 range to opacity multiplier
+            const multiplier = opacity / 100;
+
+            // Update CSS custom property for dynamic opacity
+            document.documentElement.style.setProperty('--glass-opacity', multiplier.toString());
+
+            // Apply to all frosted glass elements
+            if (document.body.classList.contains('frosted-glass-mode')) {
+                // Scale from very transparent (0.01-0.02) to moderately transparent (0.2-0.4)
+                const baseOpacity = 0.01 + (multiplier * 0.19); // Range: 0.01 to 0.20
+                const strongOpacity = 0.05 + (multiplier * 0.35); // Range: 0.05 to 0.40
+
+                // Update inline styles for immediate effect
+                const style = document.createElement('style');
+                style.id = 'dynamic-glass-opacity';
+
+                // Remove old style if exists
+                document.getElementById('dynamic-glass-opacity')?.remove();
+
+                style.textContent = `
+                    body.frosted-glass-mode #top-bar {
+                        background: rgba(0, 0, 0, ${baseOpacity * 0.8}) !important;
+                    }
+                    body.frosted-glass-mode .settings-panel,
+                    body.frosted-glass-mode #settings-panel {
+                        background: rgba(0, 0, 0, ${strongOpacity * 0.6}) !important;
+                    }
+                    body.frosted-glass-mode .modal-content {
+                        background: rgba(20, 20, 30, ${strongOpacity}) !important;
+                    }
+                    body.frosted-glass-mode .btn {
+                        background: rgba(255, 255, 255, ${baseOpacity * 0.8}) !important;
+                    }
+                    body.frosted-glass-mode #album-info {
+                        background: rgba(0, 0, 0, ${baseOpacity}) !important;
+                    }
+                    body.frosted-glass-mode #thumbnail-container {
+                        background: rgba(0, 0, 0, ${baseOpacity * 0.8}) !important;
+                    }
+                    body.frosted-glass-mode .thumbnail {
+                        background: rgba(255, 255, 255, ${baseOpacity * 0.3}) !important;
+                    }
+                    body.frosted-glass-mode .toast {
+                        background: rgba(0, 0, 0, ${strongOpacity * 0.6}) !important;
+                    }
+                    body.frosted-glass-mode #controls {
+                        background: rgba(0, 0, 0, ${baseOpacity * 0.8}) !important;
+                    }
+                    body.frosted-glass-mode .context-menu,
+                    body.frosted-glass-mode .dropdown-menu {
+                        background: rgba(20, 20, 30, ${strongOpacity}) !important;
+                    }
+                    body.frosted-glass-mode input[type='text'],
+                    body.frosted-glass-mode input[type='number'],
+                    body.frosted-glass-mode input[type='color'],
+                    body.frosted-glass-mode textarea {
+                        background: rgba(255, 255, 255, ${baseOpacity * 0.3}) !important;
+                    }
+                    body.frosted-glass-mode .sidebar,
+                    body.frosted-glass-mode .panel {
+                        background: rgba(0, 0, 0, ${baseOpacity}) !important;
+                    }
+                    body.frosted-glass-mode .modal-overlay {
+                        background: rgba(0, 0, 0, ${multiplier * 0.15}) !important;
+                    }
+                `;
+
+                document.head.appendChild(style);
+                console.log(`[VISUAL_FX] Glass opacity updated to ${opacity}%`);
+            }
+        } catch (error) {
+            console.error('[VISUAL_FX] Error applying glass opacity:', error);
+        }
+    }
+
+    /**
      * Get current settings
      */
     getSettings() {
@@ -2345,35 +2523,97 @@ class VisualEffectsManager {
      */
     dispose() {
         try {
-            // Particles
+            // Particles - dispose geometry and material
             if (this.particleSystem) {
                 this.scene.remove(this.particleSystem);
+                if (this.particleSystem.geometry) {
+                    this.particleSystem.geometry.dispose();
+                }
+                if (this.particleSystem.material) {
+                    if (Array.isArray(this.particleSystem.material)) {
+                        this.particleSystem.material.forEach(m => m.dispose());
+                    } else {
+                        this.particleSystem.material.dispose();
+                    }
+                }
+                this.particleSystem = null;
             }
 
             // Parallax
             this.clearParallaxLayers();
 
-            // Trails
+            // Trails - dispose geometry and material
             if (this.trailLine) {
                 this.scene.remove(this.trailLine);
+                if (this.trailLine.geometry) this.trailLine.geometry.dispose();
+                if (this.trailLine.material) this.trailLine.material.dispose();
+                this.trailLine = null;
             }
 
-            // Lighting
-            if (this.rimLight) this.scene.remove(this.rimLight);
-            if (this.godRaysMesh) this.scene.remove(this.godRaysMesh);
-            if (this.colorLight1) this.scene.remove(this.colorLight1);
-            if (this.colorLight2) this.scene.remove(this.colorLight2);
+            // Lighting - dispose all light objects
+            if (this.rimLight) {
+                this.scene.remove(this.rimLight);
+                this.rimLight = null;
+            }
+            if (this.godRaysMesh) {
+                this.scene.remove(this.godRaysMesh);
+                if (this.godRaysMesh.geometry) this.godRaysMesh.geometry.dispose();
+                if (this.godRaysMesh.material) this.godRaysMesh.material.dispose();
+                this.godRaysMesh = null;
+            }
+            if (this.colorLight1) {
+                this.scene.remove(this.colorLight1);
+                this.colorLight1 = null;
+            }
+            if (this.colorLight2) {
+                this.scene.remove(this.colorLight2);
+                this.colorLight2 = null;
+            }
 
-            // Shaders
-            if (this.shaderMesh) this.scene.remove(this.shaderMesh);
+            // Shaders - dispose geometry and material
+            if (this.shaderMesh) {
+                this.scene.remove(this.shaderMesh);
+                if (this.shaderMesh.geometry) this.shaderMesh.geometry.dispose();
+                if (this.shaderMesh.material) {
+                    if (this.shaderMesh.material.uniforms) {
+                        // Dispose shader textures
+                        Object.values(this.shaderMesh.material.uniforms).forEach(uniform => {
+                            if (uniform.value && uniform.value.dispose) {
+                                uniform.value.dispose();
+                            }
+                        });
+                    }
+                    this.shaderMesh.material.dispose();
+                }
+                this.shaderMesh = null;
+            }
 
             // Reflections
             this.clearReflections(this.coversCache);
-            if (this.reflectionPlane) this.scene.remove(this.reflectionPlane);
+            if (this.reflectionPlane) {
+                this.scene.remove(this.reflectionPlane);
+                if (this.reflectionPlane.geometry) this.reflectionPlane.geometry.dispose();
+                if (this.reflectionPlane.material) {
+                    if (this.reflectionPlane.material.map) this.reflectionPlane.material.map.dispose();
+                    this.reflectionPlane.material.dispose();
+                }
+                this.reflectionPlane = null;
+            }
+
+            // Dispose all shader materials
+            this.shaderMaterials.forEach(material => {
+                if (material && material.dispose) {
+                    material.dispose();
+                }
+            });
+            this.shaderMaterials = [];
 
             // Holographic UI
             document.getElementById('scanlines-overlay')?.remove();
             document.getElementById('holographic-style')?.remove();
+
+            // Frosted glass dynamic opacity styles
+            document.getElementById('dynamic-glass-opacity')?.remove();
 
             // Loading animations
             document.getElementById('visual-fx-loader')?.remove();
@@ -2388,7 +2628,7 @@ class VisualEffectsManager {
                 this.clickHandler = null;
             }
 
-            console.log('[VISUAL_FX] Disposed');
+            console.log('[VISUAL_FX] Disposed all resources');
         } catch (error) {
             console.error('[VISUAL_FX] Error during disposal:', error);
         }
@@ -2743,6 +2983,29 @@ class VisualEffectsManager {
                     </small>
                 </div>
             </div>
+
+            <div class="settings-section">
+                <h3>🪟 UI Appearance</h3>
+                <label>
+                    <input type="checkbox" id="frostedGlassUI" ${this.settings.frostedGlassUI ? 'checked' : ''}>
+                    Frosted Glass UI
+                </label>
+                <small style="display: block; margin-top: 8px; font-size: 0.85em; opacity: 0.7;">
+                    ✨ Transparent, frosted glass appearance for menus and backgrounds - see your desktop through the UI
+                </small>
+
+                <div style="margin-top: 15px;">
+                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Glass Opacity:</span>
+                        <span id="glass-opacity-value">${this.settings.glassOpacity}%</span>
+                    </label>
+                    <input type="range" id="glass-opacity-slider" min="0" max="100" value="${this.settings.glassOpacity}"
+                           style="width: 100%; margin-top: 5px;">
+                    <small style="display: block; margin-top: 5px; font-size: 0.85em; opacity: 0.7;">
+                        Adjust transparency: 0% = fully transparent, 100% = more opaque
+                    </small>
+                </div>
+            </div>
         `;
     }
 
@@ -2850,7 +3113,8 @@ class VisualEffectsManager {
                 { id: 'shakeIntensity', valueId: 'shakeIntensityValue', suffix: '%' },
                 { id: 'reflectionOpacity', valueId: 'reflectionOpacityValue', suffix: '%' },
                 { id: 'stereoSeparation', valueId: 'stereoSeparationValue', suffix: 'mm', scale: 1 },
-                { id: 'convergence', valueId: 'convergenceValue', suffix: '', scale: 1, decimals: 2 }
+                { id: 'convergence', valueId: 'convergenceValue', suffix: '', scale: 1, decimals: 2 },
+                { id: 'glass-opacity-slider', valueId: 'glass-opacity-value', suffix: '%', setting: 'glassOpacity' }
             ];
 
             // Debounced save function to prevent excessive localStorage writes
@@ -2879,7 +3143,13 @@ class VisualEffectsManager {
 
                             // Update setting in memory
                             const settingValue = slider.id === 'stereoSeparation' ? value / 1000 : value;
-                            this.settings[slider.id] = settingValue;
+                            const settingName = slider.setting || slider.id;
+                            this.settings[settingName] = settingValue;
+
+                            // Apply glass opacity dynamically
+                            if (settingName === 'glassOpacity') {
+                                this.applyGlassOpacity(value);
+                            }
 
                             // Debounced save to localStorage
                             debouncedSave();

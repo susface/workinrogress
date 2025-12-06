@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CoverFlow Game Launcher</title>
+
+    <!-- Define Spotify SDK callback FIRST to prevent errors -->
+    <script>
+        window.onSpotifyWebPlaybackSDKReady = () => {
+            console.log('[SPOTIFY] SDK loaded and ready');
+            // The per-game-music module will handle actual initialization
+        };
+    </script>
+
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="ui-components.css">
     <link rel="stylesheet" href="modules/new-features-animations.css">
@@ -40,6 +49,11 @@
                 </div>
                 <button id="settings-btn" title="Settings">⚙️</button>
                 <button id="fullscreen-btn" title="Fullscreen (F)">⛶</button>
+                <div id="window-controls" style="margin-left: 10px;">
+                    <button id="minimize-btn" title="Minimize">−</button>
+                    <button id="maximize-btn" title="Maximize/Restore">□</button>
+                    <button id="close-btn" title="Close">×</button>
+                </div>
             </div>
         </div>
 
@@ -250,8 +264,9 @@
                     <small class="setting-info">Adjust background music volume</small>
                 </div>
                 <div class="setting-group">
-                    <button id="select-bg-music-btn" class="btn">Select Background Music File</button>
-                    <small class="setting-info">Choose a custom audio file for background music</small>
+                    <label>Background Music File</label>
+                    <button id="select-bg-music-btn" class="btn primary">📁 Choose Music File</button>
+                    <small class="setting-info" id="current-music-file-display">No file selected</small>
                 </div>
                 <div class="setting-group">
                     <button id="reset-bg-music-btn" class="btn secondary">Reset to Default Music</button>
@@ -585,7 +600,7 @@
     <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <!-- YouTube IFrame API for music integration -->
     <script src="https://www.youtube.com/iframe_api"></script>
-    <!-- Spotify Web Playback SDK -->
+    <!-- Spotify Web Playback SDK (callback defined in head) -->
     <script src="https://sdk.scdn.co/spotify-player.js"></script>
     <!-- Post-processing effects from unpkg (more reliable) -->
     <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
@@ -635,14 +650,13 @@
     <script src="modules/vr-game-filter.js"></script>
     <script src="modules/update-notifications.js"></script>
     <script src="modules/portable-mode.js"></script>
-    <script src="modules/mod-manager.js"></script>
 
     <!-- New Feature Modules (2025) -->
     <script src="modules/per-game-music.js"></script>
     <script src="modules/gaming-heatmap.js"></script>
     <script src="modules/dynamic-background.js"></script>
     <script src="modules/cover-art-editor.js"></script>
-    <script src="modules/mod-browser.js"></script>
+    <script src="modules/unified-mod-manager.js"></script>
     <script src="modules/new-features-settings.js"></script>
 
     <script src="modules/features-manager.js"></script>
@@ -653,6 +667,140 @@
 
     <!-- Initialize features -->
     <script>
+        // Initialize window controls immediately on DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Hide window controls initially if not in Electron
+            if (!window.electronAPI) {
+                const windowControls = document.getElementById('window-controls');
+                if (windowControls) {
+                    windowControls.classList.add('hidden');
+                    console.log('[WINDOW-CONTROLS] Hidden (not in Electron)');
+                }
+                return; // Exit early if not in Electron
+            }
+
+            // We're in Electron - continue with initialization
+            const windowControls = document.getElementById('window-controls');
+            const topBar = document.getElementById('top-bar');
+
+            if (!windowControls) {
+                console.error('[WINDOW-CONTROLS] Window controls element not found!');
+                return;
+            }
+
+            // Check if frosted glass mode is enabled from settings
+            // Try both possible keys (coverflow-settings and coverflowSettings)
+            const savedSettings = localStorage.getItem('coverflow-settings') || localStorage.getItem('coverflowSettings');
+            const settings = savedSettings ? JSON.parse(savedSettings) : {};
+            const frostedGlassEnabled = settings.frostedGlassUI || false;
+
+            console.log('[WINDOW-CONTROLS] Initializing window controls');
+            console.log('[WINDOW-CONTROLS] Frosted glass enabled:', frostedGlassEnabled);
+            console.log('[WINDOW-CONTROLS] Settings:', settings);
+
+            // Show window controls in Electron (unless frosted glass mode is active)
+            // In normal mode (frostedGlassEnabled = false), show the controls
+            // In frosted glass mode (frostedGlassEnabled = true), hide the controls
+            if (frostedGlassEnabled) {
+                windowControls.classList.add('hidden');
+                console.log('[WINDOW-CONTROLS] Window controls hidden (frosted glass mode)');
+            } else {
+                windowControls.classList.remove('hidden');
+                windowControls.style.display = 'flex'; // Explicitly set display
+                windowControls.style.visibility = 'visible'; // Explicitly set visibility
+                windowControls.style.opacity = '1'; // Explicitly set opacity
+                console.log('[WINDOW-CONTROLS] Window controls shown (normal mode)');
+            }
+
+            // Make top-bar draggable (for moving the window)
+            if (topBar) {
+                topBar.style.webkitAppRegion = 'drag';
+                topBar.style.appRegion = 'drag';
+
+                // Make buttons not draggable
+                const buttons = topBar.querySelectorAll('button, input');
+                buttons.forEach(btn => {
+                    btn.style.webkitAppRegion = 'no-drag';
+                    btn.style.appRegion = 'no-drag';
+                });
+            }
+
+            // Window control button handlers
+            document.getElementById('minimize-btn')?.addEventListener('click', () => {
+                console.log('[WINDOW-CONTROLS] Minimize clicked');
+                window.electronAPI.minimizeWindow();
+            });
+
+            document.getElementById('maximize-btn')?.addEventListener('click', () => {
+                console.log('[WINDOW-CONTROLS] Maximize clicked');
+                window.electronAPI.maximizeWindow();
+            });
+
+            document.getElementById('close-btn')?.addEventListener('click', () => {
+                console.log('[WINDOW-CONTROLS] Close clicked');
+                window.electronAPI.closeWindow();
+            });
+
+            // Also update fullscreen button to use new API
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            if (fullscreenBtn) {
+                fullscreenBtn.addEventListener('click', () => {
+                    window.electronAPI.toggleFullscreen();
+                });
+            }
+        });
+
+        // Old load event listener (keeping for compatibility)
+        if (window.electronAPI) {
+            window.addEventListener('load', () => {
+                const windowControls = document.getElementById('window-controls');
+                const topBar = document.getElementById('top-bar');
+
+                // Check if frosted glass mode is enabled from settings
+                // Try both possible keys (coverflow-settings and coverflowSettings)
+                const savedSettings = localStorage.getItem('coverflow-settings') || localStorage.getItem('coverflowSettings');
+                const settings = savedSettings ? JSON.parse(savedSettings) : {};
+                const frostedGlassEnabled = settings.frostedGlassUI || false;
+
+                console.log('[WINDOW-CONTROLS] Initializing window controls');
+                console.log('[WINDOW-CONTROLS] Frosted glass enabled:', frostedGlassEnabled);
+                console.log('[WINDOW-CONTROLS] Settings:', settings);
+
+                // Show window controls in Electron (unless frosted glass mode is active)
+                if (windowControls) {
+                    // In normal mode (frostedGlassEnabled = false), show the controls
+                    // In frosted glass mode (frostedGlassEnabled = true), hide the controls
+                    if (frostedGlassEnabled) {
+                        windowControls.classList.add('hidden');
+                        console.log('[WINDOW-CONTROLS] Window controls hidden (frosted glass mode)');
+                    } else {
+                        windowControls.classList.remove('hidden');
+                        windowControls.style.display = 'flex'; // Explicitly set display
+                        console.log('[WINDOW-CONTROLS] Window controls shown (normal mode)');
+                    }
+                } else {
+                    console.error('[WINDOW-CONTROLS] Window controls element not found!');
+                }
+
+                // Make top-bar draggable (for moving the window)
+                // NOTE: This is now handled by CSS, but keeping for browsers that need JS fallback
+                if (topBar) {
+                    topBar.style.webkitAppRegion = 'drag';
+                    topBar.style.appRegion = 'drag';
+
+                    // Make buttons not draggable
+                    const buttons = topBar.querySelectorAll('button, input');
+                    buttons.forEach(btn => {
+                        btn.style.webkitAppRegion = 'no-drag';
+                        btn.style.appRegion = 'no-drag';
+                    });
+                }
+
+                // NOTE: Window control event listeners are now attached in DOMContentLoaded above
+                // Removed duplicate listeners to prevent double-click issues
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             console.log('[INIT] DOMContentLoaded fired');
             console.log('[INIT] window.coverflow:', window.coverflow);

@@ -5,6 +5,7 @@
 
 class KeyboardNavigation {
     constructor() {
+        this.abortController = new AbortController();
         this.hotkeys = {};
         this.defaultHotkeys = {
             // Navigation
@@ -73,9 +74,11 @@ class KeyboardNavigation {
         // Load custom hotkeys
         this.hotkeys = { ...this.defaultHotkeys, ...this.customHotkeys };
 
-        // Add event listeners
-        document.addEventListener('keydown', this.handleKeyDown.bind(this));
-        document.addEventListener('keyup', this.handleKeyUp.bind(this));
+        const signal = this.abortController.signal;
+
+        // Add event listeners with AbortController
+        document.addEventListener('keydown', this.handleKeyDown.bind(this), { signal });
+        document.addEventListener('keyup', this.handleKeyUp.bind(this), { signal });
 
         // Prevent default browser shortcuts
         this.preventDefaultShortcuts();
@@ -85,6 +88,23 @@ class KeyboardNavigation {
 
         console.log('[KEYBOARD] ✓ Keyboard navigation initialized');
         console.log('[KEYBOARD] Press "H" for keyboard shortcuts help');
+    }
+
+    /**
+     * Cleanup method to prevent memory leaks
+     */
+    destroy() {
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+
+        // Remove keyboard navigation indicator
+        const indicator = document.getElementById('keyboard-nav-indicator');
+        if (indicator) indicator.remove();
+
+        // Remove quick actions menu if present
+        const quickActionsMenu = document.getElementById('quick-actions-menu');
+        if (quickActionsMenu) quickActionsMenu.remove();
     }
 
     /**

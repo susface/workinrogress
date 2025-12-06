@@ -84,6 +84,42 @@ class CoverArtEditor {
         this.showEditorModal();
     }
 
+    // Generate options for all items in coverflow
+    generateItemOptions() {
+        const coverflowObj = window.coverflow || window.coverflowManager;
+
+        console.log('[COVER_ART_EDITOR] Generating item options...');
+        console.log('[COVER_ART_EDITOR] Coverflow object:', coverflowObj);
+
+        // Get items from allAlbums or filteredAlbums
+        const items = coverflowObj?.allAlbums || coverflowObj?.filteredAlbums || coverflowObj?.games || [];
+
+        console.log('[COVER_ART_EDITOR] Items array:', items);
+        console.log('[COVER_ART_EDITOR] Items count:', items.length);
+
+        if (!coverflowObj || items.length === 0) {
+            console.log('[COVER_ART_EDITOR] No items found, using current game only');
+            const itemId = this.currentGame.id || this.currentGame.title || this.currentGame.name || 'current';
+            const itemName = this.currentGame.title || this.currentGame.name || 'Current Item';
+            return `<option value="${itemId}">${itemName}</option>`;
+        }
+
+        let options = '';
+        items.forEach((item, index) => {
+            // Use id if available, otherwise use title/name or index as fallback
+            const itemId = item.id || item.title || item.name || `item-${index}`;
+            const currentId = this.currentGame.id || this.currentGame.title || this.currentGame.name || 'current';
+            const selected = itemId === currentId ? 'selected' : '';
+            const type = item.type || 'game';
+            const typeLabel = type !== 'game' ? ` [${type}]` : '';
+            const itemName = item.title || item.name || `Item ${index + 1}`;
+            options += `<option value="${itemId}" ${selected}>${itemName}${typeLabel}</option>`;
+        });
+
+        console.log('[COVER_ART_EDITOR] Generated options for', items.length, 'items');
+        return options;
+    }
+
     showEditorModal() {
         // Close existing modal if any
         if (this.activeModal) {
@@ -114,14 +150,20 @@ class CoverArtEditor {
                 background: #1a1a2e;
                 border-radius: 10px;
                 padding: 20px;
-                max-width: 1200px;
-                width: 90%;
+                max-width: 1400px;
+                width: 95%;
                 max-height: 90vh;
                 overflow: auto;
             ">
-                <div class="editor-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2>🎨 Cover Art Editor - ${this.currentGame.name}</h2>
-                    <button id="close-editor" class="btn" style="font-size: 20px;">✕</button>
+                <div class="editor-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px;">
+                    <h2 style="margin: 0; min-width: 180px;">🎨 Cover Art Editor</h2>
+                    <div style="flex: 1; max-width: 800px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.9);">Select Item to Edit:</label>
+                        <select id="item-selector" style="width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid rgba(255,255,255,0.3); border-radius: 5px; color: white; font-size: 18px;">
+                            ${this.generateItemOptions()}
+                        </select>
+                    </div>
+                    <button id="close-editor" class="btn" style="font-size: 18px; padding: 5px; width: 30px; height: 30px; min-width: 30px; line-height: 1;">✕</button>
                 </div>
 
                 <div class="editor-content" style="display: grid; grid-template-columns: 250px 1fr 300px; gap: 20px;">
@@ -135,7 +177,6 @@ class CoverArtEditor {
 
                         <h3>Quick Actions</h3>
                         <button id="search-online" class="btn btn-block">🔍 Search Online</button>
-                        <button id="ai-generate" class="btn btn-block">✨ AI Generate</button>
                     </div>
 
                     <!-- Canvas Area -->
@@ -173,7 +214,7 @@ class CoverArtEditor {
 
                         <div class="tool-section" style="margin-top: 15px;">
                             <h4>Text</h4>
-                            <input type="text" id="title-text" placeholder="Game Title" value="${this.currentGame.name}" style="width: 100%; padding: 5px; margin-bottom: 5px;">
+                            <input type="text" id="title-text" placeholder="Game Title" value="${this.currentGame.title || this.currentGame.name || 'Game Title'}" style="width: 100%; padding: 5px; margin-bottom: 5px;">
                             <label>
                                 <span>Font Size:</span>
                                 <input type="range" id="font-size" min="20" max="100" value="48" style="width: 100%;">
@@ -251,6 +292,9 @@ class CoverArtEditor {
         // Render templates
         this.renderTemplates(modal);
 
+        // Load existing custom cover if it exists
+        this.loadExistingCover();
+
         // Initial render
         this.render();
     }
@@ -259,6 +303,40 @@ class CoverArtEditor {
         // Close button
         modal.querySelector('#close-editor').addEventListener('click', () => {
             this.closeEditor();
+        });
+
+        // Item selector
+        modal.querySelector('#item-selector').addEventListener('change', (e) => {
+            const selectedId = e.target.value;
+            const coverflowObj = window.coverflow || window.coverflowManager;
+            const items = coverflowObj?.allAlbums || coverflowObj?.filteredAlbums || coverflowObj?.games || [];
+
+            if (items && items.length > 0) {
+                // Try to find by id, title, name, or index
+                let selectedItem = items.find(item => {
+                    const itemId = item.id || item.title || item.name;
+                    return itemId === selectedId || String(itemId) === selectedId;
+                });
+
+                // If still not found, try by index
+                if (!selectedItem && selectedId.startsWith('item-')) {
+                    const index = parseInt(selectedId.replace('item-', ''));
+                    selectedItem = items[index];
+                }
+
+                if (selectedItem) {
+                    this.currentGame = selectedItem;
+                    // Update the title text field
+                    const titleInput = modal.querySelector('#title-text');
+                    if (titleInput) {
+                        titleInput.value = selectedItem.title || selectedItem.name || 'Untitled';
+                    }
+                    // Load existing cover for this item if available
+                    this.loadExistingCover();
+                    // Re-render with new item
+                    this.render();
+                }
+            }
         });
 
         // Template selection
@@ -328,11 +406,6 @@ class CoverArtEditor {
         // Search online
         modal.querySelector('#search-online').addEventListener('click', () => {
             this.searchOnline();
-        });
-
-        // AI Generate (placeholder)
-        modal.querySelector('#ai-generate').addEventListener('click', () => {
-            alert('AI generation feature coming soon! This would integrate with DALL-E or similar services.');
         });
     }
 
@@ -467,39 +540,87 @@ class CoverArtEditor {
             img.onload = () => {
                 this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
                 this.saveState();
+                // Clean up to prevent memory leaks
+                img.onload = null;
+                img.onerror = null;
+                img.src = '';
+            };
+            img.onerror = () => {
+                console.error('[COVER_ART_EDITOR] Failed to load image');
+                // Clean up
+                img.onload = null;
+                img.onerror = null;
             };
             img.src = e.target.result;
+
+            // Clean up FileReader
+            reader.onload = null;
         };
         reader.readAsDataURL(file);
     }
 
     searchOnline() {
-        const query = encodeURIComponent(`${this.currentGame.name} game cover art`);
+        const gameName = this.currentGame.title || this.currentGame.name || 'game';
+        const query = encodeURIComponent(`${gameName} game cover art`);
         const searchUrl = `https://www.google.com/search?tbm=isch&q=${query}`;
         window.open(searchUrl, '_blank');
     }
 
     saveCover() {
         const dataUrl = this.canvas.toDataURL('image/png');
-        this.customCovers[this.currentGame.id] = dataUrl;
+        // Use id if available, otherwise use title or name as key
+        const gameKey = this.currentGame.id || this.currentGame.title || this.currentGame.name;
+        this.customCovers[gameKey] = dataUrl;
         this.saveCustomCovers();
 
-        alert('Cover art saved! The custom cover will be used in the launcher.');
+        console.log('[COVER_ART_EDITOR] Cover saved for:', gameKey);
 
-        // Update the game's image if possible
-        if (window.coverflow && window.coverflow.updateGame) {
-            this.currentGame.image = dataUrl;
-            window.coverflow.updateGame(this.currentGame);
-        } else if (window.coverflowManager && window.coverflowManager.updateGame) {
-            this.currentGame.image = dataUrl;
-            window.coverflowManager.updateGame(this.currentGame);
+        // Update the game's image property
+        this.currentGame.image = dataUrl;
+
+        // Trigger a cover refresh in the coverflow
+        const coverflowObj = window.coverflow || window.coverflowManager;
+        if (coverflowObj) {
+            // Update the game in the allAlbums array
+            const items = coverflowObj.allAlbums || coverflowObj.filteredAlbums || coverflowObj.games || [];
+            const gameIndex = items.findIndex(item => {
+                const itemKey = item.id || item.title || item.name;
+                return itemKey === gameKey;
+            });
+
+            if (gameIndex !== -1) {
+                items[gameIndex].image = dataUrl;
+                console.log('[COVER_ART_EDITOR] Updated game in array at index:', gameIndex);
+            }
+
+            // Recreate the 3D covers to show the updated image
+            if (typeof coverflowObj.createCovers === 'function') {
+                coverflowObj.createCovers();
+                console.log('[COVER_ART_EDITOR] Refreshed 3D covers');
+            }
+
+            // Update thumbnails if the method exists
+            if (typeof coverflowObj.createThumbnails === 'function') {
+                coverflowObj.createThumbnails();
+                console.log('[COVER_ART_EDITOR] Refreshed thumbnails');
+            }
+        }
+
+        // Show success message
+        if (typeof this.showToast === 'function') {
+            this.showToast('Cover art saved successfully!', 'success');
+        } else if (coverflowObj && typeof coverflowObj.showToast === 'function') {
+            coverflowObj.showToast('Cover art saved successfully!', 'success');
+        } else {
+            alert('Cover art saved! The custom cover will be used in the launcher.');
         }
     }
 
     exportCover() {
         const dataUrl = this.canvas.toDataURL('image/png');
         const link = document.createElement('a');
-        link.download = `${this.currentGame.name.replace(/[^a-z0-9]/gi, '_')}_cover.png`;
+        const gameName = this.currentGame.title || this.currentGame.name || 'game';
+        link.download = `${gameName.replace(/[^a-z0-9]/gi, '_')}_cover.png`;
         link.href = dataUrl;
         link.click();
     }
@@ -543,8 +664,56 @@ class CoverArtEditor {
         img.onload = () => {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             this.ctx.drawImage(img, 0, 0);
+            // Clean up to prevent memory leaks
+            img.onload = null;
+            img.onerror = null;
+            img.src = '';
+        };
+        img.onerror = () => {
+            console.error('[COVER_ART_EDITOR] Failed to load state');
+            // Clean up
+            img.onload = null;
+            img.onerror = null;
         };
         img.src = dataUrl;
+    }
+
+    loadExistingCover() {
+        if (!this.currentGame || !this.canvas) return;
+
+        const gameKey = this.currentGame.id || this.currentGame.title || this.currentGame.name;
+        const existingCover = this.customCovers[gameKey];
+
+        if (existingCover) {
+            console.log('[COVER_ART_EDITOR] Loading existing custom cover for:', gameKey);
+            const img = new Image();
+            img.onload = () => {
+                // Set canvas size to match the image
+                this.canvas.width = img.width;
+                this.canvas.height = img.height;
+
+                // Draw the existing cover
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.drawImage(img, 0, 0);
+
+                // Save to history
+                this.saveState();
+
+                // Clean up to prevent memory leaks
+                img.onload = null;
+                img.onerror = null;
+                img.src = '';
+            };
+            img.onerror = () => {
+                console.error('[COVER_ART_EDITOR] Failed to load existing cover');
+                // Clean up
+                img.onload = null;
+                img.onerror = null;
+            };
+            img.src = existingCover;
+        } else {
+            console.log('[COVER_ART_EDITOR] No existing custom cover found for:', gameKey);
+        }
     }
 
     // Get custom cover for a game

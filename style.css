@@ -20,6 +20,11 @@ body {
     height: 100vh;
 }
 
+/* Override body background in frosted glass mode to be fully transparent */
+body.frosted-glass-mode {
+    background: transparent !important;
+}
+
 /* Global image smoothing for better anti-aliasing */
 img {
     image-rendering: auto;
@@ -70,32 +75,69 @@ img {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     gap: 15px;
-    padding: 20px 0;
+    padding: 0;
 }
 
 /* Top Bar */
 #top-bar {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    width: 90%;
-    max-width: 1200px;
+    width: 100%;
     padding: 10px 20px;
     background: rgba(0, 0, 0, 0.4);
-    border-radius: 10px;
     backdrop-filter: blur(10px);
-    position: relative;
+    position: sticky;
+    top: 0;
     z-index: 1000;
+    -webkit-app-region: drag;
+    app-region: drag;
+    cursor: move;
+    flex-shrink: 0;
+}
+
+/* Left spacer - draggable */
+#top-bar::before {
+    content: '';
+    grid-column: 1;
+}
+
+/* Center content */
+#search-container {
+    grid-column: 2;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+}
+
+/* Right side controls */
+#top-controls {
+    grid-column: 3;
+    justify-self: end;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+}
+
+/* Make interactive elements in top bar non-draggable */
+#top-bar button,
+#top-bar input,
+#top-bar select,
+#top-bar .dropdown-container {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+    cursor: pointer;
+}
+
+#top-bar input {
+    cursor: text;
 }
 
 #search-container {
     position: relative;
-    flex: 1;
+    width: 400px;
     max-width: 400px;
-    margin-left: 200px; /* Prevent overlap with view mode switcher */
 }
 
 #search-input {
@@ -145,6 +187,7 @@ img {
     display: flex;
     gap: 10px;
     align-items: center;
+    flex-shrink: 0;
 }
 
 #controller-status {
@@ -237,6 +280,8 @@ img {
     height: 55vh;
     position: relative;
     flex-shrink: 0;
+    margin-top: auto;
+    margin-bottom: auto;
 }
 
 /* FPS Counter */
@@ -337,6 +382,7 @@ img {
     border-radius: 15px;
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
 }
 
 #album-info {
@@ -410,6 +456,7 @@ img {
     width: 90%;
     max-width: 1200px;
     gap: 10px;
+    flex-shrink: 0;
 }
 
 .thumb-nav-btn {
@@ -486,6 +533,8 @@ img {
     text-align: center;
     color: #808080;
     font-size: 13px;
+    flex-shrink: 0;
+    padding-bottom: 10px;
 }
 
 #controls p {
@@ -1602,3 +1651,284 @@ input[type="checkbox"]:checked {
         transform: translateX(100%) scale(0.8);
     }
 }
+
+/* Global Select and Option Styling - Fix white text on white background */
+select {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    padding: 5px !important;
+    border-radius: 5px !important;
+}
+
+select option {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    padding: 5px !important;
+}
+
+select:focus {
+    outline: none !important;
+    border-color: rgba(79, 195, 247, 0.5) !important;
+}
+
+/* Frosted Glass Mode - Transparent UI with blur effect */
+body.frosted-glass-mode #top-bar {
+    background: rgba(0, 0, 0, 0.08) !important;
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    border: none !important;
+}
+
+body.frosted-glass-mode #search-input {
+    background: rgba(255, 255, 255, 0.03) !important;
+    backdrop-filter: blur(15px) !important;
+    -webkit-backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+body.frosted-glass-mode .settings-panel {
+    background: rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(35px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(35px) saturate(180%) !important;
+    border: none !important;
+}
+
+body.frosted-glass-mode .modal-overlay {
+    background: rgba(0, 0, 0, 0.15) !important;
+    backdrop-filter: blur(15px) !important;
+    -webkit-backdrop-filter: blur(15px) !important;
+}
+
+body.frosted-glass-mode .modal-content {
+    background: rgba(20, 20, 30, 0.5) !important;
+    backdrop-filter: blur(35px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(35px) saturate(180%) !important;
+    border: none !important;
+}
+
+body.frosted-glass-mode .btn {
+    background: rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(15px) !important;
+    -webkit-backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.frosted-glass-mode .btn:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.frosted-glass-mode #album-info {
+    background: rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    border: none !important;
+}
+
+body.frosted-glass-mode #thumbnail-container {
+    background: rgba(0, 0, 0, 0.08) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+}
+
+body.frosted-glass-mode .thumbnail {
+    background: rgba(255, 255, 255, 0.03) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Keep game icons and text clear - prevent transparency on content */
+body.frosted-glass-mode canvas,
+body.frosted-glass-mode img,
+body.frosted-glass-mode #album-title,
+body.frosted-glass-mode #album-artist,
+body.frosted-glass-mode #album-year,
+body.frosted-glass-mode .thumbnail img {
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+/* Dropdown menus in frosted glass mode */
+body.frosted-glass-mode select {
+    background: rgba(26, 26, 26, 0.5) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.frosted-glass-mode select option {
+    background: rgba(26, 26, 26, 0.95) !important;
+}
+
+
+/* Additional Frosted Glass UI elements */
+body.frosted-glass-mode .toast {
+    background: rgba(0, 0, 0, 0.3) !important;
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    border: none !important;
+}
+
+body.frosted-glass-mode #controls {
+    background: rgba(0, 0, 0, 0.08) !important;
+    backdrop-filter: blur(25px) !important;
+    -webkit-backdrop-filter: blur(25px) !important;
+}
+
+body.frosted-glass-mode .context-menu {
+    background: rgba(20, 20, 30, 0.5) !important;
+    backdrop-filter: blur(35px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(35px) saturate(180%) !important;
+    border: none !important;
+}
+
+body.frosted-glass-mode .dropdown-menu {
+    background: rgba(20, 20, 30, 0.5) !important;
+    backdrop-filter: blur(35px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(35px) saturate(180%) !important;
+    border: none !important;
+}
+
+body.frosted-glass-mode input[type='text'],
+body.frosted-glass-mode input[type='number'],
+body.frosted-glass-mode input[type='color'],
+body.frosted-glass-mode textarea {
+    background: rgba(255, 255, 255, 0.03) !important;
+    backdrop-filter: blur(15px) !important;
+    -webkit-backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.frosted-glass-mode .slider {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Ensure 3D canvas and game content remains unaffected */
+body.frosted-glass-mode #coverflow-container,
+body.frosted-glass-mode #coverflow-container canvas {
+    background: transparent !important;
+    filter: none !important;
+}
+
+/* Sidebar and panels */
+body.frosted-glass-mode .sidebar,
+body.frosted-glass-mode .panel {
+    background: rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(30px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+    border: none !important;
+}
+
+
+/* Frosted Glass Mode - Enhanced visibility with desktop transparency */
+/* Note: body background is set near top of file, no need to repeat here */
+
+body.frosted-glass-mode #container {
+    background: transparent !important;
+}
+
+/* Make the coverflow container transparent with frosted glass effect */
+body.frosted-glass-mode #coverflow-container {
+    background: transparent !important;
+}
+
+/* Apply frosted glass effect to info panel */
+body.frosted-glass-mode #info-panel {
+    background: rgba(0, 0, 0, 0.2) !important;
+    backdrop-filter: blur(30px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Make thumbnail navigation area transparent */
+body.frosted-glass-mode #thumbnail-nav {
+    background: transparent !important;
+}
+
+/* Add frosted glass effect to thumbnail buttons */
+body.frosted-glass-mode .thumb-nav-btn {
+    background: rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(15px) !important;
+    -webkit-backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+body.frosted-glass-mode .settings-panel,
+body.frosted-glass-mode #settings-panel {
+    background: rgba(0, 0, 0, 0.3) !important;
+    backdrop-filter: blur(30px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+}
+
+body.frosted-glass-mode .setting-group {
+    background: rgba(255, 255, 255, 0.03) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* Window controls for frameless window */
+#window-controls {
+    display: flex !important;
+    gap: 5px;
+    align-items: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Hide window controls when not in Electron or when in frosted glass mode */
+#window-controls.hidden {
+    display: none !important;
+}
+
+/* Ensure window controls are visible by default when shown */
+#window-controls:not(.hidden) {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#window-controls button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+#window-controls button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+#window-controls #close-btn:hover {
+    background: rgba(255, 0, 0, 0.8);
+    border-color: rgba(255, 0, 0, 1);
+}
+
+/* Frosted glass mode window controls */
+body.frosted-glass-mode #window-controls button {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+body.frosted-glass-mode #window-controls button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.frosted-glass-mode #window-controls #close-btn:hover {
+    background: rgba(255, 0, 0, 0.6);
+    border-color: rgba(255, 0, 0, 0.8);
+}
+

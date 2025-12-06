@@ -7,6 +7,8 @@ class YouTubeIntegration {
     constructor() {
         this.apiLoaded = false;
         this.searchCache = new Map();
+        this.players = []; // Track all created players
+        this.scriptTag = null; // Track the script tag
     }
 
     /**
@@ -28,6 +30,7 @@ class YouTubeIntegration {
             // Load YouTube IFrame API
             const tag = document.createElement('script');
             tag.src = 'https://www.youtube.com/iframe_api';
+            this.scriptTag = tag;
 
             window.onYouTubeIframeAPIReady = () => {
                 this.apiLoaded = true;
@@ -48,6 +51,27 @@ class YouTubeIntegration {
                 document.head.appendChild(tag);
             }
         });
+    }
+
+    /**
+     * Cleanup method to prevent memory leaks
+     */
+    destroy() {
+        // Destroy all YouTube players
+        this.players.forEach(player => {
+            if (player && typeof player.destroy === 'function') {
+                player.destroy();
+            }
+        });
+        this.players = [];
+
+        // Clear search cache to free memory
+        this.searchCache.clear();
+
+        // Clean up global callback
+        if (window.onYouTubeIframeAPIReady) {
+            delete window.onYouTubeIframeAPIReady;
+        }
     }
 
     /**
@@ -162,6 +186,9 @@ class YouTubeIntegration {
                         }
                     }
                 });
+
+                // Track the player for cleanup
+                this.players.push(player);
             }).catch(reject);
         });
     }

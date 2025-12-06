@@ -126,41 +126,82 @@ class ModManager {
      * Show mod manager for a specific game
      */
     showModManager(game) {
-        if (!game) {
-            this.showToast('No game selected', 'error');
+        // Show the modal even if no game is selected
+        const manager = document.getElementById('mod-manager');
+        if (!manager) {
+            console.error('[MOD_MANAGER] Mod manager UI not found');
             return;
         }
 
-        this.currentGame = game;
+        this.currentGame = game || null;
         this.isVisible = true;
+
+        // Show modal
+        manager.style.display = 'block';
 
         // Update UI
         const gameTitle = document.querySelector('.mod-manager .game-title');
         if (gameTitle) {
-            let titleText = game.title;
+            if (!game) {
+                gameTitle.textContent = 'No game selected';
+            } else {
+                let titleText = game.title;
 
-            // Add badges for mod support
-            if (game.has_workshop_support) {
-                titleText += ' 🛠️ Workshop';
-            }
-            if (game.engine === 'Unity') {
-                titleText += ' 🎮 Unity';
-            }
-            if (game.engine === 'Unreal') {
-                titleText += ' 🎮 Unreal';
-            }
+                // Add badges for mod support
+                if (game.has_workshop_support) {
+                    titleText += ' 🛠️ Workshop';
+                }
+                if (game.engine === 'Unity') {
+                    titleText += ' 🎮 Unity';
+                }
+                if (game.engine === 'Unreal') {
+                    titleText += ' 🎮 Unreal';
+                }
 
-            gameTitle.textContent = titleText;
+                gameTitle.textContent = titleText;
+            }
         }
 
-        // Load mods for this game
-        this.loadModsForGame(game.id);
-
-        // Show modal
-        const manager = document.getElementById('mod-manager');
-        if (manager) {
-            manager.classList.add('active');
+        // Update mod count
+        const modCount = document.querySelector('.mod-manager .mod-count');
+        if (modCount && game) {
+            modCount.textContent = '0 mods installed';
+        } else if (modCount) {
+            modCount.textContent = 'Select a game to view mods';
         }
+
+        // Load mods for this game only if game is selected
+        if (game && game.id) {
+            // Show loading indicator immediately
+            const modList = document.getElementById('mod-list');
+            if (modList) {
+                modList.innerHTML = `
+                    <div class="loading-state" style="text-align: center; padding: 40px;">
+                        <div class="spinner" style="
+                            border: 4px solid rgba(255,255,255,0.1);
+                            border-top: 4px solid #4fc3f7;
+                            border-radius: 50%;
+                            width: 40px;
+                            height: 40px;
+                            animation: spin 1s linear infinite;
+                            margin: 0 auto 20px;
+                        "></div>
+                        <p style="color: #aaa;">Loading mods...</p>
+                    </div>
+                `;
+            }
+            // Load mods asynchronously
+            this.loadModsForGame(game.id);
+        } else {
+            // Show empty state
+            const modList = document.getElementById('mod-list');
+            if (modList) {
+                modList.innerHTML = '<div class="empty-state">Select a game from the library to manage its mods</div>';
+            }
+        }
+
+        // Show modal using display style (already set above)
+        manager.classList.add('active');
     }
 
     /**
@@ -171,6 +212,7 @@ class ModManager {
         const manager = document.getElementById('mod-manager');
         if (manager) {
             manager.classList.remove('active');
+            manager.style.display = 'none';
         }
     }
 
@@ -224,6 +266,8 @@ class ModManager {
         if (this.modSupport.isUnity) {
             infoHtml += '<span class="badge unity">Unity Engine - Thunderstore Compatible</span>';
             infoHtml += '<button id="browse-thunderstore-btn" class="btn">Browse Thunderstore</button>';
+            infoHtml += '<button id="install-bepinex-btn" class="btn" style="background: #4caf50;">Install BepInEx</button>';
+            infoHtml += '<button id="install-melonloader-btn" class="btn" style="background: #2196f3;">Install MelonLoader</button>';
         }
 
         if (this.modSupport.engine) {
@@ -238,6 +282,21 @@ class ModManager {
         if (thunderstoreBtn) {
             thunderstoreBtn.addEventListener('click', () => {
                 this.browseThunderstore();
+            });
+        }
+
+        // Add event listeners for BepInEx and MelonLoader installers
+        const bepinexBtn = document.getElementById('install-bepinex-btn');
+        if (bepinexBtn) {
+            bepinexBtn.addEventListener('click', () => {
+                this.installBepInEx();
+            });
+        }
+
+        const melonloaderBtn = document.getElementById('install-melonloader-btn');
+        if (melonloaderBtn) {
+            melonloaderBtn.addEventListener('click', () => {
+                this.installMelonLoader();
             });
         }
     }
@@ -687,6 +746,74 @@ class ModManager {
             this.showToast('Failed to install mod', 'error');
             btn.disabled = false;
             btn.textContent = 'Install';
+        }
+    }
+
+    /**
+     * Install BepInEx for Unity games
+     */
+    async installBepInEx() {
+        if (!this.currentGame) {
+            this.showToast('No game selected', 'error');
+            return;
+        }
+
+        if (!window.electronAPI || !window.electronAPI.installBepInEx) {
+            // Fallback: Open BepInEx download page
+            window.open('https://github.com/BepInEx/BepInEx/releases/latest', '_blank');
+            this.showToast('Please download BepInEx manually and extract to game folder', 'info');
+            return;
+        }
+
+        this.showToast('Downloading and installing BepInEx...', 'info');
+
+        try {
+            const result = await window.electronAPI.installBepInEx(this.currentGame.id);
+            if (result.success) {
+                this.showToast('BepInEx installed successfully!', 'success');
+                // Refresh mod list
+                this.loadModsForGame(this.currentGame.id);
+            } else {
+                this.showToast(`Failed to install BepInEx: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            window.logger?.error('MOD_MANAGER', 'Failed to install BepInEx:', error);
+            this.showToast('Failed to install BepInEx. Opening download page...', 'error');
+            window.open('https://github.com/BepInEx/BepInEx/releases/latest', '_blank');
+        }
+    }
+
+    /**
+     * Install MelonLoader for Unity games
+     */
+    async installMelonLoader() {
+        if (!this.currentGame) {
+            this.showToast('No game selected', 'error');
+            return;
+        }
+
+        if (!window.electronAPI || !window.electronAPI.installMelonLoader) {
+            // Fallback: Open MelonLoader download page
+            window.open('https://github.com/LavaGang/MelonLoader/releases/latest', '_blank');
+            this.showToast('Please download MelonLoader manually and run the installer', 'info');
+            return;
+        }
+
+        this.showToast('Downloading and installing MelonLoader...', 'info');
+
+        try {
+            const result = await window.electronAPI.installMelonLoader(this.currentGame.id);
+            if (result.success) {
+                this.showToast('MelonLoader installed successfully!', 'success');
+                // Refresh mod list
+                this.loadModsForGame(this.currentGame.id);
+            } else {
+                this.showToast(`Failed to install MelonLoader: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            window.logger?.error('MOD_MANAGER', 'Failed to install MelonLoader:', error);
+            this.showToast('Failed to install MelonLoader. Opening download page...', 'error');
+            window.open('https://github.com/LavaGang/MelonLoader/releases/latest', '_blank');
         }
     }
 

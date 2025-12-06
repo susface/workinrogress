@@ -37,7 +37,7 @@ class CoverFlow {
         const vrGameFilter = new VRGameFilter();
         const updateNotifications = new UpdateNotifications();
         const portableMode = new PortableMode();
-        const modManager = new ModManager();
+        const modManager = new UnifiedModManager();
 
         // Store module instances for direct access
         this._modules = {
@@ -87,6 +87,9 @@ class CoverFlow {
         this.createFileTypeThumbnail = coverFlowUI.createFileTypeThumbnail.bind(this);
         this.showToast = coverFlowUIUtils.showToast.bind(this);
 
+        // Bind settings control setup from module (includes background music buttons)
+        this.setupSettingsControls = coverFlowSettings.setupSettingsControls.bind(this);
+
         // Bind module methods for dropdown menu items
         this.toggleInsights = sessionInsights.toggleInsights.bind(sessionInsights);
         this.showModManager = modManager.showModManager.bind(modManager);
@@ -101,6 +104,15 @@ class CoverFlow {
         // Bind soundtrack player methods
         this.loadGameSoundtrack = soundtrackPlayer.loadGameSoundtrack.bind(soundtrackPlayer);
         this.loadYouTubeSoundtrack = soundtrackPlayer.loadYouTubeSoundtrack.bind(soundtrackPlayer);
+
+        // Bind background music methods
+        this.initializeBackgroundMusic = backgroundMusic.initializeBackgroundMusic.bind(backgroundMusic);
+        this.loadCustomBackgroundMusic = backgroundMusic.loadCustomBackgroundMusic.bind(backgroundMusic);
+        this.resetBackgroundMusicToDefault = backgroundMusic.resetBackgroundMusicToDefault.bind(backgroundMusic);
+        this.setBackgroundMusicVolume = backgroundMusic.setBackgroundMusicVolume.bind(backgroundMusic);
+        this.toggleBackgroundMusic = backgroundMusic.toggleBackgroundMusic.bind(backgroundMusic);
+        this.showFileInputDialog = backgroundMusic.showFileInputDialog.bind(backgroundMusic);
+        this.setBackgroundMusicFile = backgroundMusic.setBackgroundMusicFile.bind(backgroundMusic);
 
         // Bind main class methods that are called from module code
         this.loadGames = this.loadGames.bind(this);
@@ -126,8 +138,14 @@ class CoverFlow {
         this.autoRotateInterval = null;
         this.animationFrameId = null;
 
+        // Event listener storage for cleanup
+        this.eventListeners = [];
+
         // Track base Y position for floating animation
         this.centerCoverBaseY = 0;
+
+        // Track active intervals for cleanup
+        this.sessionIntervals = {};
 
         // Gamepad/Controller support - SIMPLIFIED
         this.gamepadIndex = -1;
@@ -184,7 +202,7 @@ class CoverFlow {
             showReflections: true,
             autoRotate: false,
             // Appearance
-            backgroundColor: '#000000',
+            backgroundColor: '#1a1a2e',
             // Hardware rendering settings
             hardwareRendering: false,
             glassEffect: false,
@@ -313,6 +331,31 @@ class CoverFlow {
 
         // In browser mode, use Flask server URL
         return `${this.serverURL}/${imagePath}`;
+    }
+
+    applyCustomCovers(games) {
+        // Load custom covers from localStorage
+        try {
+            const savedCovers = localStorage.getItem('custom-cover-art');
+            if (!savedCovers) return;
+
+            const customCovers = JSON.parse(savedCovers);
+            let appliedCount = 0;
+
+            games.forEach(game => {
+                const gameKey = game.id || game.title || game.name;
+                if (customCovers[gameKey]) {
+                    game.image = customCovers[gameKey];
+                    appliedCount++;
+                }
+            });
+
+            if (appliedCount > 0) {
+                console.log(`[COVERFLOW] Applied ${appliedCount} custom cover(s)`);
+            }
+        } catch (error) {
+            console.error('[COVERFLOW] Failed to apply custom covers:', error);
+        }
     }
 
     loadSettings() {
@@ -580,15 +623,21 @@ class CoverFlow {
 
         // Initialize Visual Effects Manager
         if (window.VisualEffectsManager) {
-            this.visualEffectsManager = new VisualEffectsManager(
-                this.scene,
-                this.camera,
-                this.renderer,
-                this
-            );
-            this.visualEffectsManager.init(); // Initialize all effects
-            window.visualEffectsManager = this.visualEffectsManager; // Make globally accessible
-            console.log('[COVERFLOW] Visual Effects Manager initialized');
+            try {
+                this.visualEffectsManager = new VisualEffectsManager(
+                    this.scene,
+                    this.camera,
+                    this.renderer,
+                    this
+                );
+                this.visualEffectsManager.init(); // Initialize all effects
+                window.visualEffectsManager = this.visualEffectsManager; // Make globally accessible
+                console.log('[COVERFLOW] Visual Effects Manager initialized');
+            } catch (error) {
+                console.error('[COVERFLOW] Failed to initialize Visual Effects Manager:', error);
+                // Continue initialization even if visual effects fail
+                this.visualEffectsManager = null;
+            }
         }
 
         // Enhanced lighting
@@ -614,10 +663,11 @@ class CoverFlow {
         this.initPostProcessing();
 
         // Handle window resize
-        window.addEventListener('resize', () => this.onWindowResize());
+        const resizeHandler = () => this.onWindowResize();
+        this.addTrackedEventListener(window, 'resize', resizeHandler);
 
         // Pause rendering when tab is hidden to save resources
-        document.addEventListener('visibilitychange', () => {
+        const visibilityHandler = () => {
             if (document.hidden) {
                 this.pauseAnimation();
                 console.log('[COVERFLOW] Tab hidden - animation paused');
@@ -625,7 +675,8 @@ class CoverFlow {
                 this.resumeAnimation();
                 console.log('[COVERFLOW] Tab visible - animation resumed');
             }
-        });
+        };
+        this.addTrackedEventListener(document, 'visibilitychange', visibilityHandler);
 
         // Initialize enhancement modules
         if (typeof this.initializeSoundEffects === 'function') {
@@ -836,9 +887,9 @@ class CoverFlow {
         if (typeof THREE.UnrealBloomPass !== 'undefined') {
             this.bloomPass = new THREE.UnrealBloomPass(
                 new THREE.Vector2(this.container.clientWidth, this.container.clientHeight),
-                this.settings.bloomIntensity,
-                0.4,
-                0.85
+                this.settings.bloomIntensity * 0.5, // Reduced strength
+                0.8,  // Radius - controls bloom spread
+                0.95  // Threshold - higher = only bright things glow (0-1), prevents blurriness
             );
             this.bloomPass.enabled = this.settings.bloomEffect;
             this.composer.addPass(this.bloomPass);
@@ -1523,11 +1574,41 @@ class CoverFlow {
             this.playLaunchSound();
         }
 
+        // Record activity in gaming heatmap (estimate initial session time)
+        if (window.gamingHeatmapManager && game.id) {
+            // Record an initial 1 minute immediately to show activity
+            window.gamingHeatmapManager.recordActivity(game.id, 1, false);
+            console.log('[HEATMAP] Recorded game launch activity for:', game.title);
+            console.log('[HEATMAP] Game ID:', game.id);
+            console.log('[HEATMAP] Current activity data:', window.gamingHeatmapManager.activityData);
+        } else {
+            console.warn('[HEATMAP] Could not record activity - manager:', !!window.gamingHeatmapManager, 'gameId:', game.id);
+        }
+
         if (this.isElectron) {
             // Use Electron shell API
-            window.electronAPI.launchGame(finalLaunchCommand).then(result => {
+            window.electronAPI.launchGame(finalLaunchCommand, game.id).then(result => {
                 if (result.success) {
                     this.showToast(`Launching ${game.title}...`, 'success');
+                    // Delay session tracking to account for anti-cheat loaders
+                    // Default 30 second delay to allow anti-cheat/launcher processes to start first
+                    const sessionDelay = game.sessionTrackingDelay || 30000; // milliseconds
+                    console.log(`[SESSION] Will start tracking for ${game.title} in ${sessionDelay/1000} seconds`);
+
+                    // Store timeout ID so it can be cleared if needed
+                    const timeoutId = setTimeout(() => {
+                        this.trackGameSession(game);
+                        // Clear timeout ID after execution
+                        if (this.sessionTrackingTimeouts) {
+                            delete this.sessionTrackingTimeouts[game.id];
+                        }
+                    }, sessionDelay);
+
+                    // Track timeout IDs for cleanup
+                    if (!this.sessionTrackingTimeouts) {
+                        this.sessionTrackingTimeouts = {};
+                    }
+                    this.sessionTrackingTimeouts[game.id] = timeoutId;
                 } else {
                     this.showToast('Failed to launch game', 'error');
                 }
@@ -1539,6 +1620,24 @@ class CoverFlow {
                 game.launchCommand.startsWith('xbox://')) {
                 window.location.href = game.launchCommand;
                 this.showToast(`Launching ${game.title}...`, 'success');
+                // Delay session tracking for browser mode too
+                const sessionDelay = game.sessionTrackingDelay || 30000; // milliseconds
+                console.log(`[SESSION] Will start tracking for ${game.title} in ${sessionDelay/1000} seconds`);
+
+                // Store timeout ID so it can be cleared if needed
+                const timeoutId = setTimeout(() => {
+                    this.trackGameSession(game);
+                    // Clear timeout ID after execution
+                    if (this.sessionTrackingTimeouts) {
+                        delete this.sessionTrackingTimeouts[game.id];
+                    }
+                }, sessionDelay);
+
+                // Track timeout IDs for cleanup
+                if (!this.sessionTrackingTimeouts) {
+                    this.sessionTrackingTimeouts = {};
+                }
+                this.sessionTrackingTimeouts[game.id] = timeoutId;
             } else {
                 this.showToast('Game launching is platform-specific. Please use your game launcher.', 'info');
                 console.log('Platform:', game.platform);
@@ -1595,6 +1694,103 @@ class CoverFlow {
             } else {
                 this.showToast('File opening is only available in desktop mode', 'info');
             }
+        }
+    }
+
+    /**
+     * Track game session for heatmap integration
+     */
+    trackGameSession(game) {
+        if (!game || !game.id) return;
+
+        // Store session start time
+        const sessionKey = `game-session-${game.id}`;
+        const sessionData = {
+            gameId: game.id,
+            gameTitle: game.title,
+            startTime: Date.now()
+        };
+
+        sessionStorage.setItem(sessionKey, JSON.stringify(sessionData));
+        console.log('[SESSION] Started tracking session for:', game.title);
+
+        // Set up periodic updates every 5 minutes to keep heatmap current
+        const updateInterval = setInterval(() => {
+            const savedSession = sessionStorage.getItem(sessionKey);
+            if (!savedSession) {
+                if (this.sessionIntervals[game.id]) {
+                    clearInterval(this.sessionIntervals[game.id]);
+                    delete this.sessionIntervals[game.id];
+                }
+                return;
+            }
+
+            const session = JSON.parse(savedSession);
+            const elapsedMinutes = Math.floor((Date.now() - session.startTime) / 60000);
+
+            if (elapsedMinutes > 0 && window.gamingHeatmapManager) {
+                // Update heatmap with elapsed time (replace mode to avoid duplicates)
+                window.gamingHeatmapManager.recordActivity(session.gameId, elapsedMinutes, true);
+                console.log(`[SESSION] Updated heatmap: ${elapsedMinutes} minutes for ${game.title}`);
+            }
+        }, 5 * 60 * 1000); // Every 5 minutes
+
+        // Store interval ID in memory for proper cleanup
+        this.sessionIntervals[game.id] = updateInterval;
+        console.log('[SESSION] Registered interval for game:', game.id);
+
+        // Clean up on page unload
+        const cleanupHandler = () => {
+            this.endGameSessionTracking(game.id);
+        };
+
+        const visibilityCleanupHandler = () => {
+            if (document.hidden) {
+                cleanupHandler();
+            }
+        };
+
+        this.addTrackedEventListener(window, 'beforeunload', cleanupHandler);
+        this.addTrackedEventListener(document, 'visibilitychange', visibilityCleanupHandler);
+    }
+
+    /**
+     * End game session tracking and finalize heatmap data
+     */
+    endGameSessionTracking(gameId) {
+        const sessionKey = `game-session-${gameId}`;
+        const savedSession = sessionStorage.getItem(sessionKey);
+
+        // Clear any pending session tracking timeout
+        if (this.sessionTrackingTimeouts && this.sessionTrackingTimeouts[gameId]) {
+            clearTimeout(this.sessionTrackingTimeouts[gameId]);
+            delete this.sessionTrackingTimeouts[gameId];
+            console.log('[SESSION] Cleared pending session tracking timeout for game:', gameId);
+        }
+
+        if (!savedSession) return;
+
+        try {
+            const session = JSON.parse(savedSession);
+            const elapsedMinutes = Math.floor((Date.now() - session.startTime) / 60000);
+
+            // Record final playtime in heatmap
+            if (elapsedMinutes > 0 && window.gamingHeatmapManager) {
+                window.gamingHeatmapManager.recordActivity(gameId, elapsedMinutes, true);
+                console.log(`[SESSION] Finalized heatmap: ${elapsedMinutes} minutes for ${session.gameTitle}`);
+            }
+
+            // Clean up interval
+            if (this.sessionIntervals[gameId]) {
+                clearInterval(this.sessionIntervals[gameId]);
+                delete this.sessionIntervals[gameId];
+                console.log('[SESSION] Cleared interval for game:', gameId);
+            }
+            sessionStorage.removeItem(sessionKey);
+
+            console.log('[SESSION] Ended tracking for:', session.gameTitle);
+        } catch (error) {
+            console.error('[SESSION] Error ending session tracking:', error);
         }
     }
 
@@ -1858,6 +2054,9 @@ class CoverFlow {
                     };
                 });
 
+                // Apply custom covers if they exist
+                this.applyCustomCovers(convertedGames);
+
                 // Merge
                 this.allAlbums = [...this.allAlbums, ...convertedGames];
                 this.filteredAlbums = [...this.allAlbums];
@@ -1941,6 +2140,9 @@ class CoverFlow {
                     };
                 });
 
+                // Apply custom covers if they exist
+                this.applyCustomCovers(convertedGames);
+
                 // Merge with existing albums/images
                 this.allAlbums = [...this.allAlbums, ...convertedGames];
                 this.filteredAlbums = [...this.allAlbums];
@@ -1966,12 +2168,13 @@ class CoverFlow {
         this.controllerCursor = document.getElementById('controller-cursor');
 
         // Update cursor position when gamepad is active
-        document.addEventListener('mousemove', (e) => {
+        const mousemoveHandler = (e) => {
             if (this.gamepadIndex === -1) {
                 this.cursorX = e.clientX;
                 this.cursorY = e.clientY;
             }
-        });
+        };
+        this.addTrackedEventListener(document, 'mousemove', mousemoveHandler);
     }
 
     // Update controller cursor position
@@ -2180,6 +2383,13 @@ class CoverFlow {
                             (item.artist || 'Unknown Artist');
             this.visualEffects.updateVRUI(title, subtitle, item);
         }
+    }
+
+    /**
+     * Get currently selected game/item
+     */
+    getCurrentGame() {
+        return this.filteredAlbums[this.currentIndex];
     }
 
     createThumbnails() {
@@ -2610,7 +2820,8 @@ class CoverFlow {
         this.settings.bloomIntensity = value;
 
         if (this.bloomPass) {
-            this.bloomPass.strength = value;
+            // Apply reduced strength to prevent blurriness
+            this.bloomPass.strength = value * 0.5;
         }
 
         this.saveSettings();
@@ -2626,9 +2837,85 @@ class CoverFlow {
         this.saveSettings();
     }
 
+    /**
+     * Helper method to add and track event listeners for cleanup
+     */
+    addTrackedEventListener(element, event, handler, options) {
+        element.addEventListener(event, handler, options);
+        this.eventListeners.push({ element, event, handler, options });
+    }
+
+    /**
+     * Cleanup all resources and event listeners
+     */
+    destroy() {
+        console.log('[COVERFLOW] Destroying and cleaning up resources...');
+
+        // Stop animation loop
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+
+        // Clear intervals
+        if (this.autoRotateInterval) {
+            clearInterval(this.autoRotateInterval);
+            this.autoRotateInterval = null;
+        }
+        if (this.scanInterval) {
+            clearInterval(this.scanInterval);
+            this.scanInterval = null;
+        }
+
+        // Clear all session tracking timeouts
+        if (this.sessionTrackingTimeouts) {
+            Object.values(this.sessionTrackingTimeouts).forEach(timeoutId => {
+                clearTimeout(timeoutId);
+            });
+            this.sessionTrackingTimeouts = {};
+            console.log('[COVERFLOW] Cleared all session tracking timeouts');
+        }
+
+        // Clear all session intervals
+        if (this.sessionIntervals) {
+            Object.values(this.sessionIntervals).forEach(intervalId => {
+                clearInterval(intervalId);
+            });
+            this.sessionIntervals = {};
+            console.log('[COVERFLOW] Cleared all session intervals');
+        }
+
+        // Remove all tracked event listeners
+        this.eventListeners.forEach(({ element, event, handler, options }) => {
+            try {
+                element.removeEventListener(event, handler, options);
+            } catch (error) {
+                console.error('[COVERFLOW] Error removing event listener:', error);
+            }
+        });
+        this.eventListeners = [];
+
+        // Dispose visual effects manager
+        if (this.visualEffectsManager && typeof this.visualEffectsManager.dispose === 'function') {
+            this.visualEffectsManager.dispose();
+            this.visualEffectsManager = null;
+        }
+
+        // Clear the 3D scene
+        this.clearScene();
+
+        // Dispose renderer
+        if (this.renderer) {
+            this.renderer.dispose();
+            this.renderer = null;
+        }
+
+        console.log('[COVERFLOW] Cleanup complete');
+    }
+
     addEventListeners() {
         // Keyboard controls
-        document.addEventListener('keydown', (e) => {
+        const keydownHandler = (e) => {
             if (e.target.tagName === 'INPUT') return;
 
             switch(e.key) {
@@ -2680,10 +2967,11 @@ class CoverFlow {
                         this.navigateTo(targetIndex);
                     }
             }
-        });
+        };
+        this.addTrackedEventListener(document, 'keydown', keydownHandler);
 
         // Mouse wheel with variable speed
-        this.container.addEventListener('wheel', (e) => {
+        const wheelHandler = (e) => {
             e.preventDefault();
 
             // Calculate scroll amount based on deltaY and speed setting
@@ -2693,10 +2981,11 @@ class CoverFlow {
 
             // Navigate multiple steps for faster scrolling
             this.navigate(direction * steps);
-        }, { passive: false });
+        };
+        this.addTrackedEventListener(this.container, 'wheel', wheelHandler, { passive: false });
 
         // Mouse click on covers
-        this.container.addEventListener('click', (e) => {
+        const clickHandler = (e) => {
             const rect = this.container.getBoundingClientRect();
             const mouse = new THREE.Vector2();
             mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2718,10 +3007,11 @@ class CoverFlow {
                     }
                 }
             }
-        });
+        };
+        this.addTrackedEventListener(this.container, 'click', clickHandler);
 
         // Double-click to launch game or open media file
-        this.container.addEventListener('dblclick', (e) => {
+        const dblclickHandler = (e) => {
             const rect = this.container.getBoundingClientRect();
             const mouse = new THREE.Vector2();
             mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2746,22 +3036,25 @@ class CoverFlow {
                     }
                 }
             }
-        });
+        };
+        this.addTrackedEventListener(this.container, 'dblclick', dblclickHandler);
 
         // Touch support
         let touchStartX = 0;
-        this.container.addEventListener('touchstart', (e) => {
+        const touchstartHandler = (e) => {
             touchStartX = e.touches[0].clientX;
-        }, { passive: false });
+        };
+        this.addTrackedEventListener(this.container, 'touchstart', touchstartHandler, { passive: false });
 
-        this.container.addEventListener('touchend', (e) => {
+        const touchendHandler = (e) => {
             const touchEndX = e.changedTouches[0].clientX;
             const diff = touchStartX - touchEndX;
 
             if (Math.abs(diff) > 50) {
                 this.navigate(diff > 0 ? 1 : -1);
             }
-        }, { passive: false });
+        };
+        this.addTrackedEventListener(this.container, 'touchend', touchendHandler, { passive: false });
 
         // Search functionality
         const searchInput = document.getElementById('search-input');
@@ -2814,8 +3107,9 @@ class CoverFlow {
                     this.showModManager(currentGame);
                 } else {
                     // Open mod manager panel anyway, showing empty state
-                    const panel = document.getElementById('mod-manager');
+                    const panel = document.getElementById('unified-mod-manager');
                     if (panel) {
+                        panel.style.display = 'block';
                         panel.classList.add('active');
                     }
                 }
