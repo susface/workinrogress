@@ -71,6 +71,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Background music
     selectBackgroundMusic: () => ipcRenderer.invoke('select-background-music'),
 
+    // Window controls
+    minimizeWindow: () => ipcRenderer.send('minimize-window'),
+    maximizeWindow: () => ipcRenderer.send('maximize-window'),
+    closeWindow: () => ipcRenderer.send('close-window'),
+    toggleFullscreen: () => ipcRenderer.send('toggle-fullscreen'),
+
     // Platform info
     platform: process.platform,
     isElectron: true,
@@ -106,6 +112,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Statistics
     getPlaytimeStats: (period) => ipcRenderer.invoke('get-playtime-stats', period),
+    getPlaytimeSessions: () => ipcRenderer.invoke('get-playtime-sessions'),
 
     // Soundtrack
     scanGameSoundtrack: (gameId) => ipcRenderer.invoke('scan-game-soundtrack', gameId),
@@ -129,7 +136,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Thunderstore API
     searchThunderstoreMods: (gameId) => ipcRenderer.invoke('search-thunderstore-mods', gameId),
     setThunderstoreCommunity: (gameId, communityName) => ipcRenderer.invoke('set-thunderstore-community', gameId, communityName),
-    installThunderstoreMod: (gameId, modPackage) => ipcRenderer.invoke('install-thunderstore-mod', gameId, modPackage)
+    installThunderstoreMod: (gameId, modPackage) => ipcRenderer.invoke('install-thunderstore-mod', gameId, modPackage),
+
+    // Mod loaders
+    installBepInEx: (gameId) => ipcRenderer.invoke('install-bepinex', gameId),
+    installMelonLoader: (gameId) => ipcRenderer.invoke('install-melonloader', gameId)
 });
 
 console.log('Preload script loaded - Electron API exposed');

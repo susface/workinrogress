@@ -44,9 +44,49 @@ let scanStatus = {
     error: null
 };
 
+// Track active timeouts and intervals for cleanup
+let activeTimeouts = new Set();
+let activeIntervals = new Set();
+let windowEventListenersAttached = false; // Prevent duplicate event listeners
+let sessionCleanupInterval = null; // Periodic cleanup check for orphaned sessions
+
 // Portable mode support
 const portableFlagPath = path.join(__dirname, 'portable.txt');
 const isPortableMode = fs.existsSync(portableFlagPath);
+
+// Helper functions to track timeouts and intervals for proper cleanup
+function safeSetTimeout(callback, delay) {
+    const timeoutId = setTimeout(() => {
+        activeTimeouts.delete(timeoutId);
+        callback();
+    }, delay);
+    activeTimeouts.add(timeoutId);
+    return timeoutId;
+}
+
+function safeClearTimeout(timeoutId) {
+    clearTimeout(timeoutId);
+    activeTimeouts.delete(timeoutId);
+}
+
+function safeSetInterval(callback, delay) {
+    const intervalId = setInterval(callback, delay);
+    activeIntervals.add(intervalId);
+    return intervalId;
+}
+
+function safeClearInterval(intervalId) {
+    clearInterval(intervalId);
+    activeIntervals.delete(intervalId);
+}
+
+function cleanupAllTimers() {
+    console.log(`[CLEANUP] Clearing ${activeTimeouts.size} timeouts and ${activeIntervals.size} intervals`);
+    activeTimeouts.forEach(id => clearTimeout(id));
+    activeIntervals.forEach(id => clearInterval(id));
+    activeTimeouts.clear();
+    activeIntervals.clear();
+}
 
 // Paths
 const isDev = !app.isPackaged;
@@ -325,9 +365,13 @@ function createWindow() {
             nodeIntegration: false,
             webSecurity: true
         },
-        backgroundColor: '#000000',
+        frame: false,
+        transparent: true,
+        backgroundColor: '#00000000',
         show: false,
-        autoHideMenuBar: true
+        autoHideMenuBar: true,
+        fullscreenable: true,
+        hasShadow: true
     });
 
     mainWindow.loadFile('index.html');
@@ -349,6 +393,7 @@ function createWindow() {
 
     mainWindow.on('closed', () => {
         mainWindow = null;
+        windowEventListenersAttached = false; // Reset flag for next window
         if (scanningProcess) {
             scanningProcess.kill();
         }
@@ -414,8 +459,8 @@ function createTray() {
                 }
             });
 
-            // Set up minimize to tray behavior (only if tray was successfully created)
-            if (mainWindow) {
+            // Set up minimize to tray behavior (only if tray was successfully created and listeners not already attached)
+            if (mainWindow && !windowEventListenersAttached) {
                 mainWindow.on('minimize', (event) => {
                     event.preventDefault();
                     mainWindow.hide();
@@ -428,6 +473,8 @@ function createTray() {
                         return false;
                     }
                 });
+
+                windowEventListenersAttached = true;
             }
         } catch (error) {
             console.error('Failed to create system tray:', error);
@@ -455,11 +502,14 @@ app.whenReady().then(() => {
 
     // Initialize process tracker for accurate playtime monitoring
     // Wait a bit for the window to be ready
-    setTimeout(() => {
+    safeSetTimeout(() => {
         if (isDebugMode) {
             console.log('[DEBUG] Initializing process tracker...');
         }
         initProcessTracker();
+
+        // Start periodic session cleanup monitor
+        startSessionCleanupMonitor();
     }, 2000);
 
     app.on('activate', () => {
@@ -476,6 +526,41 @@ app.on('window-all-closed', () => {
 });
 
 // IPC Handlers
+
+// Window controls for frameless window
+ipcMain.on('minimize-window', () => {
+    console.log('[WINDOW-CONTROLS] Minimize IPC received');
+    if (mainWindow) {
+        mainWindow.minimize();
+    }
+});
+
+ipcMain.on('maximize-window', () => {
+    console.log('[WINDOW-CONTROLS] Maximize IPC received');
+    if (mainWindow) {
+        if (mainWindow.isMaximized()) {
+            console.log('[WINDOW-CONTROLS] Unmaximizing window');
+            mainWindow.unmaximize();
+        } else {
+            console.log('[WINDOW-CONTROLS] Maximizing window');
+            mainWindow.maximize();
+        }
+    }
+});
+
+ipcMain.on('close-window', () => {
+    console.log('[WINDOW-CONTROLS] Close IPC received');
+    if (mainWindow) {
+        mainWindow.close();
+    }
+});
+
+ipcMain.on('toggle-fullscreen', () => {
+    console.log('[WINDOW-CONTROLS] Fullscreen IPC received');
+    if (mainWindow) {
+        mainWindow.setFullScreen(!mainWindow.isFullScreen());
+    }
+});
 
 // Get all games from database
 ipcMain.handle('get-games', async () => {
@@ -1078,7 +1163,7 @@ function shutdownProcessTracker() {
             }
 
             // Kill the process after a short delay to allow graceful shutdown
-            setTimeout(() => {
+            safeSetTimeout(() => {
                 if (processTrackerService && !processTrackerService.killed) {
                     console.log('[PROCESS_TRACKER] Force killing process');
                     processTrackerService.kill();
@@ -1133,6 +1218,81 @@ function endAllActiveSessions() {
     console.log(`[PLAYTIME] Ending ${activeGameSessions.size} active session(s)`);
     for (const [gameId, sessionId] of activeGameSessions.entries()) {
         endGameSessionInternal(gameId, sessionId);
+    }
+}
+
+/**
+ * Periodic cleanup check for orphaned sessions
+ * This runs every hour to verify all tracked sessions are still valid
+ * Provides a safety net in case process tracker misses a game close
+ */
+function checkOrphanedSessions() {
+    if (activeGameSessions.size === 0) {
+        return; // No sessions to check
+    }
+
+    console.log(`[PLAYTIME] Checking ${activeGameSessions.size} active session(s) for orphans...`);
+
+    try {
+        const db = initDatabase();
+        const now = Date.now();
+        const ONE_HOUR = 60 * 60 * 1000;
+
+        for (const [gameId, sessionId] of activeGameSessions.entries()) {
+            // Get session start time from database
+            const session = db.prepare(`
+                SELECT start_time FROM game_sessions
+                WHERE id = ? AND end_time IS NULL
+            `).get(sessionId);
+
+            if (!session) {
+                // Session doesn't exist or already ended - clean up
+                console.log(`[PLAYTIME] Orphaned session detected for game ${gameId}, cleaning up`);
+                activeGameSessions.delete(gameId);
+                continue;
+            }
+
+            // If session has been running for more than 12 hours, log a warning
+            // but don't auto-end (some games can genuinely run that long)
+            const sessionStart = new Date(session.start_time).getTime();
+            const duration = now - sessionStart;
+
+            if (duration > 12 * ONE_HOUR) {
+                console.warn(`[PLAYTIME] Long-running session detected: ${Math.floor(duration / ONE_HOUR)} hours for game ${gameId}`);
+                console.warn(`[PLAYTIME] Session will continue tracking. Close the game to end the session.`);
+            }
+        }
+
+        db.close();
+    } catch (error) {
+        console.error('[PLAYTIME] Error during orphaned session check:', error);
+    }
+}
+
+/**
+ * Start periodic session cleanup checks
+ */
+function startSessionCleanupMonitor() {
+    if (sessionCleanupInterval) {
+        return; // Already running
+    }
+
+    // Check every hour for orphaned sessions
+    sessionCleanupInterval = safeSetInterval(() => {
+        checkOrphanedSessions();
+    }, 60 * 60 * 1000); // Every 60 minutes
+
+    console.log('[PLAYTIME] Session cleanup monitor started (checks every 60 minutes)');
+}
+
+/**
+ * Stop periodic session cleanup checks
+ */
+function stopSessionCleanupMonitor() {
+    if (sessionCleanupInterval) {
+        safeClearInterval(sessionCleanupInterval);
+        sessionCleanupInterval = null;
+        console.log('[PLAYTIME] Session cleanup monitor stopped');
     }
 }
 
@@ -1206,64 +1366,200 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
 
             // Start process tracking if available
             if (processTrackerReady && game) {
-                // Wait a bit for the game to launch
-                setTimeout(async () => {
+                // Determine delay based on game type
+                // Unreal Engine games with anticheat need more time for the preloader to finish
+                const gameTitleLower = game.title.toLowerCase();
+                const isUnrealGame = ['fortnite', 'valorant', 'dead by daylight', 'arc raiders', 'the finals', 'escape from tarkov']
+                    .some(unrealGame => gameTitleLower.includes(unrealGame));
+
+                const trackingDelay = isUnrealGame ? 60000 : 3000; // 60 seconds for Unreal, 3 seconds for others
+
+                console.log(`[PROCESS_TRACKER] Waiting ${trackingDelay / 1000} seconds before tracking ${game.title}${isUnrealGame ? ' (Unreal Engine game with anticheat)' : ''}`);
+
+                // Wait for the game to launch (longer for Unreal Engine games)
+                safeSetTimeout(async () => {
                     try {
+                        // Filter out common utility exes (defined outside block for scope)
+                        const skipExes = [
+                            'createdump.exe', 'unins000.exe', 'uninstall.exe', 'setup.exe',
+                            'updater.exe', 'launcher.exe', 'crash_reporter.exe', 'crashhandler.exe',
+                            'epicgameslauncher.exe', 'epicwebhelper.exe'
+                        ];
+
+                        // Known anti-cheat and launcher executables that spawn the actual game
+                        const antiCheatLaunchers = [
+                            'easyanticheat.exe',
+                            'battleye.exe',
+                            'beclient.exe',
+                            'ricochetanticheat.exe',
+                            'vanguard.exe',
+                            'faceit.exe',
+                            'nprotect.exe'
+                        ];
+
+                        // Known game executable patterns for specific games
+                        // Format: 'game name': ['actual_game.exe', 'launcher.exe']
+                        const knownGameExes = {
+                            'fortnite': ['FortniteClient-Win64-Shipping.exe', 'FortniteLauncher.exe', 'FortniteClient-Win64-Shipping_EAC_EOS.exe'],
+                            'apex legends': ['r5apex.exe'],
+                            'valorant': ['VALORANT-Win64-Shipping.exe', 'VALORANT.exe'],
+                            'call of duty': ['cod.exe', 'modernwarfare.exe', 'blackops.exe'],
+                            'overwatch': ['Overwatch.exe'],
+                            'league of legends': ['League of Legends.exe'],
+                            'arc raiders': ['PioneerGame.exe', 'ArcRaiders.exe'],
+                            'the finals': ['Discovery.exe'],
+                            'rainbow six siege': ['RainbowSix.exe', 'R6S.exe'],
+                            'escape from tarkov': ['EscapeFromTarkov.exe'],
+                            'hunt showdown': ['HuntGame.exe'],
+                            'dead by daylight': ['DeadByDaylight-Win64-Shipping.exe']
+                        };
+
+                        // Games that use Unreal Engine and have anticheat preloaders
+                        // These need a longer delay before tracking starts
+                        const unrealEngineGames = [
+                            'fortnite', 'valorant', 'dead by daylight', 'arc raiders',
+                            'the finals', 'escape from tarkov'
+                        ];
+
                         // Try to find exe path in install directory
                         let exePath = '';
                         if (game.install_directory && fs.existsSync(game.install_directory)) {
-                            // Look for .exe files in the install directory
-                            const files = fs.readdirSync(game.install_directory);
 
-                            // Filter out common utility exes
-                            const skipExes = [
-                                'createdump.exe', 'unins000.exe', 'uninstall.exe', 'setup.exe',
-                                'updater.exe', 'launcher.exe', 'crash_reporter.exe', 'crashhandler.exe'
-                            ];
+                            // Helper function to recursively find exe files
+                            const findExeFiles = (dir, depth = 0, maxDepth = 3) => {
+                                if (depth > maxDepth || !fs.existsSync(dir)) return [];
 
-                            const exeFiles = files
-                                .filter(f => f.toLowerCase().endsWith('.exe'))
-                                .filter(f => !skipExes.includes(f.toLowerCase()))
-                                .map(f => {
-                                    const fullPath = path.join(game.install_directory, f);
-                                    const stats = fs.statSync(fullPath);
-                                    return {
-                                        name: f,
-                                        path: fullPath,
-                                        size: stats.size
-                                    };
-                                });
+                                const results = [];
+                                try {
+                                    const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-                            if (exeFiles.length > 0) {
-                                // Prefer the largest exe (games are usually larger than utilities)
-                                exeFiles.sort((a, b) => b.size - a.size);
-                                exePath = exeFiles[0].path;
+                                    for (const entry of entries) {
+                                        const fullPath = path.join(dir, entry.name);
+
+                                        if (entry.isDirectory()) {
+                                            // Recurse into subdirectories
+                                            results.push(...findExeFiles(fullPath, depth + 1, maxDepth));
+                                        } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.exe')) {
+                                            const stats = fs.statSync(fullPath);
+                                            results.push({
+                                                name: entry.name,
+                                                path: fullPath,
+                                                size: stats.size
+                                            });
+                                        }
+                                    }
+                                } catch (error) {
+                                    // Skip directories we can't read
+                                    console.log(`[PROCESS_TRACKER] Error reading directory ${dir}:`, error.message);
+                                }
+
+                                return results;
+                            };
+
+                            // Look for known game executables first
+                            const gameTitleLower = game.title.toLowerCase();
+                            for (const [gameName, exeNames] of Object.entries(knownGameExes)) {
+                                if (gameTitleLower.includes(gameName)) {
+                                    console.log(`[PROCESS_TRACKER] Detected ${gameName}, looking for known executables`);
+                                    for (const exeName of exeNames) {
+                                        const allExeFiles = findExeFiles(game.install_directory);
+                                        const matchingExe = allExeFiles.find(f => f.name.toLowerCase() === exeName.toLowerCase());
+                                        if (matchingExe) {
+                                            exePath = matchingExe.path;
+                                            console.log(`[PROCESS_TRACKER] Found known executable: ${exePath}`);
+                                            break;
+                                        }
+                                    }
+                                    if (exePath) break;
+                                }
+                            }
+
+                            // If no known executable found, search recursively
+                            if (!exePath) {
+                                console.log(`[PROCESS_TRACKER] Searching for executable in ${game.install_directory}`);
+                                const allExeFiles = findExeFiles(game.install_directory);
+
+                                // Filter out utility exes
+                                const gameExeFiles = allExeFiles.filter(f =>
+                                    !skipExes.includes(f.name.toLowerCase())
+                                );
+
+                                if (gameExeFiles.length > 0) {
+                                    // Prefer the largest exe (games are usually larger than utilities)
+                                    gameExeFiles.sort((a, b) => b.size - a.size);
+                                    exePath = gameExeFiles[0].path;
+                                    console.log(`[PROCESS_TRACKER] Found executable by size: ${exePath}`);
+                                }
                             }
                         }
 
                         if (exePath) {
                             console.log(`[PROCESS_TRACKER] Starting tracking for ${game.title} at ${exePath}`);
-                            await sendProcessTrackerCommand('start_tracking', {
+
+                            // Extract exe name for process tracking
+                            const exeName = path.basename(exePath);
+
+                            // Check if this is likely an anti-cheat launcher
+                            const isAntiCheat = antiCheatLaunchers.includes(exeName.toLowerCase());
+
+                            // For known games, also try to track by process name
+                            // This helps when anti-cheat launchers spawn the actual game
+                            const trackingOptions = {
                                 session_id: sessionId,
                                 exe_path: exePath,
-                                game_name: game.title
-                            });
+                                game_name: game.title,
+                                track_children: true // Enable child process tracking
+                            };
+
+                            // If we know the actual game exe names, add them for tracking
+                            const gameTitleLower = game.title.toLowerCase();
+                            for (const [gameName, exeNames] of Object.entries(knownGameExes)) {
+                                if (gameTitleLower.includes(gameName)) {
+                                    // Add all possible exe names for this game
+                                    trackingOptions.process_names = exeNames.map(name => name.toLowerCase());
+                                    console.log(`[PROCESS_TRACKER] Will also track processes: ${exeNames.join(', ')}`);
+                                    break;
+                                }
+                            }
+
+                            // If it's an anti-cheat launcher, give it more time to spawn the game
+                            if (isAntiCheat) {
+                                console.log(`[PROCESS_TRACKER] Detected anti-cheat launcher, will monitor for child processes`);
+                            }
+
+                            await sendProcessTrackerCommand('start_tracking', trackingOptions);
                         } else {
-                            console.log(`[PROCESS_TRACKER] Could not find exe for ${game.title}, tracking disabled`);
+                            // Even if we couldn't find the exe path, try tracking by process name
+                            // This is useful for games launched through stores/launchers
+                            const gameTitleLower = game.title.toLowerCase();
+                            let processNames = null;
+
+                            for (const [gameName, exeNames] of Object.entries(knownGameExes)) {
+                                if (gameTitleLower.includes(gameName)) {
+                                    processNames = exeNames.map(name => name.toLowerCase());
+                                    break;
+                                }
+                            }
+
+                            if (processNames && processNames.length > 0) {
+                                console.log(`[PROCESS_TRACKER] Could not find exe path, but will track by process names: ${processNames.join(', ')}`);
+                                await sendProcessTrackerCommand('start_tracking', {
+                                    session_id: sessionId,
+                                    game_name: game.title,
+                                    process_names: processNames,
+                                    track_children: true
+                                });
+                            } else {
+                                console.log(`[PROCESS_TRACKER] Could not find exe for ${game.title}, tracking disabled`);
+                            }
                         }
                     } catch (error) {
                         console.error('[PROCESS_TRACKER] Error starting tracking:', error);
                     }
-                }, 3000); // Wait 3 seconds for game to launch
+                }, trackingDelay); // Wait based on game type (3s normal, 60s for Unreal Engine)
             }
 
-            // Set up auto-end after 4 hours (safety timeout)
-            setTimeout(() => {
-                if (activeGameSessions.has(gameId) && activeGameSessions.get(gameId) === sessionId) {
-                    console.log(`[PLAYTIME] Auto-ending session ${sessionId} after 4 hours`);
-                    endGameSessionInternal(gameId, sessionId);
-                }
-            }, 4 * 60 * 60 * 1000); // 4 hours
+            // Note: No auto-end timeout - tracking continues until game process ends or app closes
         }
 
         await shell.openExternal(launchCommand);
@@ -2419,6 +2715,27 @@ ipcMain.handle('get-playtime-stats', async (event, period = 'week') => {
     }
 });
 
+// Get all playtime sessions for heatmap import
+ipcMain.handle('get-playtime-sessions', async (event) => {
+    try {
+        const db = initDatabase();
+        const sessions = db.prepare(`
+            SELECT game_id, start_time, duration
+            FROM game_sessions
+            WHERE end_time IS NOT NULL
+            AND duration IS NOT NULL
+            AND duration > 0
+            ORDER BY start_time DESC
+        `).all();
+
+        db.close();
+        return { success: true, sessions };
+    } catch (error) {
+        console.error('Error getting playtime sessions:', error);
+        return { success: false, error: error.message, sessions: [] };
+    }
+});
+
 // Scan game soundtrack files
 ipcMain.handle('scan-game-soundtrack', async (event, gameId) => {
     const db = initDatabase();
@@ -2865,19 +3182,44 @@ ipcMain.handle('apply-mod-changes', async (event, gameId, mods) => {
 ipcMain.handle('open-mod-folder', async (event, gameId) => {
     try {
         const db = initDatabase();
-        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        db.close();
+        let game;
+        try {
+            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
 
         if (!game) {
             return { success: false, error: 'Game not found' };
         }
 
-        // TODO: Determine mod folder path for the game
-        // For now, just open the game directory if available
-        // const modFolderPath = path.join(game.install_path, 'mods');
-        // shell.openPath(modFolderPath);
+        if (!game.install_directory || !fs.existsSync(game.install_directory)) {
+            return { success: false, error: 'Game installation directory not found' };
+        }
 
-        return { success: true };
+        // Try common mod folder locations
+        const modFolderPaths = [
+            path.join(game.install_directory, 'BepInEx', 'plugins'), // BepInEx mods
+            path.join(game.install_directory, 'Mods'), // Generic Mods folder
+            path.join(game.install_directory, 'mods'), // Lowercase mods
+            path.join(game.install_directory, 'MelonLoader', 'Mods'), // MelonLoader
+            game.install_directory // Fallback to game directory
+        ];
+
+        // Find the first existing mod folder
+        let modFolderToOpen = game.install_directory;
+        for (const modPath of modFolderPaths) {
+            if (fs.existsSync(modPath)) {
+                modFolderToOpen = modPath;
+                break;
+            }
+        }
+
+        // Open the folder
+        const { shell } = require('electron');
+        await shell.openPath(modFolderToOpen);
+
+        return { success: true, path: modFolderToOpen };
     } catch (error) {
         console.error('Error opening mod folder:', error);
         return { success: false, error: error.message };
@@ -2925,12 +3267,49 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
         // Handle null/undefined/empty/"null" string cases
         // Add typeof check for extra safety
         if (!communitySlug || typeof communitySlug !== 'string' || communitySlug === 'null' || communitySlug.trim() === '') {
-            // Auto-generate from title: "Lethal Company" → "lethal-company"
-            communitySlug = game.title.toLowerCase()
-                .replace(/\s+/g, '-')      // Replace spaces with hyphens
-                .replace(/[^a-z0-9-]/g, '') // Remove non-alphanumeric except hyphens
-                .replace(/-+/g, '-')       // Collapse multiple hyphens
-                .replace(/^-|-$/g, '');    // Remove leading/trailing hyphens
+            // Common game mappings for Thunderstore
+            const commonMappings = {
+                'risk of rain 2': 'riskofrain2',
+                'riskofrain2': 'riskofrain2',
+                'ror2': 'riskofrain2',
+                'lethal company': 'lethal-company',
+                'content warning': 'content-warning',
+                'valheim': 'valheim',
+                'outward': 'outward',
+                'h3vr': 'h3vr',
+                'boneworks': 'boneworks',
+                'risk of rain returns': 'risk-of-rain-returns',
+                'sons of the forest': 'sons-of-the-forest',
+                'cult of the lamb': 'cult-of-the-lamb',
+                'subnautica': 'subnautica',
+                'below zero': 'below-zero',
+                'dyson sphere program': 'dyson-sphere-program',
+                'titanfall 2': 'northstar',
+                'northstar': 'northstar',
+                'core keeper': 'core-keeper',
+                'raft': 'raft',
+                'gtfo': 'gtfo',
+                'rounds': 'rounds',
+                'timberborn': 'timberborn',
+                'totally accurate battle simulator': 'totally-accurate-battle-simulator',
+                'tabs': 'totally-accurate-battle-simulator',
+                'across the obelisk': 'across-the-obelisk',
+                'trombone champ': 'trombone-champ'
+            };
+
+            const titleLower = game.title.toLowerCase().trim();
+
+            // Check common mappings first
+            if (commonMappings[titleLower]) {
+                communitySlug = commonMappings[titleLower];
+            } else {
+                // Auto-generate from title: "Lethal Company" → "lethal-company"
+                communitySlug = game.title.toLowerCase()
+                    .replace(/\s+/g, '-')      // Replace spaces with hyphens
+                    .replace(/[^a-z0-9-]/g, '') // Remove non-alphanumeric except hyphens
+                    .replace(/-+/g, '-')       // Collapse multiple hyphens
+                    .replace(/^-|-$/g, '');    // Remove leading/trailing hyphens
+            }
         }
 
         // Validate that we have a valid slug
@@ -3228,6 +3607,224 @@ ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => 
     }
 });
 
+// Install BepInEx for Unity games
+ipcMain.handle('install-bepinex', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        let game;
+        try {
+            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        if (!game.install_directory || !fs.existsSync(game.install_directory)) {
+            return { success: false, error: 'Game installation directory not found' };
+        }
+
+        // Check if already installed
+        const bepInExPath = path.join(game.install_directory, 'BepInEx');
+        if (fs.existsSync(bepInExPath)) {
+            return { success: true, message: 'BepInEx is already installed', alreadyInstalled: true };
+        }
+
+        const https = require('https');
+        const AdmZip = require('adm-zip');
+
+        // Get latest BepInEx release
+        const options = {
+            hostname: 'api.github.com',
+            path: '/repos/BepInEx/BepInEx/releases/latest',
+            headers: { 'User-Agent': 'CoverFlow-Game-Launcher' }
+        };
+
+        const release = await new Promise((resolve, reject) => {
+            const req = https.get(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (e) {
+                        reject(new Error('Failed to parse GitHub API response'));
+                    }
+                });
+            });
+            req.on('error', reject);
+        });
+
+        // Find the x64 Windows version (exclude Linux, Unix, Mac)
+        const asset = release.assets.find(a =>
+            a.name.includes('x64') &&
+            a.name.endsWith('.zip') &&
+            !a.name.toLowerCase().includes('linux') &&
+            !a.name.toLowerCase().includes('unix') &&
+            !a.name.toLowerCase().includes('macos') &&
+            !a.name.toLowerCase().includes('osx')
+        );
+        if (!asset) {
+            return { success: false, error: 'Could not find BepInEx Windows x64 download' };
+        }
+
+        console.log('[BEPINEX] Selected asset:', asset.name);
+
+        // Download BepInEx (handle redirects)
+        const downloadResponse = await new Promise((resolve, reject) => {
+            const followRedirect = (url) => {
+                const urlModule = url.startsWith('https:') ? https : require('http');
+                const req = urlModule.get(url, { timeout: 60000 }, (res) => {
+                    // Handle redirects
+                    if (res.statusCode === 302 || res.statusCode === 301) {
+                        console.log('[BEPINEX] Following redirect to:', res.headers.location);
+                        followRedirect(res.headers.location);
+                        return;
+                    }
+
+                    if (res.statusCode !== 200) {
+                        reject(new Error(`Download failed with status ${res.statusCode}`));
+                        return;
+                    }
+
+                    const chunks = [];
+                    res.on('data', (chunk) => chunks.push(chunk));
+                    res.on('end', () => resolve(Buffer.concat(chunks)));
+                });
+                req.on('error', reject);
+                req.on('timeout', () => {
+                    req.destroy();
+                    reject(new Error('Download timed out'));
+                });
+            };
+            followRedirect(asset.browser_download_url);
+        });
+
+        // Extract BepInEx
+        const zip = new AdmZip(downloadResponse);
+        zip.extractAllTo(game.install_directory, true);
+
+        return {
+            success: true,
+            message: `BepInEx ${release.tag_name} installed successfully`
+        };
+    } catch (error) {
+        console.error('[BEPINEX] Installation error:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Install MelonLoader for Unity games
+ipcMain.handle('install-melonloader', async (event, gameId) => {
+    try {
+        const db = initDatabase();
+        let game;
+        try {
+            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        if (!game.install_directory || !fs.existsSync(game.install_directory)) {
+            return { success: false, error: 'Game installation directory not found' };
+        }
+
+        // Check if already installed
+        const melonLoaderPath = path.join(game.install_directory, 'MelonLoader');
+        if (fs.existsSync(melonLoaderPath)) {
+            return { success: true, message: 'MelonLoader is already installed', alreadyInstalled: true };
+        }
+
+        const https = require('https');
+        const AdmZip = require('adm-zip');
+
+        // Get latest MelonLoader release
+        const options = {
+            hostname: 'api.github.com',
+            path: '/repos/LavaGang/MelonLoader/releases/latest',
+            headers: { 'User-Agent': 'CoverFlow-Game-Launcher' }
+        };
+
+        const release = await new Promise((resolve, reject) => {
+            const req = https.get(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (e) {
+                        reject(new Error('Failed to parse GitHub API response'));
+                    }
+                });
+            });
+            req.on('error', reject);
+        });
+
+        // Find the x64 Windows version (exclude Linux, Unix, Mac)
+        const asset = release.assets.find(a =>
+            a.name.includes('x64') &&
+            a.name.endsWith('.zip') &&
+            !a.name.toLowerCase().includes('linux') &&
+            !a.name.toLowerCase().includes('unix') &&
+            !a.name.toLowerCase().includes('macos') &&
+            !a.name.toLowerCase().includes('osx')
+        );
+        if (!asset) {
+            return { success: false, error: 'Could not find MelonLoader Windows x64 download' };
+        }
+
+        console.log('[MELONLOADER] Selected asset:', asset.name);
+
+        // Download MelonLoader (handle redirects)
+        const downloadResponse = await new Promise((resolve, reject) => {
+            const followRedirect = (url) => {
+                const urlModule = url.startsWith('https:') ? https : require('http');
+                const req = urlModule.get(url, { timeout: 60000 }, (res) => {
+                    // Handle redirects
+                    if (res.statusCode === 302 || res.statusCode === 301) {
+                        console.log('[MELONLOADER] Following redirect to:', res.headers.location);
+                        followRedirect(res.headers.location);
+                        return;
+                    }
+
+                    if (res.statusCode !== 200) {
+                        reject(new Error(`Download failed with status ${res.statusCode}`));
+                        return;
+                    }
+
+                    const chunks = [];
+                    res.on('data', (chunk) => chunks.push(chunk));
+                    res.on('end', () => resolve(Buffer.concat(chunks)));
+                });
+                req.on('error', reject);
+                req.on('timeout', () => {
+                    req.destroy();
+                    reject(new Error('Download timed out'));
+                });
+            };
+            followRedirect(asset.browser_download_url);
+        });
+
+        // Extract MelonLoader
+        const zip = new AdmZip(downloadResponse);
+        zip.extractAllTo(game.install_directory, true);
+
+        return {
+            success: true,
+            message: `MelonLoader ${release.tag_name} installed successfully`
+        };
+    } catch (error) {
+        console.error('[MELONLOADER] Installation error:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 console.log('CoverFlow Game Launcher - Electron app starting...');
 // Redacted sensitive paths for security
 if (isDev) {
@@ -3238,20 +3835,26 @@ if (isDev) {
 // App lifecycle handlers for playtime tracking
 app.on('before-quit', () => {
     console.log('[PLAYTIME] App closing, ending all active sessions');
+    stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
+    cleanupAllTimers();
 });
 
 app.on('will-quit', () => {
     console.log('[PLAYTIME] App quitting');
+    stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
+    cleanupAllTimers();
 });
 
 // Handle window close
 app.on('window-all-closed', () => {
+    stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
+    cleanupAllTimers();
     if (process.platform !== 'darwin') {
         app.quit();
     }

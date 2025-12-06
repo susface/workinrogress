@@ -110,7 +110,8 @@ class SessionInsights {
      */
     async loadStats() {
         if (!window.electronAPI) {
-            console.warn('[SESSION_INSIGHTS] Electron API not available');
+            console.warn('[SESSION_INSIGHTS] Electron API not available - showing heatmap instead');
+            this.renderHeatmapFallback();
             return;
         }
 
@@ -119,9 +120,85 @@ class SessionInsights {
             if (result.success) {
                 this.stats = result.stats;
                 this.renderStats();
+            } else {
+                // Fallback to heatmap if stats not available
+                this.renderHeatmapFallback();
             }
         } catch (error) {
             console.error('[SESSION_INSIGHTS] Failed to load stats:', error);
+            this.renderHeatmapFallback();
+        }
+    }
+
+    /**
+     * Render heatmap fallback when Electron API is not available
+     */
+    renderHeatmapFallback() {
+        // Show message in stats grid
+        const statsGrid = document.querySelector('.insights-stats-grid');
+        if (statsGrid) {
+            statsGrid.innerHTML = `
+                <div class="stat-card" style="grid-column: 1 / -1;">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-value">Gaming Heatmap Available</div>
+                    <div class="stat-label">Session stats require Electron mode</div>
+                </div>
+            `;
+        }
+
+        // Show heatmap in activity section if available
+        if (window.gamingHeatmapManager) {
+            const activitySection = document.querySelector('#daily-activity-chart');
+            if (activitySection) {
+                activitySection.innerHTML = '<div class="loading">Loading heatmap...</div>';
+
+                try {
+                    const heatmapUI = window.gamingHeatmapManager.createHeatmapUI();
+                    activitySection.innerHTML = '';
+                    activitySection.appendChild(heatmapUI);
+                } catch (error) {
+                    console.error('[SESSION_INSIGHTS] Error rendering heatmap:', error);
+                    activitySection.innerHTML = '<div class="empty-state">Error loading heatmap</div>';
+                }
+            }
+
+            // Show button to open full heatmap modal
+            const mostPlayedList = document.getElementById('most-played-list');
+            if (mostPlayedList) {
+                mostPlayedList.innerHTML = `
+                    <button class="btn" onclick="window.newFeaturesSettings?.showHeatmapModal()" style="width: 100%; padding: 15px;">
+                        📊 Open Full Gaming Heatmap
+                    </button>
+                `;
+            }
+
+            const sessionsList = document.getElementById('recent-sessions-list');
+            if (sessionsList) {
+                sessionsList.innerHTML = `
+                    <div class="empty-state">
+                        Session tracking is available in Electron mode.<br>
+                        Use the heatmap above to view your gaming activity.
+                    </div>
+                `;
+            }
+        } else {
+            // No heatmap available either
+            const body = document.querySelector('.insights-body');
+            if (body) {
+                body.innerHTML = `
+                    <div class="empty-state" style="padding: 40px; text-align: center;">
+                        <h3>📊 Gaming Insights</h3>
+                        <p>Session insights require Electron mode to track playtime and statistics.</p>
+                        <p>Run this application in Electron to access:</p>
+                        <ul style="text-align: left; display: inline-block; margin-top: 15px;">
+                            <li>Playtime tracking</li>
+                            <li>Gaming statistics</li>
+                            <li>Session history</li>
+                            <li>Most played games</li>
+                        </ul>
+                    </div>
+                `;
+            }
         }
     }
 

@@ -7,6 +7,7 @@
 class AnalyticsDashboard {
     constructor() {
         this.charts = {};
+        this.abortController = new AbortController();
         this.chartColors = {
             primary: '#667eea',
             secondary: '#764ba2',
@@ -22,6 +23,27 @@ class AnalyticsDashboard {
         };
 
         window.logger?.debug('ANALYTICS', 'Analytics Dashboard initialized');
+    }
+
+    /**
+     * Cleanup method to prevent memory leaks
+     */
+    destroy() {
+        // Destroy all Chart.js charts
+        Object.values(this.charts).forEach(chart => {
+            if (chart && typeof chart.destroy === 'function') {
+                chart.destroy();
+            }
+        });
+        this.charts = {};
+
+        // Abort any event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+
+        // Remove dynamically loaded Chart.js script if needed
+        // (Optional - only if you want to completely cleanup)
     }
 
     /**
@@ -797,6 +819,7 @@ class AnalyticsDashboard {
     setupTabs() {
         const tabBtns = document.querySelectorAll('.analytics-tabs .tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
+        const signal = this.abortController.signal;
 
         tabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -808,7 +831,7 @@ class AnalyticsDashboard {
 
                 btn.classList.add('active');
                 document.querySelector(`.tab-content[data-tab="${tabName}"]`)?.classList.add('active');
-            });
+            }, { signal });
         });
     }
 

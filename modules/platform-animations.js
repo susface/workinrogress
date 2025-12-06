@@ -13,13 +13,37 @@ class PlatformAnimations {
      * Initialize platform animations
      */
     initializePlatformAnimations() {
-        console.log('[PLATFORM] Initializing platform-specific animations...');
+        try {
+            console.log('[PLATFORM] Initializing platform-specific animations...');
 
-        if (this.settings.platformAnimations === undefined) {
-            this.settings.platformAnimations = true;
+            // Validate required dependencies
+            if (!this.settings) {
+                console.error('[PLATFORM] Settings object not found! Cannot initialize.');
+                return;
+            }
+
+            if (!this.scene) {
+                console.error('[PLATFORM] Scene object not found! Cannot initialize.');
+                return;
+            }
+
+            if (typeof THREE === 'undefined') {
+                console.error('[PLATFORM] THREE.js not loaded! Cannot initialize platform animations.');
+                return;
+            }
+
+            if (this.settings.platformAnimations === undefined) {
+                this.settings.platformAnimations = true;
+            }
+
+            console.log('[PLATFORM] Platform animations initialized successfully:', {
+                enabled: this.settings.platformAnimations,
+                sceneAvailable: !!this.scene,
+                threeJsAvailable: typeof THREE !== 'undefined'
+            });
+        } catch (error) {
+            console.error('[PLATFORM] Failed to initialize platform animations:', error);
         }
-
-        console.log('[PLATFORM] Platform animations initialized');
     }
 
     /**
@@ -184,6 +208,8 @@ class PlatformAnimations {
 
             if (time > Math.PI * 2) {
                 this.scene.remove(sprite);
+                // Properly dispose of material to prevent memory leak
+                sprite.material.dispose();
                 return;
             }
 
@@ -200,31 +226,57 @@ class PlatformAnimations {
      * Play platform-specific launch animation
      */
     playPlatformLaunchAnimation(album, coverIndex) {
-        if (!this.settings.platformAnimations) return;
-        if (!album.platform) return;
+        try {
+            if (!this.settings || !this.settings.platformAnimations) {
+                console.log('[PLATFORM] Platform animations are disabled');
+                return;
+            }
 
-        const cover = this.covers[coverIndex];
-        if (!cover) return;
+            if (!album || !album.platform) {
+                console.log('[PLATFORM] No platform information available');
+                return;
+            }
 
-        console.log(`[PLATFORM] Playing ${album.platform} launch animation`);
+            if (!this.covers || !this.covers[coverIndex]) {
+                console.error('[PLATFORM] Cover not found at index', coverIndex);
+                return;
+            }
 
-        // Create particles
-        this.createPlatformParticles(album.platform, cover);
+            if (!this.scene) {
+                console.error('[PLATFORM] Scene not available');
+                return;
+            }
 
-        // Add glow effect
-        this.addPlatformGlow(cover, album.platform);
+            if (typeof THREE === 'undefined') {
+                console.error('[PLATFORM] THREE.js not available');
+                return;
+            }
 
-        // Platform-specific extra effects
-        switch (album.platform.toLowerCase()) {
-            case 'steam':
-                this.playSteamAnimation(cover);
-                break;
-            case 'epic':
-                this.playEpicAnimation(cover);
-                break;
-            case 'xbox':
-                this.playXboxAnimation(cover);
-                break;
+            const cover = this.covers[coverIndex];
+            console.log(`[PLATFORM] Playing ${album.platform} launch animation for cover at index ${coverIndex}`);
+
+            // Create particles
+            this.createPlatformParticles(album.platform, cover);
+
+            // Add glow effect
+            this.addPlatformGlow(cover, album.platform);
+
+            // Platform-specific extra effects
+            switch (album.platform.toLowerCase()) {
+                case 'steam':
+                    this.playSteamAnimation(cover);
+                    break;
+                case 'epic':
+                    this.playEpicAnimation(cover);
+                    break;
+                case 'xbox':
+                    this.playXboxAnimation(cover);
+                    break;
+                default:
+                    console.log(`[PLATFORM] No specific animation for platform: ${album.platform}`);
+            }
+        } catch (error) {
+            console.error('[PLATFORM] Error playing platform launch animation:', error);
         }
     }
 

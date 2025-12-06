@@ -247,9 +247,9 @@ class PerGameMusicManager {
             await this.sleep(stepDuration);
         }
 
+        // Properly dispose of old audio element to prevent memory leak
         if (oldAudio) {
-            oldAudio.pause();
-            oldAudio.src = '';
+            this.disposeAudio(oldAudio);
         }
 
         this.isCrossfading = false;
@@ -335,6 +335,11 @@ class PerGameMusicManager {
 
         try {
             const response = await fetch(apiUrl);
+
+            if (!response.ok) {
+                throw new Error(`YouTube API request failed: ${response.status} ${response.statusText}`);
+            }
+
             const data = await response.json();
 
             if (data.items && data.items.length > 0) {
@@ -357,10 +362,9 @@ class PerGameMusicManager {
         }
 
         try {
-            // Stop current local audio
+            // Stop and properly dispose of current local audio
             if (this.currentAudio) {
-                this.currentAudio.pause();
-                this.currentAudio.src = '';
+                this.disposeAudio(this.currentAudio);
                 this.currentAudio = null;
             }
 
@@ -738,7 +742,7 @@ class PerGameMusicManager {
         });
 
         container.querySelector('#pgm-crossfade').addEventListener('input', (e) => {
-            this.settings.crossfadeDuration = parseInt(e.target.value);
+            this.settings.crossfadeDuration = parseInt(e.target.value, 10);
             this.saveSettings();
             container.querySelector('#pgm-crossfade-value').textContent = `${e.target.value}ms`;
         });
@@ -771,7 +775,17 @@ class PerGameMusicManager {
         if (this.trackUpdateInterval) {
             clearInterval(this.trackUpdateInterval);
         }
-        this.trackUpdateInterval = setInterval(() => this.updateTrackDisplay(container), 1000);
+        this.trackUpdateInterval = setInterval(() => {
+            // Check if container is still in DOM to prevent memory leak
+            if (container && document.body.contains(container)) {
+                this.updateTrackDisplay(container);
+            } else {
+                // Container was removed, clean up interval
+                clearInterval(this.trackUpdateInterval);
+                this.trackUpdateInterval = null;
+                console.log('[PER-GAME-MUSIC] Track update interval cleared - container removed from DOM');
+            }
+        }, 1000);
 
         return container;
     }
@@ -838,9 +852,27 @@ class PerGameMusicManager {
     }
 
     async scanAllGames() {
-        const games = window.coverflow?.games || window.coverflowManager?.games || [];
-        if (games.length === 0) {
-            alert('No games found to scan.');
+        let games = [];
+
+        // Try to get games from multiple sources
+        if (window.electronAPI && typeof window.electronAPI.getGames === 'function') {
+            try {
+                games = await window.electronAPI.getGames();
+            } catch (error) {
+                console.error('[PER-GAME-MUSIC] Failed to get games from Electron API:', error);
+            }
+        }
+
+        // Fallback to window.coverflow or window.coverflowManager
+        if (!games || games.length === 0) {
+            const coverflowObj = window.coverflow || window.coverflowManager;
+            const allItems = coverflowObj?.allAlbums || coverflowObj?.filteredAlbums || coverflowObj?.games || [];
+            // Filter only game type items
+            games = Array.isArray(allItems) ? allItems.filter(item => item.type === 'game') : [];
+        }
+
+        if (!Array.isArray(games) || games.length === 0) {
+            alert('No games found to scan. Please add games to your library first.');
             return;
         }
 

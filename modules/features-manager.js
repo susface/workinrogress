@@ -646,11 +646,17 @@ class FeaturesManager {
      * Show themes modal
      */
     async showThemesModal() {
-        if (!window.electronAPI) return;
+        if (!window.electronAPI) {
+            this.showThemesFallback();
+            return;
+        }
 
         try {
             const result = await window.electronAPI.getThemes();
-            if (!result.success) return;
+            if (!result.success) {
+                this.showThemesFallback();
+                return;
+            }
 
             const themes = result.themes || [];
 
@@ -750,11 +756,17 @@ class FeaturesManager {
      * Show stats modal
      */
     async showStatsModal() {
-        if (!window.electronAPI) return;
+        if (!window.electronAPI) {
+            this.showStatsFallback();
+            return;
+        }
 
         try {
             const result = await window.electronAPI.getPlaytimeStats('week');
-            if (!result.success || !result.stats) return;
+            if (!result.success || !result.stats) {
+                this.showStatsFallback();
+                return;
+            }
 
             const stats = result.stats;
             const totalHours = Math.floor(stats.totalPlaytime / 3600);
@@ -839,6 +851,125 @@ class FeaturesManager {
         } catch (error) {
             console.error('[STATS] Error showing modal:', error);
         }
+    }
+
+    /**
+     * Show stats fallback when Electron API is not available
+     */
+    showStatsFallback() {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        modal.innerHTML = `
+            <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; text-align: center;">
+                <h2 style="margin: 0 0 20px 0; color: #4fc3f7;">📊 Playtime Statistics</h2>
+                <p style="color: #ccc; margin-bottom: 20px;">
+                    Playtime tracking requires Electron mode to monitor game sessions.
+                </p>
+                <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: left;">
+                    <h3 style="margin: 0 0 10px 0; color: #81c784; font-size: 16px;">Try Gaming Insights Instead:</h3>
+                    <p style="color: #aaa; margin: 10px 0;">
+                        Click "Gaming Insights" from the More Options menu to view your gaming heatmap and activity calendar.
+                    </p>
+                </div>
+                <button onclick="this.closest('div').parentElement.remove()" style="
+                    padding: 10px 20px;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    margin-right: 10px;
+                ">Close</button>
+                <button onclick="this.closest('div').parentElement.remove(); setTimeout(() => document.getElementById('insights-btn-menu')?.click(), 100);" style="
+                    padding: 10px 20px;
+                    background: linear-gradient(135deg, #4fc3f7, #26c6da);
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">Open Gaming Insights</button>
+            </div>
+        `;
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+
+        document.body.appendChild(modal);
+    }
+
+    /**
+     * Show themes fallback when Electron API is not available
+     */
+    showThemesFallback() {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        modal.innerHTML = `
+            <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; text-align: center;">
+                <h2 style="margin: 0 0 20px 0; color: #4fc3f7;">🎨 Themes</h2>
+                <p style="color: #ccc; margin-bottom: 20px;">
+                    Custom themes require Electron mode to load and manage theme files.
+                </p>
+                <div style="background: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: left;">
+                    <h3 style="margin: 0 0 10px 0; color: #81c784; font-size: 16px;">Available in Electron Mode:</h3>
+                    <ul style="color: #aaa; margin: 0; padding-left: 20px;">
+                        <li>Custom color schemes</li>
+                        <li>Background images</li>
+                        <li>Theme creation and editing</li>
+                        <li>Import/export themes</li>
+                        <li>Per-game theme switching</li>
+                    </ul>
+                </div>
+                <div style="color: #888; font-size: 14px; margin-bottom: 20px;">
+                    Use the Settings panel to customize basic colors and effects.
+                </div>
+                <button onclick="this.closest('div').parentElement.remove()" style="
+                    padding: 10px 20px;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">Close</button>
+            </div>
+        `;
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+
+        document.body.appendChild(modal);
     }
 
     /**

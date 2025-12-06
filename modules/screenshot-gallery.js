@@ -6,7 +6,33 @@
 class ScreenshotGallery {
     constructor() {
         this.screenshots = new Map(); // gameId -> array of screenshots
+        this.activeModals = []; // Track active modals for cleanup
+        this.fileReaders = []; // Track FileReaders for cleanup
         this.loadFromStorage();
+    }
+
+    /**
+     * Cleanup method to prevent memory leaks
+     */
+    destroy() {
+        // Remove all active modals
+        this.activeModals.forEach(modal => {
+            if (modal && modal.parentNode) {
+                modal.remove();
+            }
+        });
+        this.activeModals = [];
+
+        // Abort any ongoing FileReader operations
+        this.fileReaders.forEach(reader => {
+            if (reader && reader.readyState === FileReader.LOADING) {
+                reader.abort();
+            }
+        });
+        this.fileReaders = [];
+
+        // Clear screenshots from memory (optional - depends on use case)
+        // this.screenshots.clear();
     }
 
     /**
@@ -340,6 +366,9 @@ class ScreenshotGallery {
         `;
 
         document.body.appendChild(modal);
+
+        // Track modal for cleanup
+        this.activeModals.push(modal);
 
         // Render initial grid
         this.renderScreenshotGrid(modal, 'all', filterGameId);
@@ -719,7 +748,27 @@ class ScreenshotGallery {
         const readers = files.map(file => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
-                reader.onload = (e) => resolve({ url: e.target.result, file });
+
+                // Track FileReader for cleanup
+                this.fileReaders.push(reader);
+
+                reader.onload = (e) => {
+                    // Remove from tracking once complete
+                    const index = this.fileReaders.indexOf(reader);
+                    if (index > -1) {
+                        this.fileReaders.splice(index, 1);
+                    }
+                    resolve({ url: e.target.result, file });
+                };
+
+                reader.onerror = () => {
+                    // Remove from tracking on error
+                    const index = this.fileReaders.indexOf(reader);
+                    if (index > -1) {
+                        this.fileReaders.splice(index, 1);
+                    }
+                };
+
                 reader.readAsDataURL(file);
             });
         });

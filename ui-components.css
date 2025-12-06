@@ -2709,3 +2709,500 @@
         transform: translateY(0);
     }
 }
+
+/* ============================================
+   UNIFIED MOD MANAGER
+   ============================================ */
+.unified-mod-manager {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.unified-mod-manager.active {
+    display: flex;
+}
+
+.unified-mod-manager .modal-content {
+    max-width: 1200px;
+    max-height: 95vh;
+    width: 95%;
+    background: linear-gradient(135deg, rgba(20, 20, 40, 0.98) 0%, rgba(10, 10, 20, 0.98) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.unified-mod-manager-content {
+    display: flex;
+    flex-direction: column;
+    height: 95vh;
+}
+
+.unified-mod-manager .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.unified-mod-manager .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.unified-mod-manager .header-left h3 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.unified-mod-manager .current-game-name {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Tab Navigation */
+.mod-tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 24px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.mod-tabs .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: -2px;
+    position: relative;
+}
+
+.mod-tabs .tab-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.mod-tabs .tab-btn.active {
+    color: #4fc3f7;
+    border-bottom-color: #4fc3f7;
+    background: rgba(79, 195, 247, 0.05);
+}
+
+.mod-tabs .tab-icon {
+    font-size: 18px;
+}
+
+.mod-tabs .tab-label {
+    font-weight: 600;
+}
+
+.mod-tabs .tab-badge {
+    padding: 2px 8px;
+    background: rgba(79, 195, 247, 0.2);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4fc3f7;
+    min-width: 20px;
+    text-align: center;
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Browse Tab */
+.browse-sources {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.source-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 24px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.source-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #4fc3f7;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(79, 195, 247, 0.2);
+}
+
+.source-btn .source-icon {
+    font-size: 48px;
+}
+
+.source-btn .source-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.source-btn small {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.browse-results {
+    margin-top: 24px;
+}
+
+.browse-header {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.browse-header .search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.browse-header .search-input:focus {
+    outline: none;
+    border-color: #4fc3f7;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.browse-header .sort-select {
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.browse-header .sort-select:focus {
+    outline: none;
+    border-color: #4fc3f7;
+}
+
+.browse-filter-tabs {
+    display: flex;
+    gap: 8px;
+}
+
+.filter-tab-btn {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.filter-tab-btn.active {
+    background: #4fc3f7;
+    border-color: #4fc3f7;
+    color: #000;
+    font-weight: 600;
+}
+
+.browse-mod-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.browse-mod-card {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.browse-mod-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #4fc3f7;
+    transform: translateX(4px);
+}
+
+/* Installed Tab */
+.installed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.installed-info {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+}
+
+.installed-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.installed-mod-list {
+    max-height: 600px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.installed-mod-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    cursor: move;
+}
+
+.installed-mod-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(108, 158, 255, 0.3);
+}
+
+.installed-mod-item.enabled {
+    border-left: 4px solid #4caf50;
+}
+
+.installed-mod-item.disabled {
+    opacity: 0.6;
+    border-left: 4px solid #999;
+}
+
+.installed-mod-item.conflict {
+    border-left: 4px solid #ff6b6b;
+}
+
+.installed-mod-item.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+}
+
+.installed-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.installed-footer .info-text {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* Profiles Tab */
+.profiles-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.profiles-header h4 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.profiles-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.profile-card {
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.profile-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #4fc3f7;
+}
+
+.profile-card.active {
+    border-color: #4fc3f7;
+    background: rgba(79, 195, 247, 0.1);
+}
+
+.profile-info h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.profile-info small {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.profile-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* Settings Tab */
+.settings-section {
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+}
+
+.settings-section h4 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.setting-group {
+    margin-bottom: 20px;
+}
+
+.setting-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 8px;
+}
+
+.setting-group small {
+    display: block;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 6px;
+}
+
+.setting-group small a {
+    color: #4fc3f7;
+    text-decoration: none;
+}
+
+.setting-group small a:hover {
+    text-decoration: underline;
+}
+
+.api-key-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.api-key-input {
+    flex: 1;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.api-key-input:focus {
+    outline: none;
+    border-color: #4fc3f7;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.setting-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+/* Installer Buttons */
+.installer-btn {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Loading and Empty States */
+.loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.loading-state .spinner {
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

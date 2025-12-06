@@ -187,6 +187,12 @@ class DynamicBackgroundManager {
     async applyBackground(game) {
         if (!this.settings.enabled) return;
 
+        // Validate game object
+        if (!game || !game.id) {
+            console.warn('[DYNAMIC-BG] Invalid game object');
+            return;
+        }
+
         // Check cache first
         let colors = this.colorCache.get(game.id);
 
@@ -493,14 +499,14 @@ class DynamicBackgroundManager {
         });
 
         container.querySelector('#dynbg-blur').addEventListener('input', (e) => {
-            this.settings.blur = parseInt(e.target.value);
+            this.settings.blur = parseInt(e.target.value, 10);
             container.querySelector('#dynbg-blur-value').textContent = `${e.target.value}px`;
             this.saveSettings();
             this.updatePreview(container);
         });
 
         container.querySelector('#dynbg-speed').addEventListener('input', (e) => {
-            this.settings.transitionSpeed = parseInt(e.target.value);
+            this.settings.transitionSpeed = parseInt(e.target.value, 10);
             container.querySelector('#dynbg-speed-value').textContent = `${e.target.value}ms`;
             this.saveSettings();
         });
@@ -511,7 +517,7 @@ class DynamicBackgroundManager {
         });
 
         container.querySelector('#dynbg-particles').addEventListener('input', (e) => {
-            this.settings.particleCount = parseInt(e.target.value);
+            this.settings.particleCount = parseInt(e.target.value, 10);
             container.querySelector('#dynbg-particles-value').textContent = e.target.value;
             this.saveSettings();
             this.updatePreview(container);

@@ -68,7 +68,7 @@ class GamingHeatmapManager {
     }
 
     // Record gaming activity for today
-    recordActivity(gameId, minutes) {
+    recordActivity(gameId, minutes, replace = false) {
         const today = this.getDateString(new Date());
 
         if (!this.activityData[today]) {
@@ -78,13 +78,21 @@ class GamingHeatmapManager {
             };
         }
 
-        this.activityData[today].totalMinutes += minutes;
+        const previousMinutes = this.activityData[today].games[gameId] || 0;
 
-        if (!this.activityData[today].games[gameId]) {
-            this.activityData[today].games[gameId] = 0;
+        if (replace) {
+            // Replace mode: Set exact time (used for session tracking updates)
+            const difference = minutes - previousMinutes;
+            this.activityData[today].totalMinutes += difference;
+            this.activityData[today].games[gameId] = minutes;
+        } else {
+            // Add mode: Add to existing time (default behavior)
+            this.activityData[today].totalMinutes += minutes;
+            if (!this.activityData[today].games[gameId]) {
+                this.activityData[today].games[gameId] = 0;
+            }
+            this.activityData[today].games[gameId] += minutes;
         }
-
-        this.activityData[today].games[gameId] += minutes;
 
         // Invalidate cache when data changes
         this.heatmapCache = null;
@@ -265,7 +273,7 @@ class GamingHeatmapManager {
                     </div>
                 </div>
 
-                <div class="controls" style="display: flex; gap: 10px; align-items: center;">
+                <div class="controls" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <label>Color Scheme:</label>
                     <select id="heatmap-color-scheme" style="padding: 5px; border-radius: 5px;">
                         <option value="github">GitHub</option>
@@ -304,6 +312,16 @@ class GamingHeatmapManager {
 
         // Render the heatmap grid
         this.renderGrid(container.querySelector('#heatmap-grid'));
+
+        // Auto-import data from database on first load
+        this.importFromPlayTimeDB().then(success => {
+            if (success) {
+                console.log('[HEATMAP] Auto-imported playtime data from database');
+                // Re-render to show imported data
+                this.renderGrid(container.querySelector('#heatmap-grid'));
+                this.updateStats(container);
+            }
+        });
 
         // Event listeners
         container.querySelector('#heatmap-color-scheme').addEventListener('change', (e) => {
@@ -412,8 +430,10 @@ class GamingHeatmapManager {
             fragment.appendChild(weekColumn);
         });
 
-        // Single DOM update
-        gridContainer.innerHTML = '';
+        // Single DOM update - clear old content and event listeners to prevent memory leak
+        while (gridContainer.firstChild) {
+            gridContainer.removeChild(gridContainer.firstChild);
+        }
         gridContainer.appendChild(fragment);
     }
 
@@ -451,13 +471,13 @@ class GamingHeatmapManager {
 
     getGameName(gameId) {
         // Try to get game name from coverflow manager
-        if (window.coverflow) {
-            const game = window.coverflow.games?.find(g => g.id === gameId);
-            if (game) return game.name;
+        if (window.coverflow && window.coverflow.games && Array.isArray(window.coverflow.games)) {
+            const game = window.coverflow.games.find(g => g && g.id === gameId);
+            if (game && game.name) return game.name;
         }
-        if (window.coverflowManager) {
-            const game = window.coverflowManager.games?.find(g => g.id === gameId);
-            if (game) return game.name;
+        if (window.coverflowManager && window.coverflowManager.games && Array.isArray(window.coverflowManager.games)) {
+            const game = window.coverflowManager.games.find(g => g && g.id === gameId);
+            if (game && game.name) return game.name;
         }
         return gameId;
     }
@@ -475,6 +495,32 @@ class GamingHeatmapManager {
             ).join('')}
             <span>More</span>
         `;
+    }
+
+    updateStats(container) {
+        // Update the stats display with current data
+        const stats = this.getStats();
+        const statsRow = (container || document).querySelector('.stats-row');
+
+        if (statsRow) {
+            statsRow.innerHTML = `
+                <div class="stat-item">
+                    <strong>${stats.totalHours}</strong> hours played
+                </div>
+                <div class="stat-item">
+                    <strong>${stats.activeDays}</strong> active days
+                </div>
+                <div class="stat-item">
+                    <strong>${stats.currentStreak}</strong> day streak
+                </div>
+                <div class="stat-item">
+                    <strong>${stats.longestStreak}</strong> longest streak
+                </div>
+                <div class="stat-item">
+                    <strong>${stats.averagePerDay}</strong> min/day avg
+                </div>
+            `;
+        }
     }
 
     async exportAsImage(container) {
@@ -496,12 +542,126 @@ class GamingHeatmapManager {
     }
 
     // Import activity data from play time database
-    async importFromPlayTimeDB(db) {
-        // This would integrate with the existing play time tracking system
+    async importFromPlayTimeDB() {
         console.log('[HEATMAP] Importing activity data from play time database...');
 
-        // Example: query all sessions and aggregate by date
-        // The actual implementation would depend on your database schema
+        if (!window.electronAPI || !window.electronAPI.getPlaytimeSessions) {
+            console.warn('[HEATMAP] Electron API not available for database import');
+            return false;
+        }
+
+        try {
+            const result = await window.electronAPI.getPlaytimeSessions();
+
+            if (!result || !result.success || !result.sessions) {
+                console.warn('[HEATMAP] No sessions returned from database');
+                return false;
+            }
+
+            let importedCount = 0;
+
+            // Process each session and aggregate by date
+            for (const session of result.sessions) {
+                if (!session.game_id || !session.start_time || !session.duration) {
+                    continue;
+                }
+
+                // Extract date from start_time
+                const date = new Date(session.start_time);
+                const dateString = this.getDateString(date);
+
+                // Convert duration from seconds to minutes
+                const minutes = Math.ceil(session.duration / 60);
+
+                if (minutes <= 0) continue;
+
+                // Initialize date if not exists
+                if (!this.activityData[dateString]) {
+                    this.activityData[dateString] = {
+                        totalMinutes: 0,
+                        games: {}
+                    };
+                }
+
+                // Add session data
+                if (!this.activityData[dateString].games[session.game_id]) {
+                    this.activityData[dateString].games[session.game_id] = 0;
+                }
+
+                this.activityData[dateString].games[session.game_id] += minutes;
+                this.activityData[dateString].totalMinutes += minutes;
+                importedCount++;
+            }
+
+            // Invalidate cache
+            this.heatmapCache = null;
+            this.saveActivityData();
+
+            console.log(`[HEATMAP] Imported ${importedCount} sessions from database`);
+            return true;
+        } catch (error) {
+            console.error('[HEATMAP] Failed to import from database:', error);
+            return false;
+        }
+    }
+
+    // Generate test data for demonstration purposes
+    generateTestData() {
+        console.log('[HEATMAP] Generating test data...');
+
+        const today = new Date();
+        const testGames = ['game1', 'game2', 'game3', 'game4', 'game5'];
+
+        // Generate data for the past 365 days
+        for (let i = 0; i < 365; i++) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+
+            // Random chance of activity on this day (70% chance)
+            if (Math.random() > 0.3) {
+                const dateString = this.getDateString(date);
+
+                // Random number of games played (1-3)
+                const numGames = Math.floor(Math.random() * 3) + 1;
+
+                // Initialize day data
+                if (!this.activityData[dateString]) {
+                    this.activityData[dateString] = {
+                        totalMinutes: 0,
+                        games: {}
+                    };
+                }
+
+                // Add random play time for each game
+                for (let j = 0; j < numGames; j++) {
+                    const gameId = testGames[Math.floor(Math.random() * testGames.length)];
+                    // Random play time between 30 minutes and 5 hours
+                    const minutes = Math.floor(Math.random() * 270) + 30;
+
+                    if (!this.activityData[dateString].games[gameId]) {
+                        this.activityData[dateString].games[gameId] = 0;
+                    }
+                    this.activityData[dateString].games[gameId] += minutes;
+                    this.activityData[dateString].totalMinutes += minutes;
+                }
+            }
+        }
+
+        // Invalidate cache
+        this.heatmapCache = null;
+        this.saveActivityData();
+
+        console.log('[HEATMAP] Test data generated successfully');
+        return true;
+    }
+
+    // Clear all activity data
+    clearAllData() {
+        console.log('[HEATMAP] Clearing all activity data...');
+        this.activityData = {};
+        this.heatmapCache = null;
+        this.saveActivityData();
+        console.log('[HEATMAP] All data cleared');
     }
 
     // Cleanup method to prevent memory leaks

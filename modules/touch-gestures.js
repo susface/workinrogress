@@ -14,6 +14,7 @@ class TouchGestures {
         this.minSwipeDistance = 50;
         this.maxSwipeTime = 300;
         this.pinchDistance = 0;
+        this.abortController = new AbortController();
     }
 
     /**
@@ -28,25 +29,36 @@ class TouchGestures {
             return;
         }
 
+        const signal = this.abortController.signal;
+
         // Touch start
         container.addEventListener('touchstart', (e) => {
             this.handleTouchStart(e);
-        }, { passive: false });
+        }, { passive: false, signal });
 
         // Touch move
         container.addEventListener('touchmove', (e) => {
             this.handleTouchMove(e);
-        }, { passive: false });
+        }, { passive: false, signal });
 
         // Touch end
         container.addEventListener('touchend', (e) => {
             this.handleTouchEnd(e);
-        }, { passive: false });
+        }, { passive: false, signal });
 
         console.log('[TOUCH] Touch gestures initialized');
         console.log('[TOUCH] - Swipe left/right: Navigate');
         console.log('[TOUCH] - Tap: Select/Play');
         console.log('[TOUCH] - Two-finger pinch: Zoom (future)');
+    }
+
+    /**
+     * Cleanup method to prevent memory leaks
+     */
+    destroy() {
+        if (this.abortController) {
+            this.abortController.abort();
+        }
     }
 
     /**

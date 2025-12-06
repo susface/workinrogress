@@ -22,6 +22,7 @@ class UIComponents {
         this.gridViewAbortController = null;
         this.listViewAbortController = null;
         this.duplicateListAbortController = null;
+        this.mainAbortController = new AbortController();
 
         // App paths for Electron mode
         this.appPaths = null;
@@ -34,7 +35,46 @@ class UIComponents {
         this.isSwitchingView = false;
         this.lastViewSwitch = 0;
 
+        // Track event listeners for cleanup
+        this.eventListeners = [];
+
         this.init();
+    }
+
+    // Cleanup method to prevent memory leaks
+    destroy() {
+        // Abort all AbortControllers
+        if (this.gridViewAbortController) {
+            this.gridViewAbortController.abort();
+        }
+        if (this.listViewAbortController) {
+            this.listViewAbortController.abort();
+        }
+        if (this.duplicateListAbortController) {
+            this.duplicateListAbortController.abort();
+        }
+        if (this.mainAbortController) {
+            this.mainAbortController.abort();
+        }
+
+        // Remove any DOM elements created by this component
+        const viewModeSwitcher = document.getElementById('view-mode-switcher');
+        if (viewModeSwitcher) viewModeSwitcher.remove();
+
+        const filterPanel = document.getElementById('filter-panel');
+        if (filterPanel) filterPanel.remove();
+
+        const statsDashboard = document.getElementById('stats-dashboard');
+        if (statsDashboard) statsDashboard.remove();
+
+        const duplicateManager = document.getElementById('duplicate-manager');
+        if (duplicateManager) duplicateManager.remove();
+
+        const gridView = document.getElementById('grid-view');
+        if (gridView) gridView.remove();
+
+        const listView = document.getElementById('list-view');
+        if (listView) listView.remove();
     }
 
     // Initialize app paths for Electron mode
@@ -822,12 +862,14 @@ class UIComponents {
     // EVENT LISTENERS
     // ============================================
     attachEventListeners() {
+        const signal = this.mainAbortController.signal;
+
         // View mode switcher
         document.querySelectorAll('.view-mode-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const view = e.currentTarget.dataset.view;
                 this.switchView(view);
-            });
+            }, { signal });
         });
 
         // Filter toggle
@@ -836,49 +878,55 @@ class UIComponents {
         if (filterToggle) {
             filterToggle.addEventListener('click', () => {
                 filterPanel.classList.toggle('collapsed');
-            });
+            }, { signal });
         }
 
         // Apply filters
-        document.getElementById('apply-filters')?.addEventListener('click', async () => {
-            this.filterState = {
-                platform: document.getElementById('filter-platform').value || null,
-                genre: document.getElementById('filter-genre').value || null,
-                search_query: document.getElementById('filter-search').value || null,
-                favorites_only: document.getElementById('filter-favorites').checked,
-                show_hidden: document.getElementById('filter-hidden').checked,
-                vr_only: document.getElementById('filter-vr').checked,
-                sort_by: document.getElementById('filter-sort').value,
-                sort_order: document.getElementById('filter-order').value
-            };
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', async () => {
+                this.filterState = {
+                    platform: document.getElementById('filter-platform').value || null,
+                    genre: document.getElementById('filter-genre').value || null,
+                    search_query: document.getElementById('filter-search').value || null,
+                    favorites_only: document.getElementById('filter-favorites').checked,
+                    show_hidden: document.getElementById('filter-hidden').checked,
+                    vr_only: document.getElementById('filter-vr').checked,
+                    sort_by: document.getElementById('filter-sort').value,
+                    sort_order: document.getElementById('filter-order').value
+                };
 
-            await this.renderView(this.currentView);
-        });
+                await this.renderView(this.currentView);
+            }, { signal });
+        }
 
         // Reset filters
-        document.getElementById('reset-filters')?.addEventListener('click', async () => {
-            this.filterState = {
-                platform: null,
-                genre: null,
-                search_query: null,
-                favorites_only: false,
-                show_hidden: false,
-                vr_only: false,
-                sort_by: 'title',
-                sort_order: 'ASC'
-            };
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        if (resetFiltersBtn) {
+            resetFiltersBtn.addEventListener('click', async () => {
+                this.filterState = {
+                    platform: null,
+                    genre: null,
+                    search_query: null,
+                    favorites_only: false,
+                    show_hidden: false,
+                    vr_only: false,
+                    sort_by: 'title',
+                    sort_order: 'ASC'
+                };
 
-            document.getElementById('filter-platform').value = '';
-            document.getElementById('filter-genre').value = '';
-            document.getElementById('filter-search').value = '';
-            document.getElementById('filter-favorites').checked = false;
-            document.getElementById('filter-hidden').checked = false;
-            document.getElementById('filter-vr').checked = false;
-            document.getElementById('filter-sort').value = 'title';
-            document.getElementById('filter-order').value = 'ASC';
+                document.getElementById('filter-platform').value = '';
+                document.getElementById('filter-genre').value = '';
+                document.getElementById('filter-search').value = '';
+                document.getElementById('filter-favorites').checked = false;
+                document.getElementById('filter-hidden').checked = false;
+                document.getElementById('filter-vr').checked = false;
+                document.getElementById('filter-sort').value = 'title';
+                document.getElementById('filter-order').value = 'ASC';
 
-            await this.renderView(this.currentView);
-        });
+                await this.renderView(this.currentView);
+            }, { signal });
+        }
     }
 }
 

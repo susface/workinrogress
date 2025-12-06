@@ -48,6 +48,8 @@ class CoverFlowSettings {
             depthOfField: false,
             dofFocus: 9.0,
             dofAperture: 0.025,
+            // UI Effects
+            frostedGlassUI: false,
             // Background music
             backgroundMusicEnabled: true,
             backgroundMusicVolume: 0.3,
@@ -195,6 +197,53 @@ class CoverFlowSettings {
 
         this.showToast(
             this.settings.depthOfField ? 'Depth of Field enabled' : 'Depth of Field disabled',
+            'success'
+        );
+    }
+
+    /**
+     * Toggle Frosted Glass UI effect
+     */
+    toggleFrostedGlassUI() {
+        this.settings.frostedGlassUI = !this.settings.frostedGlassUI;
+        this.saveSettings();
+
+        // Get window controls element
+        const windowControls = document.getElementById('window-controls');
+
+        // Apply or remove the frosted glass class from body
+        if (this.settings.frostedGlassUI) {
+            document.body.classList.add('frosted-glass-mode');
+            // Make THREE.js scene background transparent
+            if (this.scene) {
+                this.scene.background = null;
+            }
+            // Also make renderer transparent
+            if (this.renderer) {
+                this.renderer.setClearColor(0x000000, 0); // Transparent
+            }
+            // Hide window controls in transparent mode
+            if (windowControls && window.electronAPI) {
+                windowControls.classList.add('hidden');
+            }
+        } else {
+            document.body.classList.remove('frosted-glass-mode');
+            // Restore background color
+            if (this.scene) {
+                this.scene.background = new THREE.Color(this.settings.backgroundColor);
+            }
+            // Restore renderer opaque
+            if (this.renderer) {
+                this.renderer.setClearColor(this.settings.backgroundColor, 1);
+            }
+            // Show window controls in normal mode
+            if (windowControls && window.electronAPI) {
+                windowControls.classList.remove('hidden');
+            }
+        }
+
+        this.showToast(
+            this.settings.frostedGlassUI ? 'Frosted Glass UI enabled' : 'Frosted Glass UI disabled',
             'success'
         );
     }
@@ -437,6 +486,12 @@ class CoverFlowSettings {
         if (errorLoggingToggle) {
             errorLoggingToggle.checked = this.settings.errorLogging;
 
+            // Show/hide view error log button based on error logging setting
+            const logGroup = document.getElementById('view-error-log-group');
+            if (logGroup) {
+                logGroup.style.display = this.settings.errorLogging ? 'block' : 'none';
+            }
+
             errorLoggingToggle.addEventListener('change', () => {
                 this.settings.errorLogging = !this.settings.errorLogging;
                 this.saveSettings();
@@ -444,6 +499,19 @@ class CoverFlowSettings {
                     this.settings.errorLogging ? 'Error logging enabled' : 'Error logging disabled',
                     'info'
                 );
+
+                // Toggle view log button visibility
+                if (logGroup) {
+                    logGroup.style.display = this.settings.errorLogging ? 'block' : 'none';
+                }
+            });
+        }
+
+        // View error log button handler
+        const viewLogBtn = document.getElementById('view-error-log-btn');
+        if (viewLogBtn) {
+            viewLogBtn.addEventListener('click', () => {
+                this.viewErrorLog();
             });
         }
 
@@ -459,10 +527,28 @@ class CoverFlowSettings {
         // Background music controls
         const backgroundMusicToggle = document.getElementById('background-music-toggle');
         if (backgroundMusicToggle) {
-            backgroundMusicToggle.checked = this.settings.backgroundMusicEnabled !== false;
+            // Load initial state from BackgroundMusic module's settings
+            try {
+                const bgMusicSettings = localStorage.getItem('background-music-settings');
+                if (bgMusicSettings) {
+                    const parsed = JSON.parse(bgMusicSettings);
+                    backgroundMusicToggle.checked = parsed.backgroundMusicEnabled !== false;
+                } else {
+                    backgroundMusicToggle.checked = this.settings.backgroundMusicEnabled !== false;
+                }
+            } catch (e) {
+                backgroundMusicToggle.checked = this.settings.backgroundMusicEnabled !== false;
+            }
+
             backgroundMusicToggle.addEventListener('change', () => {
-                if (typeof this.toggleBackgroundMusic === 'function') {
+                console.log('[SETTINGS] Background music toggle changed to:', backgroundMusicToggle.checked);
+
+                // The toggleBackgroundMusic method handles everything including saving settings
+                if (this.toggleBackgroundMusic && typeof this.toggleBackgroundMusic === 'function') {
+                    console.log('[SETTINGS] Calling toggleBackgroundMusic method');
                     this.toggleBackgroundMusic();
+                } else {
+                    console.warn('[SETTINGS] toggleBackgroundMusic method not available');
                 }
             });
         }
@@ -470,28 +556,94 @@ class CoverFlowSettings {
         const backgroundMusicVolume = document.getElementById('background-music-volume');
         const bgMusicVolumeValue = document.getElementById('bg-music-volume-value');
         if (backgroundMusicVolume && bgMusicVolumeValue) {
-            // FIXED: Use explicit undefined check instead of || to allow 0 as a value
-            const currentVolume = this.settings.backgroundMusicVolume !== undefined 
-                ? this.settings.backgroundMusicVolume 
-                : 0.3;
-            
+            // Load actual volume from BackgroundMusic module's settings
+            let currentVolume = 0.3; // default
+
+            // Try to get from BackgroundMusic module if it exists
+            try {
+                const bgMusicSettings = localStorage.getItem('background-music-settings');
+                if (bgMusicSettings) {
+                    const parsed = JSON.parse(bgMusicSettings);
+                    if (parsed.backgroundMusicVolume !== undefined) {
+                        currentVolume = parsed.backgroundMusicVolume;
+                    }
+                }
+            } catch (e) {
+                console.warn('[SETTINGS] Could not load background music volume:', e);
+            }
+
+            // Also check if the module is already loaded and has the volume set
+            if (this.volume !== undefined) {
+                currentVolume = this.volume;
+            }
+
             backgroundMusicVolume.value = currentVolume * 100;
             bgMusicVolumeValue.textContent = Math.round(currentVolume * 100) + '%';
 
             backgroundMusicVolume.addEventListener('input', (e) => {
                 const volume = parseFloat(e.target.value) / 100;
                 bgMusicVolumeValue.textContent = e.target.value + '%';
-                if (typeof this.setBackgroundMusicVolume === 'function') {
+
+                console.log('[SETTINGS] Background music volume changed to:', volume);
+
+                // The setBackgroundMusicVolume method handles saving settings
+                if (this.setBackgroundMusicVolume && typeof this.setBackgroundMusicVolume === 'function') {
+                    console.log('[SETTINGS] Calling setBackgroundMusicVolume method');
                     this.setBackgroundMusicVolume(volume);
+                } else {
+                    console.warn('[SETTINGS] setBackgroundMusicVolume method not available');
                 }
             });
         }
 
         const selectBgMusicBtn = document.getElementById('select-bg-music-btn');
         if (selectBgMusicBtn) {
-            selectBgMusicBtn.addEventListener('click', () => {
-                if (typeof this.loadCustomBackgroundMusic === 'function') {
-                    this.loadCustomBackgroundMusic();
+            // Function to display currently selected file
+            const displayCurrentFile = () => {
+                const fileDisplay = document.getElementById('current-music-file-display');
+                if (fileDisplay) {
+                    try {
+                        const bgMusicSettings = localStorage.getItem('background-music-settings');
+                        if (bgMusicSettings) {
+                            const settings = JSON.parse(bgMusicSettings);
+                            if (settings.backgroundMusicPath) {
+                                const fileName = settings.backgroundMusicPath.split(/[\\/]/).pop();
+                                fileDisplay.textContent = `Selected: ${fileName}`;
+                                console.log('[SETTINGS] Current music file:', fileName);
+                            } else {
+                                fileDisplay.textContent = 'No file selected';
+                            }
+                        } else {
+                            fileDisplay.textContent = 'No file selected';
+                        }
+                    } catch (e) {
+                        console.error('[SETTINGS] Error displaying current file:', e);
+                        fileDisplay.textContent = 'Error loading file info';
+                    }
+                }
+            };
+
+            // Display current file on load
+            displayCurrentFile();
+
+            selectBgMusicBtn.addEventListener('click', async () => {
+                console.log('[SETTINGS] Select background music clicked');
+                console.log('[SETTINGS] loadCustomBackgroundMusic available?', typeof this.loadCustomBackgroundMusic);
+
+                // Use the background music module's loadCustomBackgroundMusic method
+                if (this.loadCustomBackgroundMusic && typeof this.loadCustomBackgroundMusic === 'function') {
+                    console.log('[SETTINGS] Calling loadCustomBackgroundMusic method');
+                    try {
+                        await this.loadCustomBackgroundMusic();
+                        // Wait a bit and then update the display
+                        setTimeout(displayCurrentFile, 500);
+                    } catch (error) {
+                        console.error('[SETTINGS] Error loading custom music:', error);
+                        this.showToast('Failed to load custom music', 'error');
+                    }
+                } else {
+                    console.warn('[SETTINGS] loadCustomBackgroundMusic method not available');
+                    this.showToast('Background music selection not available', 'error');
                 }
             });
         }
@@ -499,8 +651,45 @@ class CoverFlowSettings {
         const resetBgMusicBtn = document.getElementById('reset-bg-music-btn');
         if (resetBgMusicBtn) {
             resetBgMusicBtn.addEventListener('click', () => {
-                if (typeof this.resetBackgroundMusicToDefault === 'function') {
-                    this.resetBackgroundMusicToDefault();
+                console.log('[SETTINGS] Reset background music clicked');
+                console.log('[SETTINGS] resetBackgroundMusicToDefault available?', typeof this.resetBackgroundMusicToDefault);
+
+                if (this.resetBackgroundMusicToDefault && typeof this.resetBackgroundMusicToDefault === 'function') {
+                    console.log('[SETTINGS] Calling resetBackgroundMusicToDefault method');
+                    try {
+                        this.resetBackgroundMusicToDefault();
+                        // Update the display after resetting
+                        if (selectBgMusicBtn) {
+                            const displayCurrentFile = () => {
+                                const fileDisplay = document.getElementById('current-music-file-display');
+                                if (fileDisplay) {
+                                    try {
+                                        const bgMusicSettings = localStorage.getItem('background-music-settings');
+                                        if (bgMusicSettings) {
+                                            const settings = JSON.parse(bgMusicSettings);
+                                            if (settings.backgroundMusicPath) {
+                                                const fileName = settings.backgroundMusicPath.split(/[\\/]/).pop();
+                                                fileDisplay.textContent = `Selected: ${fileName}`;
+                                            } else {
+                                                fileDisplay.textContent = 'No file selected';
+                                            }
+                                        } else {
+                                            fileDisplay.textContent = 'No file selected';
+                                        }
+                                    } catch (e) {
+                                        fileDisplay.textContent = 'Error loading file info';
+                                    }
+                                }
+                            };
+                            setTimeout(displayCurrentFile, 500);
+                        }
+                    } catch (error) {
+                        console.error('[SETTINGS] Error resetting background music:', error);
+                        this.showToast('Failed to reset music', 'error');
+                    }
+                } else {
+                    console.warn('[SETTINGS] resetBackgroundMusicToDefault method not available');
+                    this.showToast('Reset not available', 'error');
                 }
             });
         }
@@ -572,17 +761,31 @@ class CoverFlowSettings {
 
             input.onchange = (e) => {
                 const file = e.target.files[0];
-                const reader = new FileReader();
+                if (file) {
+                    const reader = new FileReader();
 
-                reader.onload = (event) => {
-                    this.importSettings(event.target.result);
-                };
+                    reader.onload = (event) => {
+                        this.importSettings(event.target.result);
+                        // Clean up
+                        reader.onload = null;
+                    };
 
-                reader.readAsText(file);
+                    reader.readAsText(file);
+                }
+                // Clean up input element
+                input.onchange = null;
             };
 
             input.click();
         });
+
+        // Reload interface button
+        const reloadInterfaceBtn = document.getElementById('reload-interface-btn');
+        if (reloadInterfaceBtn) {
+            reloadInterfaceBtn.addEventListener('click', () => {
+                location.reload();
+            });
+        }
     }
 }
 

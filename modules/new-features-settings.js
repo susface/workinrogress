@@ -1,5 +1,5 @@
-// New Features Settings Panel
-// Provides toggle controls for all new 2025 features
+// Extra Items Settings Panel
+// Provides toggle controls for all extra items features
 
 class NewFeaturesSettings {
     constructor() {
@@ -13,31 +13,30 @@ class NewFeaturesSettings {
             gamingHeatmap: true,
             dynamicBackground: true,
             coverArtEditor: true,
-            modBrowser: true,
             portableMode: true
         };
 
         try {
-            const saved = localStorage.getItem('new-features-settings');
+            const saved = localStorage.getItem('extra-items-settings');
             return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
         } catch (error) {
-            console.error('[NEW-FEATURES] Failed to load settings:', error);
+            console.error('[EXTRA_ITEMS] Failed to load settings:', error);
             return defaultSettings;
         }
     }
 
     saveSettings() {
         try {
-            localStorage.setItem('new-features-settings', JSON.stringify(this.settings));
+            localStorage.setItem('extra-items-settings', JSON.stringify(this.settings));
         } catch (error) {
-            console.error('[NEW-FEATURES] Failed to save settings:', error);
+            console.error('[EXTRA_ITEMS] Failed to save settings:', error);
         }
     }
 
     init() {
         if (this.initialized) return;
 
-        console.log('[NEW-FEATURES] Initializing new features settings...');
+        console.log('[EXTRA_ITEMS] Initializing extra items settings...');
 
         // Add settings button to "More Options" menu
         this.addMenuButton();
@@ -51,19 +50,19 @@ class NewFeaturesSettings {
     addMenuButton() {
         const moreDropdown = document.getElementById('more-dropdown');
         if (!moreDropdown) {
-            console.warn('[NEW-FEATURES] More dropdown not found, will retry later');
+            console.warn('[EXTRA_ITEMS] More dropdown not found, will retry later');
             return;
         }
 
         // Check if button already exists
-        if (document.getElementById('new-features-btn-menu')) {
+        if (document.getElementById('extra-items-btn-menu')) {
             return;
         }
 
         const button = document.createElement('button');
-        button.id = 'new-features-btn-menu';
+        button.id = 'extra-items-btn-menu';
         button.className = 'dropdown-item';
-        button.innerHTML = '✨ New Features';
+        button.innerHTML = '✨ Extra Items';
         button.addEventListener('click', () => {
             this.showSettingsPanel();
         });
@@ -74,17 +73,17 @@ class NewFeaturesSettings {
     initializeFeatures() {
         // Per-Game Music
         if (this.settings.perGameMusic && window.perGameMusicManager) {
-            console.log('[NEW-FEATURES] Per-game music enabled');
+            console.log('[EXTRA_ITEMS] Per-game music enabled');
         }
 
         // Gaming Heatmap
         if (this.settings.gamingHeatmap && window.gamingHeatmapManager) {
-            console.log('[NEW-FEATURES] Gaming heatmap enabled');
+            console.log('[EXTRA_ITEMS] Gaming heatmap enabled');
         }
 
         // Dynamic Background
         if (this.settings.dynamicBackground && window.dynamicBackgroundManager) {
-            console.log('[NEW-FEATURES] Dynamic background enabled');
+            console.log('[EXTRA_ITEMS] Dynamic background enabled');
 
             // Hook into coverflow game selection change
             const coverflowObj = window.coverflow || window.coverflowManager;
@@ -108,23 +107,18 @@ class NewFeaturesSettings {
 
         // Cover Art Editor
         if (this.settings.coverArtEditor && window.coverArtEditor) {
-            console.log('[NEW-FEATURES] Cover art editor enabled');
-        }
-
-        // Mod Browser
-        if (this.settings.modBrowser && window.modBrowserManager) {
-            console.log('[NEW-FEATURES] Mod browser enabled');
+            console.log('[EXTRA_ITEMS] Cover art editor enabled');
         }
 
         // Portable Mode (always available)
         if (window.portableMode) {
-            console.log('[NEW-FEATURES] Portable mode enhancements available');
+            console.log('[EXTRA_ITEMS] Portable mode enhancements available');
         }
     }
 
     showSettingsPanel() {
         const modal = document.createElement('div');
-        modal.id = 'new-features-settings-modal';
+        modal.id = 'extra-items-settings-modal';
         modal.className = 'modal-overlay';
         modal.style.cssText = `
             position: fixed;
@@ -141,7 +135,7 @@ class NewFeaturesSettings {
         `;
 
         modal.innerHTML = `
-            <div class="new-features-panel" style="
+            <div class="extra-items-panel" style="
                 background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
                 border-radius: 15px;
                 padding: 30px;
@@ -153,9 +147,9 @@ class NewFeaturesSettings {
             ">
                 <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
                     <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
-                        ✨ New Features (2025)
+                        ✨ Extra Items
                     </h2>
-                    <button id="close-new-features" style="
+                    <button id="close-extra-items" style="
                         background: none;
                         border: none;
                         color: white;
@@ -173,7 +167,7 @@ class NewFeaturesSettings {
                 </div>
 
                 <p style="color: rgba(255,255,255,0.8); margin-bottom: 25px;">
-                    Enable or disable new features added in 2025. Click on each feature to configure its settings.
+                    Enable or disable extra item features. Click on each feature to configure its settings.
                 </p>
 
                 <div class="features-grid" style="display: grid; gap: 20px;">
@@ -205,13 +199,6 @@ class NewFeaturesSettings {
                         available: !!window.coverArtEditor
                     })}
 
-                    ${this.renderFeatureCard('modBrowser', {
-                        icon: '🔧',
-                        title: 'Mod Browser',
-                        description: 'Browse, install, and manage mods from Nexus Mods and Steam Workshop',
-                        available: !!window.modBrowserManager
-                    })}
-
                     ${this.renderFeatureCard('portableMode', {
                         icon: '💾',
                         title: 'Portable Mode Enhancements',
@@ -229,9 +216,6 @@ class NewFeaturesSettings {
                         <button id="open-cover-editor" class="btn btn-primary" ${!this.settings.coverArtEditor || !window.coverArtEditor ? 'disabled' : ''}>
                             🖼️ Edit Cover Art
                         </button>
-                        <button id="open-mod-browser" class="btn btn-primary" ${!this.settings.modBrowser || !window.modBrowserManager ? 'disabled' : ''}>
-                            🔧 Browse Mods
-                        </button>
                         <button id="open-portable-tools" class="btn btn-primary" ${!window.portableMode ? 'disabled' : ''}>
                             💾 Portable Tools
                         </button>
@@ -243,7 +227,7 @@ class NewFeaturesSettings {
         document.body.appendChild(modal);
 
         // Event listeners
-        modal.querySelector('#close-new-features').addEventListener('click', () => {
+        modal.querySelector('#close-extra-items').addEventListener('click', () => {
             modal.remove();
         });
 
@@ -278,19 +262,6 @@ class NewFeaturesSettings {
                 if (currentGame) {
                     modal.remove();
                     window.coverArtEditor.openEditor(currentGame);
-                } else {
-                    alert('Please select a game first.');
-                }
-            }
-        });
-
-        modal.querySelector('#open-mod-browser')?.addEventListener('click', () => {
-            if (window.modBrowserManager) {
-                const coverflowObj = window.coverflow || window.coverflowManager;
-                const currentGame = coverflowObj?.getCurrentGame?.();
-                if (currentGame) {
-                    modal.remove();
-                    window.modBrowserManager.openModBrowser(currentGame);
                 } else {
                     alert('Please select a game first.');
                 }
@@ -404,10 +375,10 @@ class NewFeaturesSettings {
     }
 
     configureFeature(feature) {
-        console.log(`[NEW-FEATURES] Configure ${feature}`);
+        console.log(`[EXTRA_ITEMS] Configure ${feature}`);
 
         // Close current modal
-        const currentModal = document.getElementById('new-features-settings-modal');
+        const currentModal = document.getElementById('extra-items-settings-modal');
         if (currentModal) {
             currentModal.remove();
         }
@@ -440,18 +411,6 @@ class NewFeaturesSettings {
                         window.coverArtEditor.openEditor(currentGame);
                     } else {
                         alert('Please select a game first to use the cover art editor.');
-                    }
-                }
-                break;
-
-            case 'modBrowser':
-                if (window.modBrowserManager) {
-                    const coverflowObj = window.coverflow || window.coverflowManager;
-                    const currentGame = coverflowObj?.getCurrentGame?.();
-                    if (currentGame) {
-                        window.modBrowserManager.openModBrowser(currentGame);
-                    } else {
-                        alert('Please select a game first to browse mods.');
                     }
                 }
                 break;
@@ -582,7 +541,6 @@ class NewFeaturesSettings {
             gamingHeatmap: 'Gaming Heatmap',
             dynamicBackground: 'Dynamic Backgrounds',
             coverArtEditor: 'Cover Art Editor',
-            modBrowser: 'Mod Browser',
             portableMode: 'Portable Mode'
         };
         return names[featureKey] || featureKey;
@@ -590,7 +548,7 @@ class NewFeaturesSettings {
 
     // Cleanup method to prevent memory leaks
     destroy() {
-        console.log('[NEW-FEATURES] Destroying new features settings...');
+        console.log('[EXTRA_ITEMS] Destroying extra items settings...');
 
         // Destroy all feature managers
         if (window.perGameMusicManager && typeof window.perGameMusicManager.destroy === 'function') {
@@ -609,12 +567,8 @@ class NewFeaturesSettings {
             window.coverArtEditor.destroy();
         }
 
-        if (window.modBrowserManager && typeof window.modBrowserManager.destroy === 'function') {
-            window.modBrowserManager.destroy();
-        }
-
         // Remove menu button
-        const menuButton = document.getElementById('new-features-btn-menu');
+        const menuButton = document.getElementById('extra-items-btn-menu');
         if (menuButton && menuButton.parentNode) {
             menuButton.parentNode.removeChild(menuButton);
         }

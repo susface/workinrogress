@@ -480,16 +480,98 @@ class ModBrowserManager {
     async searchMods(container) {
         const query = container.querySelector('#mod-search').value;
         const source = container.querySelector('#mod-source').value;
+        const resultsContainer = container.querySelector('#mod-results');
 
         console.log(`Searching for mods: ${query} from ${source}`);
-        alert(`Search functionality requires API integration. In a full implementation, this would search ${source} for "${query}"`);
 
-        // In a real implementation, this would make API calls to Nexus Mods/Steam Workshop
+        // Show loading state
+        resultsContainer.innerHTML = '<p style="text-align: center; padding: 40px;">Loading mods...</p>';
+
+        try {
+            let mods = [];
+
+            if (source === 'nexus' || source === 'all') {
+                if (!this.apiKeys.nexusMods) {
+                    resultsContainer.innerHTML = '<p style="text-align: center; padding: 40px;">Please configure your Nexus Mods API key in the Settings tab.</p>';
+                    return;
+                }
+
+                // Get the game domain name for Nexus Mods
+                // You'll need to map your game to Nexus domain (e.g., "skyrim", "fallout4")
+                const gameDomainName = this.getGameNexusDomain(this.currentGame);
+
+                if (!gameDomainName) {
+                    resultsContainer.innerHTML = '<p style="text-align: center; padding: 40px;">This game is not available on Nexus Mods.</p>';
+                    return;
+                }
+
+                try {
+                    const nexusMods = await this.searchNexusMods(gameDomainName, query);
+                    mods = nexusMods.map(mod => ({
+                        name: mod.name,
+                        author: mod.author,
+                        downloads: mod.endorsement_count || 0,
+                        rating: mod.rating_average || 0,
+                        thumbnail: mod.picture_url || 'https://via.placeholder.com/300x150',
+                        description: mod.summary || 'No description available',
+                        source: 'Nexus Mods',
+                        url: `https://www.nexusmods.com/${gameDomainName}/mods/${mod.mod_id}`
+                    }));
+                } catch (error) {
+                    console.error('Failed to fetch Nexus mods:', error);
+                    resultsContainer.innerHTML = `<p style="text-align: center; padding: 40px;">Error fetching mods: ${error.message}</p>`;
+                    return;
+                }
+            }
+
+            if (source === 'workshop' || source === 'all') {
+                // Steam Workshop integration would go here
+                console.log('Steam Workshop search not yet implemented');
+            }
+
+            // Render results
+            if (mods.length === 0) {
+                resultsContainer.innerHTML = '<p style="text-align: center; padding: 40px;">No mods found. Try a different search term or check your API key.</p>';
+            } else {
+                resultsContainer.innerHTML = mods.map(mod => this.renderModCard(mod)).join('');
+            }
+        } catch (error) {
+            console.error('Search error:', error);
+            resultsContainer.innerHTML = `<p style="text-align: center; padding: 40px;">Error: ${error.message}</p>`;
+        }
+    }
+
+    // Map game to Nexus Mods domain name
+    getGameNexusDomain(game) {
+        if (!game) return null;
+
+        // Common game domain mappings
+        const domainMap = {
+            'skyrim': 'skyrimspecialedition',
+            'skyrim special edition': 'skyrimspecialedition',
+            'the elder scrolls v: skyrim': 'skyrimspecialedition',
+            'fallout 4': 'fallout4',
+            'fallout4': 'fallout4',
+            'witcher 3': 'witcher3',
+            'the witcher 3': 'witcher3',
+            'cyberpunk 2077': 'cyberpunk2077',
+            'cyberpunk2077': 'cyberpunk2077',
+            'baldurs gate 3': 'baldursgate3',
+            'baldur\'s gate 3': 'baldursgate3',
+            'starfield': 'starfield',
+            'stardew valley': 'stardewvalley',
+            'minecraft': 'minecraft',
+            'elden ring': 'eldenring'
+        };
+
+        const gameName = (game.name || game).toLowerCase();
+        return domainMap[gameName] || null;
     }
 
     applyFilter(filter, container) {
         console.log(`Applying filter: ${filter}`);
-        alert(`Filter functionality would fetch ${filter} mods from the mod sources.`);
+        // Trigger a search with the current query to apply the filter
+        this.searchMods(container);
     }
 
     async installMod(modName) {
@@ -620,7 +702,86 @@ class ModBrowserManager {
             return;
         }
 
-        alert('Testing API connection... In a full implementation, this would verify your API key is valid.');
+        try {
+            const response = await fetch('https://api.nexusmods.com/v1/users/validate.json', {
+                method: 'GET',
+                headers: {
+                    'apikey': this.apiKeys.nexusMods,
+                    'accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                alert(`API connection successful! Connected as: ${data.name || 'User'}\nEmail: ${data.email || 'N/A'}`);
+            } else {
+                const errorText = await response.text();
+                alert(`API connection failed: ${response.status} ${response.statusText}\n${errorText}`);
+            }
+        } catch (error) {
+            console.error('API test error:', error);
+            alert(`Failed to test API connection: ${error.message}`);
+        }
+    }
+
+    // Fetch mods from Nexus Mods
+    async fetchNexusMods(gameDomainName, options = {}) {
+        if (!this.apiKeys.nexusMods) {
+            throw new Error('Nexus Mods API key is required');
+        }
+
+        const {
+            category = null,
+            includeAdult = false
+        } = options;
+
+        try {
+            let url = `https://api.nexusmods.com/v1/games/${gameDomainName}/mods/updated.json?period=1m`;
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'apikey': this.apiKeys.nexusMods,
+                    'accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Nexus API error: ${response.status} ${response.statusText}`);
+            }
+
+            const mods = await response.json();
+            return mods;
+        } catch (error) {
+            console.error('[MOD_BROWSER] Failed to fetch Nexus mods:', error);
+            throw error;
+        }
+    }
+
+    // Search Nexus Mods
+    async searchNexusMods(gameDomainName, searchTerm) {
+        if (!this.apiKeys.nexusMods) {
+            throw new Error('Nexus Mods API key is required');
+        }
+
+        try {
+            // Note: Nexus API doesn't have a direct search endpoint, so we fetch updated mods and filter
+            const mods = await this.fetchNexusMods(gameDomainName);
+
+            if (!searchTerm) {
+                return mods;
+            }
+
+            const lowerSearch = searchTerm.toLowerCase();
+            return mods.filter(mod =>
+                mod.name.toLowerCase().includes(lowerSearch) ||
+                (mod.summary && mod.summary.toLowerCase().includes(lowerSearch)) ||
+                (mod.author && mod.author.toLowerCase().includes(lowerSearch))
+            );
+        } catch (error) {
+            console.error('[MOD_BROWSER] Failed to search Nexus mods:', error);
+            throw error;
+        }
     }
 
     formatNumber(num) {
