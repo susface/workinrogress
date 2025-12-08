@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*' # Triggers on version tags like v1.0.0, v1.0.1, etc.
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: windows-latest
@@ -23,7 +26,7 @@ jobs:
         run: npm install --ignore-scripts
 
       - name: Build Windows application
-        run: npx electron-builder --win
+        run: npx electron-builder --win --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -36,7 +39,7 @@ jobs:
             dist/latest.yml
 
       - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*.exe
@@ -44,5 +47,6 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
