@@ -2215,6 +2215,110 @@ ipcMain.handle('clear-game-data', async () => {
     }
 });
 
+// Custom game management
+ipcMain.handle('select-custom-game-executable', async () => {
+    try {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            title: 'Select Game Executable',
+            properties: ['openFile'],
+            filters: [
+                { name: 'Executables', extensions: ['exe', 'lnk', 'bat', 'cmd'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+
+        if (result.canceled || result.filePaths.length === 0) {
+            return { success: false, canceled: true };
+        }
+
+        return {
+            success: true,
+            path: result.filePaths[0]
+        };
+    } catch (error) {
+        console.error('Error selecting executable:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('add-custom-game', async (event, gameData) => {
+    try {
+        const db = initDatabase();
+
+        // Check if game with same app_id already exists
+        const existing = db.prepare('SELECT id FROM games WHERE app_id = ?').get(gameData.app_id);
+
+        if (existing) {
+            // Update existing game
+            const updateStmt = db.prepare(`
+                UPDATE games SET
+                    title = ?,
+                    platform = ?,
+                    launch_command = ?,
+                    install_dir = ?,
+                    developer = ?,
+                    publisher = ?,
+                    release_date = ?,
+                    genres = ?,
+                    description = ?,
+                    boxart_url = ?,
+                    metadata = ?
+                WHERE app_id = ?
+            `);
+
+            updateStmt.run(
+                gameData.title,
+                gameData.platform || 'custom',
+                gameData.launch_command,
+                gameData.install_dir || null,
+                gameData.developer || 'Unknown',
+                gameData.publisher || 'Unknown',
+                gameData.release_date || null,
+                JSON.stringify(gameData.genres || []),
+                gameData.description || null,
+                gameData.boxart_url || null,
+                JSON.stringify({ is_custom: true }),
+                gameData.app_id
+            );
+        } else {
+            // Insert new game
+            const insertStmt = db.prepare(`
+                INSERT INTO games (
+                    app_id, title, platform, launch_command, install_dir,
+                    developer, publisher, release_date, genres,
+                    description, boxart_url, metadata, added_date
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+
+            insertStmt.run(
+                gameData.app_id,
+                gameData.title,
+                gameData.platform || 'custom',
+                gameData.launch_command,
+                gameData.install_dir || null,
+                gameData.developer || 'Unknown',
+                gameData.publisher || 'Unknown',
+                gameData.release_date || null,
+                JSON.stringify(gameData.genres || []),
+                gameData.description || null,
+                gameData.boxart_url || null,
+                JSON.stringify({ is_custom: true }),
+                new Date().toISOString()
+            );
+        }
+
+        db.close();
+
+        return {
+            success: true,
+            message: existing ? 'Custom game updated successfully' : 'Custom game added successfully'
+        };
+    } catch (error) {
+        console.error('Error adding custom game:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // Media folder selection
 ipcMain.handle('select-media-folder', async () => {
     try {
