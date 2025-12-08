@@ -498,7 +498,11 @@ function setupAutoUpdater() {
 
     // Log events for debugging
     autoUpdater.logger = require('electron-log');
-    autoUpdater.logger.transports.file.level = 'info';
+    autoUpdater.logger.transports.file.level = 'debug'; // Changed to debug for more info
+    autoUpdater.logger.transports.console.level = 'debug';
+
+    // Log file location
+    console.log('[AUTO-UPDATE] Log file location:', autoUpdater.logger.transports.file.getFile().path);
 
     // Event handlers
     autoUpdater.on('checking-for-update', () => {
@@ -509,12 +513,13 @@ function setupAutoUpdater() {
     });
 
     autoUpdater.on('update-available', (info) => {
-        console.log('[AUTO-UPDATE] Update available:', info.version);
+        console.log('[AUTO-UPDATE] Update available:', JSON.stringify(info, null, 2));
         if (mainWindow) {
             mainWindow.webContents.send('update-available', {
                 version: info.version,
                 releaseNotes: info.releaseNotes,
-                releaseDate: info.releaseDate
+                releaseDate: info.releaseDate,
+                files: info.files
             });
         }
     });
@@ -530,15 +535,21 @@ function setupAutoUpdater() {
 
     autoUpdater.on('error', (err) => {
         console.error('[AUTO-UPDATE] Error:', err);
+        console.error('[AUTO-UPDATE] Error stack:', err.stack);
         if (mainWindow) {
             mainWindow.webContents.send('update-error', {
-                message: err.message
+                message: err.message,
+                stack: err.stack
             });
         }
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
-        console.log(`[AUTO-UPDATE] Download progress: ${progressObj.percent.toFixed(2)}%`);
+        const logMessage = `[AUTO-UPDATE] Download progress: ${progressObj.percent.toFixed(2)}% - ` +
+            `Speed: ${(progressObj.bytesPerSecond / 1024 / 1024).toFixed(2)} MB/s - ` +
+            `Downloaded: ${(progressObj.transferred / 1024 / 1024).toFixed(2)} MB / ${(progressObj.total / 1024 / 1024).toFixed(2)} MB`;
+        console.log(logMessage);
+
         if (mainWindow) {
             mainWindow.webContents.send('update-download-progress', {
                 percent: progressObj.percent,
@@ -556,6 +567,11 @@ function setupAutoUpdater() {
                 version: info.version
             });
         }
+    });
+
+    // Additional events for debugging
+    autoUpdater.on('before-download', (info) => {
+        console.log('[AUTO-UPDATE] Before download event:', JSON.stringify(info, null, 2));
     });
 
     // Check for updates on app startup (after a delay)
@@ -670,11 +686,22 @@ ipcMain.handle('download-app-update', async () => {
         if (isDev) {
             return { success: false, message: 'Auto-update disabled in development mode' };
         }
-        await autoUpdater.downloadUpdate();
-        return { success: true };
+
+        console.log('[AUTO-UPDATE] Starting download...');
+        console.log('[AUTO-UPDATE] Update info available:', autoUpdater.updateInfo ? 'Yes' : 'No');
+
+        if (autoUpdater.updateInfo) {
+            console.log('[AUTO-UPDATE] Update info:', JSON.stringify(autoUpdater.updateInfo, null, 2));
+        }
+
+        const result = await autoUpdater.downloadUpdate();
+        console.log('[AUTO-UPDATE] Download initiated, result:', result);
+
+        return { success: true, downloadPath: result };
     } catch (error) {
         console.error('[AUTO-UPDATE] Error downloading update:', error);
-        return { success: false, error: error.message };
+        console.error('[AUTO-UPDATE] Error stack:', error.stack);
+        return { success: false, error: error.message, stack: error.stack };
     }
 });
 
