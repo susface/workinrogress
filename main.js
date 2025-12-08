@@ -2335,14 +2335,15 @@ ipcMain.handle('add-custom-game', async (event, gameData) => {
                         title = ?,
                         platform = ?,
                         launch_command = ?,
-                        install_dir = ?,
+                        install_directory = ?,
                         developer = ?,
                         publisher = ?,
                         release_date = ?,
                         genres = ?,
                         description = ?,
-                        boxart_url = ?,
-                        metadata = ?
+                        boxart_path = ?,
+                        metadata = ?,
+                        updated_at = CURRENT_TIMESTAMP
                     WHERE app_id = ?
                 `);
 
@@ -2364,10 +2365,10 @@ ipcMain.handle('add-custom-game', async (event, gameData) => {
                 // Insert new game
                 const insertStmt = db.prepare(`
                     INSERT INTO games (
-                        app_id, title, platform, launch_command, install_dir,
+                        app_id, title, platform, launch_command, install_directory,
                         developer, publisher, release_date, genres,
-                        description, boxart_url, metadata, added_date
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        description, boxart_path, metadata
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `);
 
                 insertStmt.run(
@@ -2382,8 +2383,7 @@ ipcMain.handle('add-custom-game', async (event, gameData) => {
                     JSON.stringify(genres),
                     description,
                     boxart_url,
-                    JSON.stringify({ is_custom: true }),
-                    new Date().toISOString()
+                    JSON.stringify({ is_custom: true })
                 );
             }
 
