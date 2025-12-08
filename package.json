@@ -40,7 +40,8 @@
       {
         "provider": "github",
         "owner": "susface",
-        "repo": "workinrogress"
+        "repo": "workinrogress",
+        "releaseType": "release"
       }
     ],
     "directories": {
