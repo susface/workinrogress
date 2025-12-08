@@ -212,6 +212,38 @@
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
+/* Force update button for testing */
+.setting-item .btn-force-update {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    padding: 8px 16px;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.setting-item .btn-force-update:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+}
+
+.setting-item small.setting-info {
+    display: block;
+    margin-top: 5px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    grid-column: 1 / -1;
+}
+
+/* Make the setting item with the force button display as a grid */
+.setting-item:has(.btn-force-update) {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+}
+
 /* Modal overlay */
 .modal-overlay {
     position: fixed;

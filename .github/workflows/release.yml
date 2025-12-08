@@ -26,7 +26,7 @@ jobs:
         run: npm install --ignore-scripts
 
       - name: Build Windows application
-        run: npx electron-builder --win --publish never
+        run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -37,16 +37,3 @@ jobs:
           path: |
             dist/*.exe
             dist/latest.yml
-
-      - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/*.exe
-            dist/latest.yml
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
