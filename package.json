@@ -1,6 +1,6 @@
 {
   "name": "coverflow-game-launcher",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CoverFlow-style game launcher with 3D interface",
   "main": "main.js",
   "scripts": {
