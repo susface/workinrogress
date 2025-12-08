@@ -21,20 +21,30 @@ class CustomGameManager {
      * Create "Add Custom Game" button in settings
      */
     createCustomGameButton() {
+        // Check if button already exists
+        if (document.getElementById('add-custom-game-btn')) {
+            console.log('[CUSTOM-GAMES] Button already exists');
+            return;
+        }
+
         // Find the game library section
-        const scanBtnParent = document.getElementById('scan-games-btn')?.parentElement?.parentElement;
+        const scanBtn = document.getElementById('scan-games-btn');
+        if (!scanBtn) {
+            console.warn('[CUSTOM-GAMES] Could not find scan-games-btn, retrying in 100ms');
+            setTimeout(() => this.createCustomGameButton(), 100);
+            return;
+        }
+
+        const scanBtnParent = scanBtn.parentElement;
         if (!scanBtnParent) {
             console.warn('[CUSTOM-GAMES] Could not find scan button parent');
             return;
         }
 
-        // Check if button already exists
-        if (document.getElementById('add-custom-game-btn')) return;
-
         const customGameGroup = document.createElement('div');
         customGameGroup.className = 'setting-group';
         customGameGroup.innerHTML = `
-            <button id="add-custom-game-btn" class="btn" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+            <button id="add-custom-game-btn" class="btn">
                 ➕ Add Custom Game/Application
             </button>
             <small class="setting-info">Manually add any game or application to your library</small>
@@ -47,8 +57,12 @@ class CustomGameManager {
         const addBtn = document.getElementById('add-custom-game-btn');
         if (addBtn) {
             addBtn.addEventListener('click', () => {
+                console.log('[CUSTOM-GAMES] Button clicked, showing dialog');
                 this.showAddCustomGameDialog();
             });
+            console.log('[CUSTOM-GAMES] Add custom game button created and event listener attached');
+        } else {
+            console.error('[CUSTOM-GAMES] Failed to find button after creation');
         }
     }
 

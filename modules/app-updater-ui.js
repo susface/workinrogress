@@ -110,38 +110,6 @@ class AppUpdaterUI {
     }
 
     /**
-     * Force check for updates (for testing)
-     * Immediately triggers update check, bypassing any delays
-     */
-    async forceCheckForUpdates() {
-        if (!window.electronAPI) {
-            console.log('[APP-UPDATE] Update checking requires Electron mode');
-            return;
-        }
-
-        console.log('[APP-UPDATE] Force checking for updates...');
-        if (window.showToast) {
-            window.showToast('Force checking for updates...', 'info', 3000);
-        }
-
-        try {
-            const result = await window.electronAPI.checkForAppUpdates();
-
-            if (result.error) {
-                this.showUpdateErrorToast(result.error);
-            } else if (result.message) {
-                // Development mode message
-                this.showInfoToast(result.message);
-            } else {
-                console.log('[APP-UPDATE] Force check completed');
-            }
-        } catch (error) {
-            console.error('[APP-UPDATE] Failed to force check for updates:', error);
-            this.showUpdateErrorToast('Failed to check for updates');
-        }
-    }
-
-    /**
      * Download the available update
      */
     async downloadUpdate() {
@@ -389,11 +357,6 @@ class AppUpdaterUI {
             <div class="setting-item">
                 <label>Check for Updates</label>
                 <button class="btn-primary" onclick="appUpdaterUI.checkForUpdates()">Check Now</button>
-            </div>
-            <div class="setting-item">
-                <label>Force Update Check (Testing)</label>
-                <button class="btn-force-update" onclick="appUpdaterUI.forceCheckForUpdates()">Force Check</button>
-                <small class="setting-info">Immediately checks for updates, bypassing delays. Use for testing.</small>
             </div>
         `;
 
