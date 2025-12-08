@@ -1,0 +1,208 @@
+/**
+ * Custom Game Manager Styles
+ */
+
+.custom-game-modal .modal-dialog {
+    background: #1a1a2e;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.custom-game-modal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 12px 12px 0 0;
+    position: relative;
+}
+
+.custom-game-modal .modal-header h2 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.custom-game-modal .modal-close {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 32px;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.custom-game-modal .modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.custom-game-modal .modal-body {
+    padding: 30px;
+}
+
+.custom-game-modal .form-section {
+    margin-bottom: 30px;
+}
+
+.custom-game-modal .form-section h3 {
+    color: #667eea;
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+    padding-bottom: 10px;
+}
+
+.custom-game-modal .form-group {
+    margin-bottom: 20px;
+}
+
+.custom-game-modal .form-group label {
+    display: block;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.custom-game-modal .form-group input[type="text"],
+.custom-game-modal .form-group input[type="url"],
+.custom-game-modal .form-group input[type="number"],
+.custom-game-modal .form-group select,
+.custom-game-modal .form-group textarea {
+    width: 100%;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.custom-game-modal .form-group input:focus,
+.custom-game-modal .form-group select:focus,
+.custom-game-modal .form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.custom-game-modal .form-group small {
+    display: block;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.custom-game-modal .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.custom-game-modal .form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.custom-game-modal .btn-secondary {
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.custom-game-modal .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.custom-game-modal .modal-footer {
+    padding: 20px 30px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0 0 12px 12px;
+}
+
+.custom-game-modal .modal-footer .btn-primary,
+.custom-game-modal .modal-footer .btn-secondary {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.custom-game-modal .modal-footer .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.custom-game-modal .modal-footer .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.custom-game-modal .modal-footer .btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.custom-game-modal .modal-footer .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Required field indicator */
+.custom-game-modal label::after {
+    content: "";
+}
+
+.custom-game-modal .form-group:has(input[required]) label::after {
+    content: " *";
+    color: #e74c3c;
+}
+
+/* Settings button styling */
+#add-custom-game-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+#add-custom-game-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* Select dropdown styling */
+.custom-game-modal select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 40px;
+}
+
+.custom-game-modal select option {
+    background: #1a1a2e;
+    color: white;
+}
