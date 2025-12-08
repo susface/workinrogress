@@ -3357,7 +3357,9 @@ class CoverFlow {
         const clearGameDataBtn = document.getElementById('clear-game-data-btn');
         if (clearGameDataBtn) {
             clearGameDataBtn.addEventListener('click', async () => {
+                console.log('[COVERFLOW] Clear game data button clicked');
                 if (confirm('⚠️ This will delete all scanned game data!\n\nYou will need to scan for games again.\n\nAre you sure?')) {
+                    console.log('[COVERFLOW] User confirmed clear game data');
                     const result = await window.electronAPI.clearGameData();
                     if (result.success) {
                         alert('✓ Game data cleared successfully!\n\nClick "Scan for Games" to find games again.');
@@ -3368,6 +3370,8 @@ class CoverFlow {
                     }
                 }
             });
+        } else {
+            console.warn('[COVERFLOW] clear-game-data-btn not found');
         }
 
         // Logging controls
@@ -3503,13 +3507,25 @@ class CoverFlow {
         });
 
         // Game scanner buttons
-        document.getElementById('scan-games-btn').addEventListener('click', () => {
-            this.startGameScan();
-        });
+        const scanGamesBtn = document.getElementById('scan-games-btn');
+        if (scanGamesBtn) {
+            scanGamesBtn.addEventListener('click', () => {
+                console.log('[COVERFLOW] Scan games button clicked');
+                this.startGameScan();
+            });
+        } else {
+            console.warn('[COVERFLOW] scan-games-btn not found');
+        }
 
-        document.getElementById('reload-games-btn').addEventListener('click', () => {
-            this.reloadGamesFromServer();
-        });
+        const reloadGamesBtn = document.getElementById('reload-games-btn');
+        if (reloadGamesBtn) {
+            reloadGamesBtn.addEventListener('click', () => {
+                console.log('[COVERFLOW] Reload games button clicked');
+                this.reloadGamesFromServer();
+            });
+        } else {
+            console.warn('[COVERFLOW] reload-games-btn not found');
+        }
 
         // Reload interface button
         document.getElementById('reload-interface-btn').addEventListener('click', () => {
