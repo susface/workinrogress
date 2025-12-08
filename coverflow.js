@@ -2901,6 +2901,47 @@ class CoverFlow {
             this.visualEffectsManager = null;
         }
 
+        // Cleanup module intervals and resources
+        if (this._modules) {
+            // Session insights cleanup
+            if (this._modules.sessionInsights && typeof this._modules.sessionInsights.cleanup === 'function') {
+                this._modules.sessionInsights.cleanup();
+            }
+            // Mod manager cleanup
+            if (this._modules.modManager && typeof this._modules.modManager.cleanup === 'function') {
+                this._modules.modManager.cleanup();
+            }
+            // Video player cleanup
+            if (this._modules.videoPlayer && typeof this._modules.videoPlayer.destroy === 'function') {
+                this._modules.videoPlayer.destroy();
+            }
+            // VR mode cleanup
+            if (this._modules.vrMode && typeof this._modules.vrMode.cleanup === 'function') {
+                this._modules.vrMode.cleanup();
+            }
+            console.log('[COVERFLOW] Module cleanup complete');
+        }
+
+        // Cleanup update notifications interval
+        if (typeof this.cleanupUpdateNotifications === 'function') {
+            this.cleanupUpdateNotifications();
+        } else if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+            this.checkInterval = null;
+        }
+
+        // Cleanup features manager interval
+        if (this.recentLaunchedInterval) {
+            clearInterval(this.recentLaunchedInterval);
+            this.recentLaunchedInterval = null;
+        }
+
+        // Cleanup per-game music
+        if (this.trackUpdateInterval) {
+            clearInterval(this.trackUpdateInterval);
+            this.trackUpdateInterval = null;
+        }
+
         // Clear the 3D scene
         this.clearScene();
 
