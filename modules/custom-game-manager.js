@@ -6,6 +6,7 @@
 class CustomGameManager {
     constructor() {
         this.customGameDialog = null;
+        this.eventListeners = []; // Track event listeners for cleanup
     }
 
     /**
@@ -43,16 +44,42 @@ class CustomGameManager {
         scanBtnParent.after(customGameGroup);
 
         // Add event listener
-        document.getElementById('add-custom-game-btn').addEventListener('click', () => {
-            this.showAddCustomGameDialog();
-        });
+        const addBtn = document.getElementById('add-custom-game-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                this.showAddCustomGameDialog();
+            });
+        }
+    }
+
+    /**
+     * Sanitize HTML to prevent XSS attacks
+     */
+    sanitizeHTML(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     /**
      * Show dialog to add custom game
      */
     showAddCustomGameDialog(gameData = null) {
+        // Clean up any existing dialog first
+        this.closeDialog();
+
         const isEdit = gameData !== null;
+
+        // Sanitize all user inputs to prevent XSS
+        const safeTitle = this.sanitizeHTML(gameData?.title || '');
+        const safeLaunchCmd = this.sanitizeHTML(gameData?.launch_command || '');
+        const safeDeveloper = this.sanitizeHTML(gameData?.developer || '');
+        const safePublisher = this.sanitizeHTML(gameData?.publisher || '');
+        const safeDescription = this.sanitizeHTML(gameData?.description || '');
+        const safeBoxartUrl = this.sanitizeHTML(gameData?.boxart_url || '');
+        const safeGenres = gameData?.genres ?
+            (Array.isArray(gameData.genres) ? gameData.genres.map(g => this.sanitizeHTML(g)).join(', ') : this.sanitizeHTML(gameData.genres)) : '';
 
         const modal = document.createElement('div');
         modal.className = 'modal-overlay custom-game-modal';
@@ -60,7 +87,7 @@ class CustomGameManager {
             <div class="modal-dialog" style="max-width: 700px;">
                 <div class="modal-header">
                     <h2>${isEdit ? 'Edit' : 'Add'} Custom Game/Application</h2>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                    <button class="modal-close">×</button>
                 </div>
                 <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                     <form id="custom-game-form">
@@ -71,7 +98,8 @@ class CustomGameManager {
                                 <label for="custom-game-title">Title *</label>
                                 <input type="text" id="custom-game-title" required
                                     placeholder="Enter game or application name"
-                                    value="${gameData?.title || ''}">
+                                    maxlength="200"
+                                    value="${safeTitle}">
                             </div>
 
                             <div class="form-group">
@@ -79,7 +107,7 @@ class CustomGameManager {
                                 <div style="display: flex; gap: 10px;">
                                     <input type="text" id="custom-game-exe" required
                                         placeholder="Path to .exe, .lnk, or application"
-                                        value="${gameData?.launch_command || ''}"
+                                        value="${safeLaunchCmd}"
                                         style="flex: 1;">
                                     <button type="button" id="browse-exe-btn" class="btn-secondary">Browse</button>
                                 </div>
@@ -109,14 +137,16 @@ class CustomGameManager {
                                     <label for="custom-game-developer">Developer</label>
                                     <input type="text" id="custom-game-developer"
                                         placeholder="Developer name"
-                                        value="${gameData?.developer || ''}">
+                                        maxlength="100"
+                                        value="${safeDeveloper}">
                                 </div>
 
                                 <div class="form-group">
                                     <label for="custom-game-publisher">Publisher</label>
                                     <input type="text" id="custom-game-publisher"
                                         placeholder="Publisher name"
-                                        value="${gameData?.publisher || ''}">
+                                        maxlength="100"
+                                        value="${safePublisher}">
                                 </div>
                             </div>
 
@@ -133,7 +163,8 @@ class CustomGameManager {
                                     <label for="custom-game-genres">Genres (comma separated)</label>
                                     <input type="text" id="custom-game-genres"
                                         placeholder="Action, RPG, Strategy"
-                                        value="${gameData?.genres ? (Array.isArray(gameData.genres) ? gameData.genres.join(', ') : gameData.genres) : ''}">
+                                        maxlength="200"
+                                        value="${safeGenres}">
                                 </div>
                             </div>
 
@@ -141,7 +172,8 @@ class CustomGameManager {
                                 <label for="custom-game-description">Description</label>
                                 <textarea id="custom-game-description"
                                     placeholder="Brief description of the game/application"
-                                    rows="3">${gameData?.description || ''}</textarea>
+                                    maxlength="1000"
+                                    rows="3">${safeDescription}</textarea>
                             </div>
                         </div>
 
@@ -152,14 +184,14 @@ class CustomGameManager {
                                 <label for="custom-game-cover-url">Cover Art URL</label>
                                 <input type="url" id="custom-game-cover-url"
                                     placeholder="https://example.com/cover.jpg"
-                                    value="${gameData?.boxart_url || ''}">
+                                    value="${safeBoxartUrl}">
                                 <small>Or leave blank to use the Cover Art Editor after adding</small>
                             </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                    <button type="button" class="btn-secondary" id="cancel-custom-game-btn">Cancel</button>
                     <button type="button" id="save-custom-game-btn" class="btn-primary">${isEdit ? 'Update' : 'Add'} Game</button>
                 </div>
             </div>
@@ -168,7 +200,7 @@ class CustomGameManager {
         document.body.appendChild(modal);
         this.customGameDialog = modal;
 
-        // Setup event listeners
+        // Setup event listeners with cleanup tracking
         this.setupDialogEventListeners(gameData);
     }
 
@@ -176,79 +208,219 @@ class CustomGameManager {
      * Setup event listeners for the dialog
      */
     setupDialogEventListeners(gameData) {
+        if (!this.customGameDialog) return;
+
+        // Clear any previous listeners
+        this.cleanupEventListeners();
+
+        // Close button
+        const closeBtn = this.customGameDialog.querySelector('.modal-close');
+        if (closeBtn) {
+            const closeHandler = () => this.closeDialog();
+            closeBtn.addEventListener('click', closeHandler);
+            this.eventListeners.push({ element: closeBtn, event: 'click', handler: closeHandler });
+        }
+
+        // Cancel button
+        const cancelBtn = this.customGameDialog.querySelector('#cancel-custom-game-btn');
+        if (cancelBtn) {
+            const cancelHandler = () => this.closeDialog();
+            cancelBtn.addEventListener('click', cancelHandler);
+            this.eventListeners.push({ element: cancelBtn, event: 'click', handler: cancelHandler });
+        }
+
         // Browse button
-        const browseBtn = document.getElementById('browse-exe-btn');
+        const browseBtn = this.customGameDialog.querySelector('#browse-exe-btn');
         if (browseBtn && window.electronAPI) {
-            browseBtn.addEventListener('click', async () => {
-                const result = await window.electronAPI.selectCustomGameExecutable();
-                if (result.success && result.path) {
-                    document.getElementById('custom-game-exe').value = result.path;
+            const browseHandler = async () => {
+                try {
+                    const result = await window.electronAPI.selectCustomGameExecutable();
+                    if (result.success && result.path) {
+                        const exeInput = document.getElementById('custom-game-exe');
+                        if (exeInput) {
+                            exeInput.value = result.path;
+                        }
+                    }
+                } catch (error) {
+                    console.error('[CUSTOM-GAMES] Error selecting executable:', error);
+                    window.showToast?.('Failed to select executable', 'error');
                 }
-            });
+            };
+            browseBtn.addEventListener('click', browseHandler);
+            this.eventListeners.push({ element: browseBtn, event: 'click', handler: browseHandler });
         } else if (browseBtn) {
             browseBtn.style.display = 'none'; // Hide if not in Electron
         }
 
         // Save button
-        const saveBtn = document.getElementById('save-custom-game-btn');
-        saveBtn.addEventListener('click', () => {
-            this.saveCustomGame(gameData);
-        });
+        const saveBtn = this.customGameDialog.querySelector('#save-custom-game-btn');
+        if (saveBtn) {
+            const saveHandler = () => this.saveCustomGame(gameData);
+            saveBtn.addEventListener('click', saveHandler);
+            this.eventListeners.push({ element: saveBtn, event: 'click', handler: saveHandler });
+        }
 
         // Form submission
-        const form = document.getElementById('custom-game-form');
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveCustomGame(gameData);
-        });
+        const form = this.customGameDialog.querySelector('#custom-game-form');
+        if (form) {
+            const submitHandler = (e) => {
+                e.preventDefault();
+                this.saveCustomGame(gameData);
+            };
+            form.addEventListener('submit', submitHandler);
+            this.eventListeners.push({ element: form, event: 'submit', handler: submitHandler });
+        }
+
+        // Close on overlay click
+        const overlayHandler = (e) => {
+            if (e.target === this.customGameDialog) {
+                this.closeDialog();
+            }
+        };
+        this.customGameDialog.addEventListener('click', overlayHandler);
+        this.eventListeners.push({ element: this.customGameDialog, event: 'click', handler: overlayHandler });
+
+        // Close on Escape key
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeDialog();
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+        this.eventListeners.push({ element: document, event: 'keydown', handler: escapeHandler });
+    }
+
+    /**
+     * Clean up event listeners to prevent memory leaks
+     */
+    cleanupEventListeners() {
+        for (const listener of this.eventListeners) {
+            if (listener.element && listener.event && listener.handler) {
+                listener.element.removeEventListener(listener.event, listener.handler);
+            }
+        }
+        this.eventListeners = [];
+    }
+
+    /**
+     * Close and cleanup dialog
+     */
+    closeDialog() {
+        this.cleanupEventListeners();
+        if (this.customGameDialog) {
+            this.customGameDialog.remove();
+            this.customGameDialog = null;
+        }
+    }
+
+    /**
+     * Extract directory from path (cross-platform)
+     */
+    getDirectoryFromPath(filePath) {
+        if (!filePath) return null;
+
+        // Handle both Windows and Unix path separators
+        const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+        if (lastSlash === -1) return null;
+
+        return filePath.substring(0, lastSlash);
+    }
+
+    /**
+     * Validate URL format
+     */
+    isValidUrl(string) {
+        if (!string) return true; // Empty is valid (optional field)
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
     }
 
     /**
      * Save custom game to database
      */
     async saveCustomGame(existingGame) {
-        const title = document.getElementById('custom-game-title').value.trim();
-        const exePath = document.getElementById('custom-game-exe').value.trim();
-        const platform = document.getElementById('custom-game-platform').value;
-        const developer = document.getElementById('custom-game-developer').value.trim();
-        const publisher = document.getElementById('custom-game-publisher').value.trim();
-        const year = document.getElementById('custom-game-year').value;
-        const genresText = document.getElementById('custom-game-genres').value.trim();
-        const description = document.getElementById('custom-game-description').value.trim();
-        const coverUrl = document.getElementById('custom-game-cover-url').value.trim();
+        // Get form elements
+        const titleInput = document.getElementById('custom-game-title');
+        const exeInput = document.getElementById('custom-game-exe');
+        const platformInput = document.getElementById('custom-game-platform');
+        const developerInput = document.getElementById('custom-game-developer');
+        const publisherInput = document.getElementById('custom-game-publisher');
+        const yearInput = document.getElementById('custom-game-year');
+        const genresInput = document.getElementById('custom-game-genres');
+        const descriptionInput = document.getElementById('custom-game-description');
+        const coverUrlInput = document.getElementById('custom-game-cover-url');
+
+        // Check if dialog was closed
+        if (!titleInput || !exeInput) {
+            console.warn('[CUSTOM-GAMES] Dialog elements not found, possibly closed');
+            return;
+        }
+
+        const title = titleInput.value.trim();
+        const exePath = exeInput.value.trim();
+        const platform = platformInput?.value || 'custom';
+        const developer = developerInput?.value.trim() || '';
+        const publisher = publisherInput?.value.trim() || '';
+        const year = yearInput?.value || '';
+        const genresText = genresInput?.value.trim() || '';
+        const description = descriptionInput?.value.trim() || '';
+        const coverUrl = coverUrlInput?.value.trim() || '';
 
         // Validation
         if (!title) {
-            alert('Please enter a title');
+            window.showToast?.('Please enter a title', 'error');
+            titleInput.focus();
+            return;
+        }
+
+        if (title.length > 200) {
+            window.showToast?.('Title is too long (max 200 characters)', 'error');
             return;
         }
 
         if (!exePath) {
-            alert('Please enter an executable path');
+            window.showToast?.('Please enter an executable path', 'error');
+            exeInput.focus();
             return;
         }
 
-        // Parse genres
-        const genres = genresText ? genresText.split(',').map(g => g.trim()).filter(g => g) : [];
+        if (coverUrl && !this.isValidUrl(coverUrl)) {
+            window.showToast?.('Please enter a valid URL for cover art', 'error');
+            coverUrlInput.focus();
+            return;
+        }
+
+        if (year && (year < 1970 || year > new Date().getFullYear())) {
+            window.showToast?.('Please enter a valid release year', 'error');
+            yearInput.focus();
+            return;
+        }
+
+        // Parse and validate genres
+        const genres = genresText ? genresText.split(',').map(g => g.trim()).filter(g => g).slice(0, 20) : [];
 
         // Build game data
         const gameData = {
             title: title,
             platform: platform,
             launch_command: exePath,
-            install_dir: exePath.substring(0, exePath.lastIndexOf('\\')),
+            install_dir: this.getDirectoryFromPath(exePath),
             developer: developer || 'Unknown',
             publisher: publisher || 'Unknown',
             release_date: year ? `${year}-01-01` : null,
             genres: genres,
-            description: description,
+            description: description.substring(0, 1000), // Limit description length
             boxart_url: coverUrl || null,
-            is_custom: true, // Mark as custom game
+            is_custom: true,
             app_id: existingGame?.app_id || `custom_${Date.now()}`
         };
 
         if (!window.electronAPI) {
-            alert('This feature requires the Electron version of the application');
+            window.showToast?.('This feature requires the Electron version of the application', 'error');
             return;
         }
 
@@ -259,7 +431,7 @@ class CustomGameManager {
                 window.showToast?.(`Custom game "${title}" ${existingGame ? 'updated' : 'added'} successfully!`, 'success');
 
                 // Close dialog
-                this.customGameDialog?.remove();
+                this.closeDialog();
 
                 // Reload games
                 if (window.coverflow) {
@@ -272,17 +444,27 @@ class CustomGameManager {
                     if (useEditor) {
                         // Wait a moment for the game to be added to the view
                         setTimeout(() => {
-                            window.coverArtEditor.showCoverEditor();
+                            if (window.coverArtEditor && window.coverArtEditor.showCoverEditor) {
+                                window.coverArtEditor.showCoverEditor();
+                            }
                         }, 500);
                     }
                 }
             } else {
-                alert('Failed to add custom game: ' + (result.error || 'Unknown error'));
+                window.showToast?.('Failed to add custom game: ' + (result.error || 'Unknown error'), 'error');
             }
         } catch (error) {
             console.error('[CUSTOM-GAMES] Error saving custom game:', error);
-            alert('An error occurred while saving the custom game');
+            window.showToast?.('An error occurred while saving the custom game', 'error');
         }
+    }
+
+    /**
+     * Cleanup on page unload
+     */
+    destroy() {
+        this.cleanupEventListeners();
+        this.closeDialog();
     }
 }
 
@@ -297,3 +479,8 @@ if (document.readyState === 'loading') {
 } else {
     customGameManager.initialize();
 }
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    customGameManager.destroy();
+});
