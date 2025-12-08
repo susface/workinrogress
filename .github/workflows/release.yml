@@ -7,11 +7,7 @@ on:
 
 jobs:
   release:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -26,21 +22,12 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
-      - name: Build application
-        run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            npx electron-builder --win
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            npx electron-builder --mac
-          else
-            npx electron-builder --linux
-          fi
-        shell: bash
+      - name: Build Windows application
+        run: npx electron-builder --win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows artifacts
-        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
@@ -48,33 +35,12 @@ jobs:
             dist/*.exe
             dist/latest.yml
 
-      - name: Upload macOS artifacts
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-installer
-          path: |
-            dist/*.dmg
-            dist/latest-mac.yml
-
-      - name: Upload Linux artifacts
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-installer
-          path: |
-            dist/*.AppImage
-            dist/latest-linux.yml
-
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/latest*.yml
+            dist/latest.yml
           draft: false
           prerelease: false
           generate_release_notes: true
