@@ -5,6 +5,27 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const Database = require('better-sqlite3');
 
+// Single instance lock - prevent multiple instances
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    // Another instance is already running, quit this one
+    console.log('[SINGLE-INSTANCE] Another instance is already running. Quitting...');
+    app.quit();
+} else {
+    // This is the first instance, continue with app initialization
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // Someone tried to run a second instance, focus our window
+        console.log('[SINGLE-INSTANCE] Second instance detected, focusing main window');
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) {
+                mainWindow.restore();
+            }
+            mainWindow.focus();
+        }
+    });
+}
+
 // Constants
 const WINDOW_CONFIG = {
     WIDTH: 1400,
@@ -14,9 +35,9 @@ const WINDOW_CONFIG = {
 };
 
 const SCAN_PROGRESS = {
-    STEAM: 0.33,
-    EPIC: 0.66,
-    XBOX: 0.90,
+    STEAM: 33,
+    EPIC: 66,
+    XBOX: 90,
     COMPLETE: 100
 };
 
@@ -892,9 +913,9 @@ ipcMain.handle('start-scan', async () => {
                     scanStatus.progress = SCAN_PROGRESS.XBOX;
                 }
 
-                // Update taskbar progress (Windows)
+                // Update taskbar progress (Windows) - expects 0-1 range
                 if (isWindows && mainWindow) {
-                    mainWindow.setProgressBar(scanStatus.progress);
+                    mainWindow.setProgressBar(scanStatus.progress / 100);
                 }
 
                 scanStatus.message = output.trim();
@@ -2397,6 +2418,82 @@ ipcMain.handle('add-custom-game', async (event, gameData) => {
         }
     } catch (error) {
         console.error('Error adding custom game:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Extract icon from executable (for custom games)
+ipcMain.handle('extract-exe-icon', async (event, exePath, gameId) => {
+    if (!isWindows) {
+        return { success: false, error: 'Icon extraction only available on Windows' };
+    }
+
+    try {
+        const outputPath = path.join(iconsPath, `${gameId}_exe_icon.png`);
+
+        // Ensure icons directory exists
+        if (!fs.existsSync(iconsPath)) {
+            fs.mkdirSync(iconsPath, { recursive: true });
+        }
+
+        // Create a simple Python script call to extract the icon
+        const iconExtractorPath = path.join(appPath, 'gameinfodownload-main', 'launchers', 'icon_extractor.py');
+
+        // Check if icon extractor exists
+        if (!fs.existsSync(iconExtractorPath)) {
+            console.log('[ICON-EXTRACT] Icon extractor not found, skipping icon extraction');
+            return { success: false, error: 'Icon extractor not available' };
+        }
+
+        // Use a Python script inline to extract the icon
+        const pythonCode = `
+import sys
+sys.path.insert(0, '${path.join(appPath, 'gameinfodownload-main', 'launchers').replace(/\\/g, '\\\\')}')
+try:
+    from icon_extractor import extract_icon_from_exe
+    result = extract_icon_from_exe(r'${exePath.replace(/\\/g, '\\\\')}', r'${outputPath.replace(/\\/g, '\\\\')}')
+    print('SUCCESS' if result else 'FAILED')
+except Exception as e:
+    print(f'ERROR: {e}')
+`;
+
+        return new Promise((resolve) => {
+            const pythonCmd = 'python';
+            const pythonProcess = spawn(pythonCmd, ['-c', pythonCode], {
+                cwd: path.join(appPath, 'gameinfodownload-main')
+            });
+
+            let output = '';
+            pythonProcess.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+
+            pythonProcess.stderr.on('data', (data) => {
+                console.error('[ICON-EXTRACT] Python error:', data.toString());
+            });
+
+            pythonProcess.on('close', (code) => {
+                if (code === 0 && output.includes('SUCCESS') && fs.existsSync(outputPath)) {
+                    // Update the database with the icon path
+                    const db = initDatabase();
+                    try {
+                        db.prepare('UPDATE games SET exe_icon_path = ? WHERE app_id = ?').run(outputPath, gameId);
+                    } finally {
+                        db.close();
+                    }
+                    resolve({ success: true, iconPath: outputPath });
+                } else {
+                    resolve({ success: false, error: 'Icon extraction failed' });
+                }
+            });
+
+            pythonProcess.on('error', (error) => {
+                console.error('[ICON-EXTRACT] Spawn error:', error);
+                resolve({ success: false, error: error.message });
+            });
+        });
+    } catch (error) {
+        console.error('[ICON-EXTRACT] Error:', error);
         return { success: false, error: error.message };
     }
 });

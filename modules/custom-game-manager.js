@@ -444,10 +444,25 @@ class CustomGameManager {
             if (result.success) {
                 window.showToast?.(`Custom game "${title}" ${existingGame ? 'updated' : 'added'} successfully!`, 'success');
 
+                // Extract icon from executable (Windows only)
+                if (window.electronAPI.extractExeIcon && exePath) {
+                    console.log('[CUSTOM-GAMES] Extracting icon from executable...');
+                    try {
+                        const iconResult = await window.electronAPI.extractExeIcon(exePath, gameData.app_id);
+                        if (iconResult.success) {
+                            console.log('[CUSTOM-GAMES] Icon extracted successfully:', iconResult.iconPath);
+                        } else {
+                            console.log('[CUSTOM-GAMES] Icon extraction skipped or failed:', iconResult.error);
+                        }
+                    } catch (iconError) {
+                        console.log('[CUSTOM-GAMES] Icon extraction not available:', iconError.message);
+                    }
+                }
+
                 // Close dialog
                 this.closeDialog();
 
-                // Reload games
+                // Reload games to show the new game with its icon
                 if (window.coverflow) {
                     await window.coverflow.loadGames();
                 }
