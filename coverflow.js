@@ -1994,14 +1994,23 @@ class CoverFlow {
                 }
 
                 const games = result.games || [];
+
+                // Always remove existing games first
+                this.allAlbums = this.allAlbums.filter(item => item.type !== 'game');
+                this.filteredAlbums = this.filteredAlbums.filter(item => item.type !== 'game');
+
                 if (games.length === 0) {
+                    // Still need to update UI when games are cleared
+                    document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+                    this.clearScene();
+                    this.currentIndex = Math.min(this.currentIndex, Math.max(0, this.filteredAlbums.length - 1));
+                    this.targetIndex = this.currentIndex;
+                    this.createCovers();
+                    this.createThumbnails();
+                    this.updateInfo();
                     this.showToast('No games found. Run a scan first.', 'info');
                     return;
                 }
-
-                // Remove existing games
-                this.allAlbums = this.allAlbums.filter(item => item.type !== 'game');
-                this.filteredAlbums = this.filteredAlbums.filter(item => item.type !== 'game');
 
                 // Convert games
                 const platformColors = {
@@ -2062,7 +2071,10 @@ class CoverFlow {
                 this.filteredAlbums = [...this.allAlbums];
                 document.getElementById('total-albums').textContent = this.filteredAlbums.length;
 
-                // Recreate UI
+                // Clear scene and recreate UI to prevent icon mismatch
+                this.clearScene();
+                this.currentIndex = Math.min(this.currentIndex, this.filteredAlbums.length - 1);
+                this.targetIndex = this.currentIndex;
                 this.createCovers();
                 this.createThumbnails();
                 this.updateInfo();
@@ -2087,14 +2099,22 @@ class CoverFlow {
                 const data = await response.json();
                 const games = data.games || [];
 
+                // Always remove existing games first
+                this.allAlbums = this.allAlbums.filter(item => item.type !== 'game');
+                this.filteredAlbums = this.filteredAlbums.filter(item => item.type !== 'game');
+
                 if (games.length === 0) {
+                    // Still need to update UI when games are cleared
+                    document.getElementById('total-albums').textContent = this.filteredAlbums.length;
+                    this.clearScene();
+                    this.currentIndex = Math.min(this.currentIndex, Math.max(0, this.filteredAlbums.length - 1));
+                    this.targetIndex = this.currentIndex;
+                    this.createCovers();
+                    this.createThumbnails();
+                    this.updateInfo();
                     this.showToast('No games found. Run a scan first.', 'info');
                     return;
                 }
-
-                // Remove existing games from the list
-                this.allAlbums = this.allAlbums.filter(item => item.type !== 'game');
-                this.filteredAlbums = this.filteredAlbums.filter(item => item.type !== 'game');
 
                 // Convert and add games
                 const platformColors = {
@@ -2148,7 +2168,10 @@ class CoverFlow {
                 this.filteredAlbums = [...this.allAlbums];
                 document.getElementById('total-albums').textContent = this.filteredAlbums.length;
 
-                // Recreate UI
+                // Clear scene and recreate UI to prevent icon mismatch
+                this.clearScene();
+                this.currentIndex = Math.min(this.currentIndex, this.filteredAlbums.length - 1);
+                this.targetIndex = this.currentIndex;
                 this.createCovers();
                 this.createThumbnails();
                 this.updateInfo();

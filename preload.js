@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Custom game management
     selectCustomGameExecutable: () => ipcRenderer.invoke('select-custom-game-executable'),
     addCustomGame: (gameData) => ipcRenderer.invoke('add-custom-game', gameData),
+    extractExeIcon: (exePath, gameId) => ipcRenderer.invoke('extract-exe-icon', exePath, gameId),
 
     // Media folder selection
     selectMediaFolder: () => ipcRenderer.invoke('select-media-folder'),
