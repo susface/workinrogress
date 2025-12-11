@@ -3562,6 +3562,35 @@ ipcMain.handle('restart-app', async () => {
 // ============================================
 
 // Helper functions for mod scanning
+const modScanCache = new Map(); // gameId -> Set of mod paths
+
+async function performModScan(game) {
+    const mods = [];
+
+    // Check if game has Steam Workshop support
+    if (game.has_workshop_support && game.workshop_id) {
+        // For Steam Workshop games, scan the workshop folder
+        const workshopPath = await getWorkshopPath(game.app_id);
+        if (workshopPath && fs.existsSync(workshopPath)) {
+            const workshopMods = await scanWorkshopMods(workshopPath, game.app_id);
+            mods.push(...workshopMods);
+        }
+    }
+
+    // Check if game is Unity-based (potential Thunderstore support)
+    if (game.engine === 'Unity') {
+        // Scan for BepInEx/MelonLoader mods
+        const unityMods = await scanUnityMods(game.install_directory, game.title);
+        mods.push(...unityMods);
+    }
+
+    // Check for generic mod folders
+    const genericMods = await scanGenericMods(game.install_directory);
+    mods.push(...genericMods);
+
+    return mods;
+}
+
 async function getWorkshopPath(appId) {
     // Try to find Steam Workshop folder for the game
     const system = process.platform;
@@ -3776,28 +3805,11 @@ ipcMain.handle('get-game-mods', async (event, gameId) => {
             return { success: false, error: 'Game not found' };
         }
 
-        const mods = [];
+        const mods = await performModScan(game);
 
-        // Check if game has Steam Workshop support
-        if (game.has_workshop_support && game.workshop_id) {
-            // For Steam Workshop games, scan the workshop folder
-            const workshopPath = await getWorkshopPath(game.app_id);
-            if (workshopPath && fs.existsSync(workshopPath)) {
-                const workshopMods = await scanWorkshopMods(workshopPath, game.app_id);
-                mods.push(...workshopMods);
-            }
-        }
-
-        // Check if game is Unity-based (potential Thunderstore support)
-        if (game.engine === 'Unity') {
-            // Scan for BepInEx/MelonLoader mods
-            const unityMods = await scanUnityMods(game.install_directory, game.title);
-            mods.push(...unityMods);
-        }
-
-        // Check for generic mod folders
-        const genericMods = await scanGenericMods(game.install_directory);
-        mods.push(...genericMods);
+        // Update cache
+        const modPaths = new Set(mods.map(m => m.path));
+        modScanCache.set(gameId, modPaths);
 
         return { success: true, mods, modSupport: {
             hasWorkshop: Boolean(game.has_workshop_support),
@@ -3813,11 +3825,38 @@ ipcMain.handle('get-game-mods', async (event, gameId) => {
 // Scan for new mods
 ipcMain.handle('scan-game-mods', async (event, gameId) => {
     try {
-        // TODO: Implement mod scanning logic
-        // Would detect new mod files in the game's mod directory
-        const newMods = 0;
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        db.close();
 
-        return { success: true, newMods };
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        const mods = await performModScan(game);
+        const currentPaths = new Set(mods.map(m => m.path));
+
+        let newModsCount = 0;
+
+        // Get previous cache
+        const previousPaths = modScanCache.get(gameId);
+
+        if (previousPaths) {
+            // Count mods that are in current but not in previous
+            for (const path of currentPaths) {
+                if (!previousPaths.has(path)) {
+                    newModsCount++;
+                }
+            }
+        } else {
+            // If no cache, all mods are considered "found"
+            newModsCount = mods.length;
+        }
+
+        // Update cache
+        modScanCache.set(gameId, currentPaths);
+
+        return { success: true, newMods: newModsCount };
     } catch (error) {
         console.error('Error scanning game mods:', error);
         return { success: false, error: error.message };
