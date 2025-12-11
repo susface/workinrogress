@@ -1020,9 +1020,103 @@ class ModManager {
     /**
      * Configure a mod
      */
-    configureMod(mod) {
-        this.showToast(`Configure ${mod.name} (coming soon)`, 'info');
-        // TODO: Open mod configuration panel
+    async configureMod(mod) {
+        if (!window.electronAPI) return;
+
+        this.showToast(`Opening configuration for ${mod.name}...`, 'info');
+
+        try {
+            const result = await window.electronAPI.getModConfig(mod);
+            if (result.success) {
+                this.createModConfigUI(mod, result.content, result.configPath);
+            } else {
+                this.showToast(`Could not find config for ${mod.name}`, 'info');
+                // Optional: ask user if they want to create one or open folder
+            }
+        } catch (error) {
+            window.logger?.error('MOD_MANAGER', 'Failed to get mod config:', error);
+            this.showToast('Failed to load mod configuration', 'error');
+        }
+    }
+
+    /**
+     * Create mod configuration UI
+     */
+    createModConfigUI(mod, content, configPath) {
+        let configModal = document.getElementById('mod-config-modal');
+        if (configModal) {
+            configModal.remove();
+        }
+
+        configModal = document.createElement('div');
+        configModal.id = 'mod-config-modal';
+        configModal.className = 'mod-config-modal modal active';
+
+        configModal.innerHTML = `
+            <div class="modal-content mod-config-content" style="width: 800px; max-width: 90vw;">
+                <div class="modal-header">
+                    <h3>⚙️ Configure ${this.escapeHtml(mod.name)}</h3>
+                    <div class="config-path" style="font-size: 0.8em; color: #aaa; margin-left: 10px;">${this.escapeHtml(configPath)}</div>
+                    <button class="close-config-btn close-btn">×</button>
+                </div>
+                <div class="modal-body" style="padding: 0;">
+                    <textarea id="mod-config-editor" style="width: 100%; height: 500px; background: #1e1e1e; color: #d4d4d4; font-family: monospace; border: none; padding: 10px; resize: none; outline: none;">${this.escapeHtml(content)}</textarea>
+                </div>
+                <div class="modal-footer" style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn close-config-btn">Cancel</button>
+                    <button id="save-mod-config-btn" class="btn primary">Save Configuration</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(configModal);
+
+        // Event listeners
+        const closeBtns = configModal.querySelectorAll('.close-config-btn');
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                configModal.classList.remove('active');
+                setTimeout(() => configModal.remove(), 300);
+            });
+        });
+
+        // Click outside
+        configModal.addEventListener('click', (e) => {
+            if (e.target === configModal) {
+                configModal.classList.remove('active');
+                setTimeout(() => configModal.remove(), 300);
+            }
+        });
+
+        // Save button
+        const saveBtn = document.getElementById('save-mod-config-btn');
+        saveBtn.addEventListener('click', async () => {
+            const newContent = document.getElementById('mod-config-editor').value;
+            await this.saveModConfig(configPath, newContent);
+            configModal.classList.remove('active');
+            setTimeout(() => configModal.remove(), 300);
+        });
+    }
+
+    /**
+     * Save mod configuration
+     */
+    async saveModConfig(configPath, content) {
+        if (!window.electronAPI) return;
+
+        this.showToast('Saving configuration...', 'info');
+
+        try {
+            const result = await window.electronAPI.saveModConfig(configPath, content);
+            if (result.success) {
+                this.showToast('Configuration saved successfully', 'success');
+            } else {
+                this.showToast(`Failed to save: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            window.logger?.error('MOD_MANAGER', 'Failed to save mod config:', error);
+            this.showToast('Failed to save configuration', 'error');
+        }
     }
 
     /**

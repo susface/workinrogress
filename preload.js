@@ -183,7 +183,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Mod loaders
     installBepInEx: (gameId) => ipcRenderer.invoke('install-bepinex', gameId),
-    installMelonLoader: (gameId) => ipcRenderer.invoke('install-melonloader', gameId)
+    installMelonLoader: (gameId) => ipcRenderer.invoke('install-melonloader', gameId),
+
+    // Mod Configuration
+    getModConfig: (mod) => ipcRenderer.invoke('get-mod-config', mod),
+    saveModConfig: (modPath, content) => ipcRenderer.invoke('save-mod-config', modPath, content)
 });
 
 console.log('Preload script loaded - Electron API exposed');

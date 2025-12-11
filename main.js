@@ -4275,4 +4275,146 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
     }
+});// Helper function to find config file for a mod
+async function findModConfigFile(mod) {
+    const fs = require('fs');
+    const path = require('path');
+
+    if (!mod || !mod.path) return null;
+
+    // BepInEx
+    if (mod.source === 'bepinex') {
+        // BepInEx configs are usually in BepInEx/config/{ModName}.cfg
+        // We need to go up from plugins folder to find config folder
+        // mod.path is usually .../BepInEx/plugins/ModName.dll or .../BepInEx/plugins/ModFolder
+
+        let bepInExRoot = path.dirname(mod.path); // plugins folder
+        if (path.basename(bepInExRoot).toLowerCase() !== 'plugins') {
+            // Maybe mod.path is inside a subfolder in plugins
+            // We need to traverse up until we find 'plugins' or 'BepInEx'
+             while (bepInExRoot && path.basename(bepInExRoot).toLowerCase() !== 'plugins' && path.dirname(bepInExRoot) !== bepInExRoot) {
+                bepInExRoot = path.dirname(bepInExRoot);
+            }
+        }
+
+        // Go up one level to BepInEx root
+        const configDir = path.join(path.dirname(bepInExRoot), 'config');
+
+        if (fs.existsSync(configDir)) {
+             // Look for .cfg file matching mod name
+             const modName = mod.name; // Should be filename without extension
+             const cfgPath = path.join(configDir, `${modName}.cfg`);
+
+             if (fs.existsSync(cfgPath)) {
+                 return cfgPath;
+             }
+
+             // Try searching for any cfg that contains the mod name
+             const files = fs.readdirSync(configDir);
+             const matching = files.find(f => f.toLowerCase().includes(modName.toLowerCase()) && f.endsWith('.cfg'));
+             if (matching) {
+                 return path.join(configDir, matching);
+             }
+        }
+    }
+
+    // MelonLoader
+    if (mod.source === 'melonloader') {
+        // MelonLoader configs are in UserData or Config folder?
+        // Usually UserData/ModName.cfg or Config/ModName.cfg
+
+        let mlRoot = path.dirname(mod.path); // Mods folder
+        if (path.basename(mlRoot).toLowerCase() !== 'mods') {
+             while (mlRoot && path.basename(mlRoot).toLowerCase() !== 'mods' && path.dirname(mlRoot) !== mlRoot) {
+                mlRoot = path.dirname(mlRoot);
+            }
+        }
+
+        const gameDir = path.dirname(mlRoot); // Game root
+        const userDataDir = path.join(gameDir, 'UserData');
+        const configDir = path.join(gameDir, 'Config'); // Some games/ML versions use Config
+
+        const dirsToCheck = [userDataDir, configDir];
+
+        for (const dir of dirsToCheck) {
+            if (fs.existsSync(dir)) {
+                 const modName = mod.name;
+                 const cfgPath = path.join(dir, `${modName}.cfg`);
+                 if (fs.existsSync(cfgPath)) return cfgPath;
+
+                 const files = fs.readdirSync(dir);
+                 const matching = files.find(f => f.toLowerCase().includes(modName.toLowerCase()) && (f.endsWith('.cfg') || f.endsWith('.toml')));
+                 if (matching) return path.join(dir, matching);
+            }
+        }
+    }
+
+    // Generic / Workshop
+    // Look for config files inside the mod directory
+    if (fs.statSync(mod.path).isDirectory()) {
+        const configFiles = ['config.json', 'settings.json', 'config.ini', 'settings.ini', 'config.cfg', 'mod.json'];
+        for (const file of configFiles) {
+            const cfgPath = path.join(mod.path, file);
+            if (fs.existsSync(cfgPath)) {
+                return cfgPath;
+            }
+        }
+
+        // Look for any .ini or .cfg or .json
+        const files = fs.readdirSync(mod.path);
+        const cfgFile = files.find(f => f.endsWith('.ini') || f.endsWith('.cfg') || (f.endsWith('.json') && f.includes('config')));
+        if (cfgFile) {
+            return path.join(mod.path, cfgFile);
+        }
+    }
+
+    return null;
+}
+
+// Get mod configuration
+ipcMain.handle('get-mod-config', async (event, mod) => {
+    try {
+        const configPath = await findModConfigFile(mod);
+
+        if (!configPath) {
+            return { success: false, error: 'Configuration file not found' };
+        }
+
+        const content = fs.readFileSync(configPath, 'utf8');
+        return {
+            success: true,
+            configPath,
+            content,
+            format: path.extname(configPath).substring(1)
+        };
+    } catch (error) {
+        console.error('Error reading mod config:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Save mod configuration
+ipcMain.handle('save-mod-config', async (event, configPath, content) => {
+    try {
+        if (!configPath || typeof configPath !== 'string') {
+            return { success: false, error: 'Invalid config path' };
+        }
+
+        // Basic security check: prevent saving to sensitive extensions
+        const ext = path.extname(configPath).toLowerCase();
+        const sensitiveExts = ['.exe', '.dll', '.bat', '.cmd', '.js', '.vbs', '.sh'];
+        if (sensitiveExts.includes(ext)) {
+            return { success: false, error: 'Cannot write to executable or script files' };
+        }
+
+        if (!fs.existsSync(configPath)) {
+             return { success: false, error: 'File does not exist' };
+        }
+
+        fs.writeFileSync(configPath, content, 'utf8');
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving mod config:', error);
+        return { success: false, error: error.message };
+    }
 });
