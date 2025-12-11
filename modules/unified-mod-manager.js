@@ -1565,7 +1565,7 @@ Description: ${mod.description || 'No description available'}
     isSafeUrl(url) {
         if (!url || typeof url !== 'string') return false;
         const urlLower = url.trim().toLowerCase();
-        return urlLower.startsWith('http://') || urlLower.startsWith('https://');
+        return urlLower.startsWith('http://') || urlLower.startsWith('https://') || urlLower.startsWith('file://');
     }
 
     /**

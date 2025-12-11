@@ -3407,6 +3407,16 @@ async function scanWorkshopMods(workshopPath, appId) {
                     }
                 }
 
+                // Try to find mod icon
+                const possibleIconFiles = ['preview.png', 'Preview.png', 'icon.png', 'mod_icon.png', 'logo.png', 'preview.jpg', 'Preview.jpg'];
+                for (const iconFile of possibleIconFiles) {
+                    const iconPath = path.join(modPath, iconFile);
+                    if (fs.existsSync(iconPath)) {
+                        modInfo.iconUrl = `file://${iconPath.replace(/\\/g, '/')}`;
+                        break;
+                    }
+                }
+
                 mods.push(modInfo);
             }
         }
