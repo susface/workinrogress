@@ -186,6 +186,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setNexusGameDomain: (gameId, domain) => ipcRenderer.invoke('set-nexus-game-domain', gameId, domain),
 
     // Mod loaders
+    checkModLoaderStatus: (gameId, loaderType) => ipcRenderer.invoke('check-mod-loader-status', gameId, loaderType),
     installBepInEx: (gameId) => ipcRenderer.invoke('install-bepinex', gameId),
     installMelonLoader: (gameId) => ipcRenderer.invoke('install-melonloader', gameId),
 

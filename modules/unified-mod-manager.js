@@ -394,7 +394,7 @@ class UnifiedModManager {
     /**
      * Detect mod support for current game
      */
-    detectModSupport(game) {
+    async detectModSupport(game) {
         this.modSupport = {
             hasWorkshop: game.has_workshop_support || false,
             isUnity: game.engine === 'Unity',
@@ -403,14 +403,40 @@ class UnifiedModManager {
             gameId: game.id,
             installPath: game.install_path
         };
+
+        // Check status if it's a Unity game
+        if (this.modSupport.isUnity && window.electronAPI && window.electronAPI.checkModLoaderStatus) {
+            try {
+                const bepInExStatus = await window.electronAPI.checkModLoaderStatus(game.id, 'bepinex');
+                this.modSupport.bepInExInstalled = bepInExStatus.success && bepInExStatus.isInstalled;
+                this.modSupport.bepInExMessage = bepInExStatus.message;
+
+                const melonStatus = await window.electronAPI.checkModLoaderStatus(game.id, 'melonloader');
+                this.modSupport.melonLoaderInstalled = melonStatus.success && melonStatus.isInstalled;
+                this.modSupport.melonLoaderMessage = melonStatus.message;
+            } catch (e) {
+                console.error('Failed to check mod loader status:', e);
+            }
+        }
     }
 
     /**
      * Update mod support info display
      */
-    updateModSupportInfo() {
+    async updateModSupportInfo() {
         const infoEl = document.getElementById('mod-support-info');
         if (!infoEl || !this.modSupport) return;
+
+        // Ensure status is up to date (this might be redundant if detectModSupport was just called, but safe)
+        if (this.modSupport.isUnity && window.electronAPI && window.electronAPI.checkModLoaderStatus) {
+             try {
+                const bepInExStatus = await window.electronAPI.checkModLoaderStatus(this.currentGame.id, 'bepinex');
+                this.modSupport.bepInExInstalled = bepInExStatus.success && bepInExStatus.isInstalled;
+
+                const melonStatus = await window.electronAPI.checkModLoaderStatus(this.currentGame.id, 'melonloader');
+                this.modSupport.melonLoaderInstalled = melonStatus.success && melonStatus.isInstalled;
+            } catch (e) { console.error(e); }
+        }
 
         let infoHtml = '<div class="support-badges">';
 
@@ -420,8 +446,18 @@ class UnifiedModManager {
 
         if (this.modSupport.isUnity) {
             infoHtml += '<span class="badge unity">🎮 Unity - Thunderstore Compatible</span>';
-            infoHtml += '<button id="install-bepinex-btn" class="btn installer-btn" style="background: #4caf50; margin-left: 10px;">Install BepInEx</button>';
-            infoHtml += '<button id="install-melonloader-btn" class="btn installer-btn" style="background: #2196f3; margin-left: 5px;">Install MelonLoader</button>';
+
+            // BepInEx Button
+            const bepBtnText = this.modSupport.bepInExInstalled ? '✓ BepInEx Installed' : 'Install BepInEx';
+            const bepBtnStyle = this.modSupport.bepInExInstalled ? 'background: #2e7d32;' : 'background: #4caf50;';
+            const bepBtnTitle = this.modSupport.bepInExInstalled ? 'Re-install/Update BepInEx' : 'Install BepInEx';
+            infoHtml += `<button id="install-bepinex-btn" class="btn installer-btn" style="${bepBtnStyle} margin-left: 10px;" title="${bepBtnTitle}">${bepBtnText}</button>`;
+
+            // MelonLoader Button
+            const melonBtnText = this.modSupport.melonLoaderInstalled ? '✓ MelonLoader Installed' : 'Install MelonLoader';
+            const melonBtnStyle = this.modSupport.melonLoaderInstalled ? 'background: #1565c0;' : 'background: #2196f3;';
+            const melonBtnTitle = this.modSupport.melonLoaderInstalled ? 'Re-install/Update MelonLoader' : 'Install MelonLoader';
+            infoHtml += `<button id="install-melonloader-btn" class="btn installer-btn" style="${melonBtnStyle} margin-left: 5px;" title="${melonBtnTitle}">${melonBtnText}</button>`;
         }
 
         if (this.modSupport.isUnreal) {
@@ -933,9 +969,67 @@ class UnifiedModManager {
     async installMod(modData, buttonElement) {
         if (!this.currentGame || !window.electronAPI) return;
 
+        // Check for dependencies (BepInEx/MelonLoader) for Unity games
+        if (this.modSupport.isUnity) {
+            const modNameLower = modData.name.toLowerCase();
+            const modDescLower = (modData.description || '').toLowerCase();
+            const categories = (modData.categories || []).map(c => c.toLowerCase());
+
+            // Check if it's explicitly MelonLoader
+            const isMelonMod = modNameLower.includes('melon') ||
+                               modDescLower.includes('melonloader') ||
+                               categories.some(c => c.includes('melon'));
+
+            // It's a BepInEx mod if it's not a loader itself AND (it's not Melon or it explicitly says BepInEx)
+            // Default to BepInEx for Thunderstore if ambiguous, as it's the standard there
+            const isBepInExMod = !modNameLower.includes('bepinex') && !modNameLower.includes('melonloader') && !isMelonMod;
+
+            if (isMelonMod && !modNameLower.includes('melonloader')) {
+                // Check MelonLoader status
+                let melonStatus = { isInstalled: false };
+                try {
+                    melonStatus = await window.electronAPI.checkModLoaderStatus(this.currentGame.id, 'melonloader');
+                } catch (e) { console.error(e); }
+
+                if (!melonStatus.isInstalled) {
+                    if (confirm('This mod likely requires MelonLoader, but it is not correctly installed. Install MelonLoader first?')) {
+                        this.showToast('Installing MelonLoader first...', 'info');
+                        const result = await this.installMelonLoader(true); // Assuming we add internalCall support to installMelonLoader too
+                        if (!result && result !== undefined) { // installMelonLoader might not return boolean yet if not updated
+                             // If it doesn't return anything (void), we assume it started.
+                             // But ideally we should update installMelonLoader to return success like installBepInEx
+                        }
+                    }
+                }
+            } else if (isBepInExMod) {
+                // Check BepInEx status
+                let bepStatus = { isInstalled: false };
+                try {
+                    bepStatus = await window.electronAPI.checkModLoaderStatus(this.currentGame.id, 'bepinex');
+                } catch (e) { console.error(e); }
+
+                if (!bepStatus.isInstalled) {
+                    if (confirm('This mod likely requires BepInEx, but it is not correctly installed (missing core files or proxy). Install BepInEx first?')) {
+                        // Install BepInEx
+                        this.showToast('Installing BepInEx first...', 'info');
+                        const bepResult = await this.installBepInEx(true); // true = internal call
+                        if (!bepResult) {
+                            this.showToast('BepInEx installation failed, aborting mod install', 'error');
+                            return;
+                        }
+                    } else {
+                        // User declined
+                        this.showToast('Proceeding without verified BepInEx...', 'warning');
+                    }
+                }
+            }
+        }
+
         const btn = buttonElement;
-        btn.disabled = true;
-        btn.textContent = 'Installing...';
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Installing...';
+        }
 
         this.showToast(`Installing ${modData.name}...`, 'info');
 
@@ -943,8 +1037,10 @@ class UnifiedModManager {
             const result = await window.electronAPI.installThunderstoreMod(this.currentGame.id, modData);
             if (result.success) {
                 this.showToast(`${modData.name} installed successfully!`, 'success');
-                btn.textContent = '✓ Installed';
-                btn.classList.add('installed');
+                if (btn) {
+                    btn.textContent = '✓ Installed';
+                    btn.classList.add('installed');
+                }
 
                 // Refresh installed mods
                 setTimeout(() => {
@@ -952,14 +1048,18 @@ class UnifiedModManager {
                 }, 1000);
             } else {
                 this.showToast(`Failed to install: ${result.error}`, 'error');
-                btn.disabled = false;
-                btn.textContent = 'Install';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Install';
+                }
             }
         } catch (error) {
             window.logger?.error('UNIFIED_MOD_MANAGER', 'Failed to install mod:', error);
             this.showToast('Failed to install mod', 'error');
-            btn.disabled = false;
-            btn.textContent = 'Install';
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Install';
+            }
         }
     }
 
@@ -1291,17 +1391,18 @@ Description: ${mod.description || 'No description available'}
 
     /**
      * Install BepInEx
+     * @param {boolean} internalCall - If true, returns success status instead of updating UI extensively
      */
-    async installBepInEx() {
+    async installBepInEx(internalCall = false) {
         if (!this.currentGame) {
             this.showToast('No game selected', 'error');
-            return;
+            return false;
         }
 
         if (!window.electronAPI || !window.electronAPI.installBepInEx) {
             window.open('https://github.com/BepInEx/BepInEx/releases/latest', '_blank');
             this.showToast('Please download BepInEx manually and extract to game folder', 'info');
-            return;
+            return false;
         }
 
         // Disable button and show loading
@@ -1317,16 +1418,17 @@ Description: ${mod.description || 'No description available'}
         try {
             const result = await window.electronAPI.installBepInEx(this.currentGame.id);
             if (result.success) {
-                if (result.alreadyInstalled) {
-                    this.showToast('BepInEx is already installed!', 'info');
-                } else {
-                    this.showToast('BepInEx installed successfully!', 'success');
+                this.showToast('BepInEx installed successfully!', 'success');
+
+                if (!internalCall) {
+                    this.loadModsForGame(this.currentGame.id);
+                    // Update UI status
+                    if (this.modSupport.isUnity) {
+                        this.modSupport.bepInExInstalled = true;
+                        this.updateModSupportInfo();
+                    }
                 }
-                this.loadModsForGame(this.currentGame.id);
-                if (btn) {
-                    btn.textContent = '✓ Installed';
-                    btn.style.background = '#4caf50';
-                }
+                return true;
             } else {
                 this.showToast(`Failed to install BepInEx: ${result.error}`, 'error');
                 if (btn) {
@@ -1334,6 +1436,7 @@ Description: ${mod.description || 'No description available'}
                     btn.textContent = 'Install BepInEx';
                     btn.style.opacity = '1';
                 }
+                return false;
             }
         } catch (error) {
             window.logger?.error('UNIFIED_MOD_MANAGER', 'Failed to install BepInEx:', error);
@@ -1343,6 +1446,7 @@ Description: ${mod.description || 'No description available'}
                 btn.textContent = 'Install BepInEx';
                 btn.style.opacity = '1';
             }
+            return false;
         }
     }
 
@@ -1374,15 +1478,13 @@ Description: ${mod.description || 'No description available'}
         try {
             const result = await window.electronAPI.installMelonLoader(this.currentGame.id);
             if (result.success) {
-                if (result.alreadyInstalled) {
-                    this.showToast('MelonLoader is already installed!', 'info');
-                } else {
-                    this.showToast('MelonLoader installed successfully!', 'success');
-                }
+                this.showToast('MelonLoader installed successfully!', 'success');
+
                 this.loadModsForGame(this.currentGame.id);
-                if (btn) {
-                    btn.textContent = '✓ Installed';
-                    btn.style.background = '#4caf50';
+                // Update UI status
+                if (this.modSupport.isUnity) {
+                    this.modSupport.melonLoaderInstalled = true;
+                    this.updateModSupportInfo();
                 }
             } else {
                 this.showToast(`Failed to install MelonLoader: ${result.error}`, 'error');
