@@ -3434,14 +3434,20 @@ async function scanUnityMods(installDir, gameTitle) {
                 const pluginPath = path.join(bepInExPath, plugin);
                 const stats = fs.statSync(pluginPath);
 
-                if (stats.isDirectory() || plugin.endsWith('.dll')) {
+                // Detect enabled and disabled mods
+                const isDll = plugin.endsWith('.dll');
+                const isDisabled = plugin.endsWith('.disabled');
+
+                if (stats.isDirectory() || isDll || isDisabled) {
+                    const name = isDisabled ? plugin.replace(/\.disabled$/, '').replace(/\.dll$/i, '') : plugin.replace(/\.dll$/i, '');
+
                     mods.push({
                         id: plugin,
-                        name: plugin.replace(/\.dll$/i, ''),
+                        name: name,
                         version: '1.0',
                         author: 'Unknown',
                         description: 'BepInEx plugin',
-                        enabled: true,
+                        enabled: !isDisabled,
                         source: 'bepinex',
                         path: pluginPath,
                         thunderstoreCompatible: true
@@ -3459,14 +3465,20 @@ async function scanUnityMods(installDir, gameTitle) {
                 const modPath = path.join(melonLoaderPath, mod);
                 const stats = fs.statSync(modPath);
 
-                if (stats.isDirectory() || mod.endsWith('.dll')) {
+                // Detect enabled and disabled mods
+                const isDll = mod.endsWith('.dll');
+                const isDisabled = mod.endsWith('.disabled');
+
+                if (stats.isDirectory() || isDll || isDisabled) {
+                    const name = isDisabled ? mod.replace(/\.disabled$/, '').replace(/\.dll$/i, '') : mod.replace(/\.dll$/i, '');
+
                     mods.push({
                         id: mod,
-                        name: mod.replace(/\.dll$/i, ''),
+                        name: name,
                         version: '1.0',
                         author: 'Unknown',
                         description: 'MelonLoader mod',
-                        enabled: true,
+                        enabled: !isDisabled,
                         source: 'melonloader',
                         path: modPath,
                         thunderstoreCompatible: true
@@ -3585,9 +3597,131 @@ ipcMain.handle('scan-game-mods', async (event, gameId) => {
 // Apply mod changes (enable/disable, load order)
 ipcMain.handle('apply-mod-changes', async (event, gameId, mods) => {
     try {
-        // TODO: Implement mod configuration logic
-        // Would write mod configuration files (load order, enabled mods)
-        // Common files: mods.txt, loadorder.txt, plugins.txt
+        const db = initDatabase();
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        db.close();
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        if (!game.install_directory || !fs.existsSync(game.install_directory)) {
+            return { success: false, error: 'Game installation directory not found' };
+        }
+
+        const configDir = game.install_directory;
+
+        // 1. Handle physical file changes (Renaming for Unity mods)
+        for (const mod of mods) {
+            // Check if we need to process this mod (BepInEx/MelonLoader file-based enabling)
+            if ((mod.source === 'bepinex' || mod.source === 'melonloader') && mod.path) {
+
+                // Determine directories based on source
+                let modDir;
+                if (mod.source === 'bepinex') {
+                    modDir = path.join(configDir, 'BepInEx', 'plugins');
+                } else if (mod.source === 'melonloader') {
+                    modDir = path.join(configDir, 'Mods');
+                }
+
+                // Skip if main directory doesn't exist
+                if (!modDir || !fs.existsSync(modDir)) continue;
+
+                // Find the actual current file
+                // mod.path might point to the old location if state changed
+                const originalName = path.basename(mod.path);
+
+                // Try to find the file in its current state
+                // If mod.path exists, use it.
+                // If not, check if it was renamed (toggled) externally or by previous op
+
+                let currentPath = mod.path;
+
+                if (!fs.existsSync(currentPath)) {
+                    // Try to guess the other state
+                    if (originalName.endsWith('.disabled')) {
+                        // Maybe it's now enabled?
+                        const enabledName = originalName.replace(/\.disabled$/, '');
+                        const enabledPath = path.join(path.dirname(currentPath), enabledName);
+                        if (fs.existsSync(enabledPath)) {
+                            currentPath = enabledPath;
+                        }
+                    } else {
+                        // Maybe it's now disabled?
+                        const disabledName = originalName + '.disabled';
+                        const disabledPath = path.join(path.dirname(currentPath), disabledName);
+                        if (fs.existsSync(disabledPath)) {
+                            currentPath = disabledPath;
+                        }
+                    }
+                }
+
+                // If we still can't find it, skip
+                if (!fs.existsSync(currentPath)) continue;
+
+                const fileName = path.basename(currentPath);
+                const dirName = path.dirname(currentPath);
+
+                if (mod.enabled) {
+                    // Ensure NOT disabled
+                    if (fileName.endsWith('.disabled')) {
+                        const newName = fileName.replace(/\.disabled$/, '');
+                        const newPath = path.join(dirName, newName);
+                        await fs.promises.rename(currentPath, newPath);
+                    }
+                } else {
+                    // Ensure disabled
+                    if (!fileName.endsWith('.disabled')) {
+                        const newName = fileName + '.disabled';
+                        const newPath = path.join(dirName, newName);
+                        await fs.promises.rename(currentPath, newPath);
+                    }
+                }
+            }
+        }
+
+        // 2. Write configuration files
+        // We will write a standard mods.json for our own tracking,
+        // and also common text formats for game compatibility.
+
+        // mods.json - Full details including load order
+        const modsConfig = {
+            lastUpdated: new Date().toISOString(),
+            mods: mods.map(m => ({
+                id: m.id,
+                name: m.name,
+                enabled: m.enabled,
+                loadOrder: m.loadOrder,
+                source: m.source
+            }))
+        };
+
+        await fs.promises.writeFile(
+            path.join(configDir, 'mods.json'),
+            JSON.stringify(modsConfig, null, 2)
+        );
+
+        // loadorder.txt - Just names of enabled mods in order
+        const loadOrderContent = mods
+            .filter(m => m.enabled)
+            .map(m => m.name || m.id)
+            .join('\n');
+
+        await fs.promises.writeFile(
+            path.join(configDir, 'loadorder.txt'),
+            loadOrderContent
+        );
+
+        // plugins.txt (often used with asterisk for enabled)
+        const pluginsContent = mods
+            .map(m => (m.enabled ? '*' : '') + (m.name || m.id))
+            .join('\n');
+
+        await fs.promises.writeFile(
+            path.join(configDir, 'plugins.txt'),
+            pluginsContent
+        );
+
         return { success: true };
     } catch (error) {
         console.error('Error applying mod changes:', error);
