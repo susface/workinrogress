@@ -532,10 +532,70 @@ class UnifiedModManager {
             return;
         }
 
+        if (!window.electronAPI) {
+            this.showToast('Nexus browsing requires Electron mode', 'info');
+            return;
+        }
+
+        // Show loading state
+        const resultsContainer = document.getElementById('browse-results');
+        if (resultsContainer) {
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = `
+                <div class="loading-state">
+                    <div class="spinner" style="
+                        border: 4px solid rgba(255,255,255,0.1);
+                        border-top: 4px solid #da8b2d;
+                        border-radius: 50%;
+                        width: 50px;
+                        height: 50px;
+                        animation: spin 1s linear infinite;
+                        margin: 0 auto 20px;
+                    "></div>
+                    <p>Searching Nexus Mods...</p>
+                </div>
+            `;
+        }
+
         this.showToast('Searching Nexus Mods...', 'info');
 
-        // TODO: Implement Nexus Mods search with game domain mapping
-        this.showToast('Nexus Mods browsing coming soon', 'info');
+        try {
+            const result = await window.electronAPI.searchNexusMods(this.currentGame.id, this.apiKeys.nexusMods);
+
+            if (result.success && result.mods) {
+                this.showBrowseResults(result.mods, 'nexus');
+            } else {
+                if (resultsContainer) {
+                    let errorMessage = result.error || 'No mods found';
+                    if (errorMessage.includes('not found') || errorMessage.includes('domain')) {
+                         errorMessage += `<br><br>
+                         <div style="margin-top: 10px;">
+                             <input type="text" id="manual-nexus-domain" placeholder="Enter game domain (e.g. 'skyrim')" style="padding: 5px; color: black;">
+                             <button id="set-nexus-domain-btn" class="btn" style="margin-left: 5px;">Set Domain</button>
+                         </div>`;
+                    }
+                    resultsContainer.innerHTML = `<div class="empty-state">${errorMessage}</div>`;
+
+                    // Attach handler for manual domain entry
+                    setTimeout(() => {
+                        document.getElementById('set-nexus-domain-btn')?.addEventListener('click', async () => {
+                            const domain = document.getElementById('manual-nexus-domain').value;
+                            if (domain) {
+                                await window.electronAPI.setNexusGameDomain(this.currentGame.id, domain);
+                                this.browseNexus(); // Retry
+                            }
+                        });
+                    }, 0);
+                }
+                this.showToast(result.error || 'Failed to fetch Nexus Mods', 'error');
+            }
+        } catch (error) {
+            window.logger?.error('UNIFIED_MOD_MANAGER', 'Failed to search Nexus Mods:', error);
+            if (resultsContainer) {
+                resultsContainer.innerHTML = '<div class="empty-state">Failed to search Nexus Mods. Please try again.</div>';
+            }
+            this.showToast('Failed to search Nexus Mods', 'error');
+        }
     }
 
     /**

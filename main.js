@@ -195,6 +195,13 @@ function initDatabase() {
         // Column already exists, ignore error
     }
 
+    // Add nexus_game_domain column if it doesn't exist (migration)
+    try {
+        db.exec('ALTER TABLE games ADD COLUMN nexus_game_domain TEXT');
+    } catch (e) {
+        // Column already exists, ignore error
+    }
+
     // Create game sessions table
     db.exec(`
         CREATE TABLE IF NOT EXISTS game_sessions (
@@ -1875,6 +1882,219 @@ ipcMain.handle('toggle-favorite', async (event, gameId) => {
         return { success: false, error: 'Game not found' };
     } catch (error) {
         console.error('Error toggling favorite:', error);
+        return { success: false, error: error.message };
+    } finally {
+        db.close();
+    }
+});
+
+// ============================================
+// NEXUS MODS API
+// ============================================
+
+// Search for mods on Nexus Mods
+ipcMain.handle('search-nexus-mods', async (event, gameId, apiKey) => {
+    try {
+        const https = require('https');
+
+        if (!apiKey) {
+            return { success: false, error: 'API key is required' };
+        }
+
+        // Look up game to get title and nexus_game_domain
+        const db = initDatabase();
+        let game;
+        try {
+            game = db.prepare('SELECT title, nexus_game_domain FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // Use nexus_game_domain if set, otherwise try to normalize title
+        let gameDomain = game.nexus_game_domain;
+
+        // Handle null/undefined/empty/"null" string cases
+        if (!gameDomain || typeof gameDomain !== 'string' || gameDomain === 'null' || gameDomain.trim() === '') {
+            // Common game mappings for Nexus Mods
+            const commonMappings = {
+                'skyrim': 'skyrim',
+                'skyrim special edition': 'skyrimspecialedition',
+                'skyrim se': 'skyrimspecialedition',
+                'fallout 4': 'fallout4',
+                'stardew valley': 'stardewvalley',
+                'cyberpunk 2077': 'cyberpunk2077',
+                'bg3': 'baldursgate3',
+                'baldurs gate 3': 'baldursgate3',
+                'starfield': 'starfield',
+                'elden ring': 'eldenring',
+                'monster hunter: world': 'monsterhunterworld',
+                'mh:w': 'monsterhunterworld',
+                'mhw': 'monsterhunterworld',
+                'witcher 3': 'witcher3',
+                'the witcher 3': 'witcher3',
+                'morrowind': 'morrowind',
+                'oblivion': 'oblivion',
+                'fallout new vegas': 'newvegas',
+                'fnv': 'newvegas',
+                'fallout 3': 'fallout3',
+                'mount & blade ii: bannerlord': 'mountandblade2bannerlord',
+                'bannerlord': 'mountandblade2bannerlord',
+                'valheim': 'valheim',
+                'subnautica': 'subnautica',
+                'no mans sky': 'nomanssky',
+                'no man\'s sky': 'nomanssky',
+                'dark souls': 'darksouls',
+                'dark souls 3': 'darksouls3',
+                'mass effect legendary edition': 'masseffectlegendaryedition',
+                'sims 4': 'thesims4'
+            };
+
+            const titleLower = game.title.toLowerCase().trim();
+
+            // Check common mappings first
+            if (commonMappings[titleLower]) {
+                gameDomain = commonMappings[titleLower];
+            } else {
+                // Auto-generate from title: "The Witcher 3" -> "thewitcher3"
+                // Nexus Mods domains usually just remove spaces and special characters
+                gameDomain = game.title.toLowerCase()
+                    .replace(/[^a-z0-9]/g, '');
+            }
+        }
+
+        // Validate that we have a valid domain
+        if (!gameDomain || typeof gameDomain !== 'string' || gameDomain.trim() === '') {
+            return {
+                success: false,
+                error: `Could not determine Nexus Mods domain for "${game.title}". Please set it manually.`
+            };
+        }
+
+        console.log(`[NEXUS] Game lookup: title="${game.title}", domain="${gameDomain}"`);
+
+        // Fetch Trending Mods
+        const apiUrl = `https://api.nexusmods.com/v1/games/${gameDomain}/mods/trending.json`;
+        console.log(`[NEXUS] API URL: ${apiUrl}`);
+
+        const response = await new Promise((resolve, reject) => {
+            const options = {
+                headers: {
+                    'apikey': apiKey,
+                    'accept': 'application/json',
+                    'User-Agent': 'CoverFlow-Game-Launcher/1.0.0'
+                },
+                timeout: 10000
+            };
+
+            const request = https.get(apiUrl, options, (res) => {
+                let data = '';
+
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+
+                res.on('end', () => {
+                    try {
+                        const parsedData = data ? JSON.parse(data) : null;
+                        resolve({
+                            status: res.statusCode,
+                            data: parsedData
+                        });
+                    } catch (e) {
+                        console.error('[NEXUS] Failed to parse JSON response:', e.message);
+                        reject(new Error(`Invalid JSON response from Nexus Mods API: ${e.message}`));
+                    }
+                });
+            });
+
+            request.on('error', (err) => {
+                console.error('[NEXUS] HTTP request error:', err.message);
+                reject(new Error(`Network error: ${err.message}`));
+            });
+
+            request.on('timeout', () => {
+                request.destroy();
+                reject(new Error('Request timed out after 10 seconds'));
+            });
+        });
+
+        if (response.status === 200 && response.data) {
+            // Nexus Trending API returns an array of mods directly
+            const modsList = Array.isArray(response.data) ? response.data : [];
+
+            console.log(`[NEXUS] Fetched ${modsList.length} trending mods for "${gameDomain}"`);
+
+            // Map to unified format
+            const mappedMods = modsList.map(mod => ({
+                id: mod.mod_id,
+                name: mod.name || 'Unknown Mod',
+                description: mod.summary || 'No description available',
+                author: mod.author || 'Unknown',
+                version: mod.version || 'Unknown',
+                downloads: mod.downloads || 0,
+                rating: 0, // Nexus API doesn't always return rating in trending list easily
+                websiteUrl: `https://www.nexusmods.com/${gameDomain}/mods/${mod.mod_id}`,
+                iconUrl: mod.picture_url || null,
+                isModpack: false,
+                isPinned: false,
+                isDeprecated: false,
+                // Nexus specific fields
+                nexusGameDomain: gameDomain,
+                nexusModId: mod.mod_id
+            }));
+
+            return {
+                success: true,
+                mods: mappedMods
+            };
+        } else if (response.status === 404) {
+             return {
+                success: false,
+                error: `Game "${gameDomain}" not found on Nexus Mods. Please check the game domain.`
+            };
+        } else if (response.status === 403 || response.status === 401) {
+             return {
+                success: false,
+                error: `Nexus Mods API Key invalid or unauthorized.`
+            };
+        }
+
+        return { success: false, error: `Failed to fetch from Nexus Mods (HTTP ${response.status})` };
+    } catch (error) {
+        console.error('[NEXUS] Error searching Nexus Mods:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Set the Nexus Mods game domain
+ipcMain.handle('set-nexus-game-domain', async (event, gameId, domain) => {
+    const db = initDatabase();
+    try {
+        // Validate game exists
+        const game = db.prepare('SELECT id FROM games WHERE id = ?').get(gameId);
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // Normalize
+        let normalizedDomain = null;
+        if (domain && typeof domain === 'string') {
+            const trimmed = domain.trim().toLowerCase();
+            if (trimmed && trimmed !== 'null') {
+                normalizedDomain = trimmed;
+            }
+        }
+
+        db.prepare('UPDATE games SET nexus_game_domain = ? WHERE id = ?').run(normalizedDomain, gameId);
+
+        console.log(`[NEXUS] Set domain for game ${gameId} to: ${normalizedDomain}`);
+        return { success: true };
+    } catch (error) {
+        console.error('[NEXUS] Error setting Nexus game domain:', error);
         return { success: false, error: error.message };
     } finally {
         db.close();

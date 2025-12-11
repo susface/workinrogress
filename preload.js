@@ -181,6 +181,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setThunderstoreCommunity: (gameId, communityName) => ipcRenderer.invoke('set-thunderstore-community', gameId, communityName),
     installThunderstoreMod: (gameId, modPackage) => ipcRenderer.invoke('install-thunderstore-mod', gameId, modPackage),
 
+    // Nexus Mods API
+    searchNexusMods: (gameId, apiKey) => ipcRenderer.invoke('search-nexus-mods', gameId, apiKey),
+    setNexusGameDomain: (gameId, domain) => ipcRenderer.invoke('set-nexus-game-domain', gameId, domain),
+
     // Mod loaders
     installBepInEx: (gameId) => ipcRenderer.invoke('install-bepinex', gameId),
     installMelonLoader: (gameId) => ipcRenderer.invoke('install-melonloader', gameId)
