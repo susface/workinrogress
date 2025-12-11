@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const Database = require('better-sqlite3');
+const gameUpdater = require('./modules/update-checker');
 
 // Single instance lock - prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock();
@@ -3482,12 +3483,24 @@ ipcMain.handle('check-game-updates', async () => {
         const now = new Date().toISOString();
         db.prepare('UPDATE games SET last_update_check = ?').run(now);
 
-        db.close();
+        // Check for updates
+        const updates = await gameUpdater.checkForUpdates(games);
 
-        // TODO: Implement actual update checking logic
-        // This would query each platform's API (Steam, Epic, Xbox) for available updates
-        // For now, return empty array
-        const updates = [];
+        if (updates.length > 0) {
+            // Reset update status for all games first to avoid stale data
+            db.prepare('UPDATE games SET update_available = 0').run();
+
+            // Update games with update_available flag
+            const updateStmt = db.prepare('UPDATE games SET update_available = 1 WHERE id = ?');
+            const transaction = db.transaction((updates) => {
+                for (const update of updates) {
+                    updateStmt.run(update.id);
+                }
+            });
+            transaction(updates);
+        }
+
+        db.close();
 
         return { success: true, updates };
     } catch (error) {
