@@ -747,38 +747,64 @@ class UIComponents {
     // ============================================
     createDuplicateManager() {
         const manager = document.createElement('div');
-        manager.id = 'duplicate-manager';
-        manager.className = 'duplicate-manager';
+        manager.id = 'duplicate-game-manager';
+        manager.className = 'side-panel'; // Use a more generic class for styling
         manager.style.display = 'none';
         manager.innerHTML = `
-            <div class="duplicate-header">
+            <div class="side-panel-header">
                 <h2>🔍 Duplicate Game Manager</h2>
-                <button class="close-btn" onclick="document.getElementById('duplicate-manager').style.display='none'">×</button>
+                <button class="close-btn">×</button>
             </div>
-            <div class="duplicate-content">
-                <p class="duplicate-description">
-                    Found games that exist on multiple platforms. Choose which version to keep visible.
+            <div class="side-panel-content">
+                <p class="side-panel-description">
+                    Found games that exist on multiple platforms. Choose which version to keep visible or hide.
                 </p>
-                <div id="duplicate-list"></div>
+                <div id="duplicate-list" class="side-panel-list"></div>
             </div>
         `;
 
         document.body.appendChild(manager);
 
-        // Add duplicate button to controls
-        const duplicateBtn = document.createElement('button');
-        duplicateBtn.className = 'duplicate-btn';
-        duplicateBtn.innerHTML = '🔍 Duplicates';
-        duplicateBtn.onclick = () => this.showDuplicateManager();
+        // Add event listener to the close button of the duplicate manager panel
+        const closeBtn = manager.querySelector('.close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                manager.style.display = 'none';
+            });
+        }
 
-        const controls = document.querySelector('.controls');
-        if (controls) controls.appendChild(duplicateBtn);
+        // Add "Manage Duplicates" button to the settings modal's Game Library section
+        const reloadGamesBtn = document.getElementById('reload-games-btn');
+        if (reloadGamesBtn && reloadGamesBtn.parentElement) {
+            const duplicateBtnGroup = document.createElement('div');
+            duplicateBtnGroup.className = 'setting-group';
+            duplicateBtnGroup.innerHTML = `
+                <button id="manage-duplicates-btn" class="btn">Manage Duplicates</button>
+                <small class="setting-info">Find and manage duplicate games across different platforms.</small>
+            `;
+            reloadGamesBtn.parentElement.after(duplicateBtnGroup);
+
+            // Add listener for the newly created button
+            const manageDuplicatesBtn = document.getElementById('manage-duplicates-btn');
+            if (manageDuplicatesBtn) {
+                manageDuplicatesBtn.addEventListener('click', () => {
+                    // Hide settings modal, then show the manager
+                    const settingsModal = document.getElementById('settings-modal');
+                    if (settingsModal) {
+                        settingsModal.style.display = 'none';
+                    }
+                    this.showDuplicateManager();
+                });
+            }
+        }
     }
 
     async showDuplicateManager() {
-        const manager = document.getElementById('duplicate-manager');
-        manager.style.display = 'block';
-        await this.loadDuplicates();
+        const manager = document.getElementById('duplicate-game-manager');
+        if (manager) {
+            manager.style.display = 'block';
+            await this.loadDuplicates();
+        }
     }
 
     async loadDuplicates() {
@@ -927,6 +953,18 @@ class UIComponents {
                 await this.renderView(this.currentView);
             }, { signal });
         }
+
+        // Clear game data
+        const clearGameDataBtn = document.getElementById('clear-game-data-btn');
+        if (clearGameDataBtn) {
+            clearGameDataBtn.addEventListener('click', async () => {
+                if (confirm('Are you sure you want to delete all game data? This action cannot be undone.')) {
+                    await window.electronAPI.clearGameData();
+                    // Refresh the view to show the empty library
+                    await this.renderView(this.currentView);
+                }
+            }, { signal });
+        }
     }
 }
 
@@ -960,6 +998,12 @@ async function hideDuplicate(gameId) {
 function initUIComponents() {
     if (!window.uiComponents) {
         window.uiComponents = new UIComponents();
+        // Add a cleanup function to be called on page unload
+        window.addEventListener('beforeunload', () => {
+            if (window.uiComponents && typeof window.uiComponents.destroy === 'function') {
+                window.uiComponents.destroy();
+            }
+        });
     }
 }
 

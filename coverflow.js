@@ -678,6 +678,13 @@ class CoverFlow {
         };
         this.addTrackedEventListener(document, 'visibilitychange', visibilityHandler);
 
+        // Add beforeunload listener to clean up resources
+        window.addEventListener('beforeunload', () => {
+            if (typeof this.destroy === 'function') {
+                this.destroy();
+            }
+        });
+
         // Initialize enhancement modules
         if (typeof this.initializeSoundEffects === 'function') {
             this.initializeSoundEffects();
@@ -2881,89 +2888,44 @@ class CoverFlow {
         }
 
         // Clear intervals
-        if (this.autoRotateInterval) {
-            clearInterval(this.autoRotateInterval);
-            this.autoRotateInterval = null;
-        }
-        if (this.scanInterval) {
-            clearInterval(this.scanInterval);
-            this.scanInterval = null;
-        }
+        if (this.autoRotateInterval) clearInterval(this.autoRotateInterval);
+        if (this.scanInterval) clearInterval(this.scanInterval);
+        if (this.checkInterval) clearInterval(this.checkInterval);
+        if (this.recentLaunchedInterval) clearInterval(this.recentLaunchedInterval);
+        if (this.trackUpdateInterval) clearInterval(this.trackUpdateInterval);
 
-        // Clear all session tracking timeouts
+        // Clear all session tracking timeouts and intervals
         if (this.sessionTrackingTimeouts) {
-            Object.values(this.sessionTrackingTimeouts).forEach(timeoutId => {
-                clearTimeout(timeoutId);
-            });
-            this.sessionTrackingTimeouts = {};
-            console.log('[COVERFLOW] Cleared all session tracking timeouts');
+            Object.values(this.sessionTrackingTimeouts).forEach(clearTimeout);
         }
-
-        // Clear all session intervals
         if (this.sessionIntervals) {
-            Object.values(this.sessionIntervals).forEach(intervalId => {
-                clearInterval(intervalId);
-            });
-            this.sessionIntervals = {};
-            console.log('[COVERFLOW] Cleared all session intervals');
+            Object.values(this.sessionIntervals).forEach(clearInterval);
         }
 
         // Remove all tracked event listeners
         this.eventListeners.forEach(({ element, event, handler, options }) => {
-            try {
-                element.removeEventListener(event, handler, options);
-            } catch (error) {
-                console.error('[COVERFLOW] Error removing event listener:', error);
-            }
+            element.removeEventListener(event, handler, options);
         });
         this.eventListeners = [];
 
         // Dispose visual effects manager
         if (this.visualEffectsManager && typeof this.visualEffectsManager.dispose === 'function') {
             this.visualEffectsManager.dispose();
-            this.visualEffectsManager = null;
         }
 
-        // Cleanup module intervals and resources
+        // Cleanup modules safely
         if (this._modules) {
-            // Session insights cleanup
-            if (this._modules.sessionInsights && typeof this._modules.sessionInsights.cleanup === 'function') {
-                this._modules.sessionInsights.cleanup();
-            }
-            // Mod manager cleanup
-            if (this._modules.modManager && typeof this._modules.modManager.cleanup === 'function') {
-                this._modules.modManager.cleanup();
-            }
-            // Video player cleanup
-            if (this._modules.videoPlayer && typeof this._modules.videoPlayer.destroy === 'function') {
-                this._modules.videoPlayer.destroy();
-            }
-            // VR mode cleanup
-            if (this._modules.vrMode && typeof this._modules.vrMode.cleanup === 'function') {
-                this._modules.vrMode.cleanup();
-            }
-            console.log('[COVERFLOW] Module cleanup complete');
+            Object.values(this._modules).forEach(module => {
+                if (module && typeof module.cleanup === 'function') {
+                    module.cleanup();
+                } else if (module && typeof module.destroy === 'function') {
+                    module.destroy();
+                }
+            });
         }
 
-        // Cleanup update notifications interval
-        if (typeof this.cleanupUpdateNotifications === 'function') {
-            this.cleanupUpdateNotifications();
-        } else if (this.checkInterval) {
-            clearInterval(this.checkInterval);
-            this.checkInterval = null;
-        }
-
-        // Cleanup features manager interval
-        if (this.recentLaunchedInterval) {
-            clearInterval(this.recentLaunchedInterval);
-            this.recentLaunchedInterval = null;
-        }
-
-        // Cleanup per-game music
-        if (this.trackUpdateInterval) {
-            clearInterval(this.trackUpdateInterval);
-            this.trackUpdateInterval = null;
-        }
+        // Call specific cleanup methods on modules if they exist
+        if (typeof this.cleanupUpdateNotifications === 'function') this.cleanupUpdateNotifications();
 
         // Clear the 3D scene
         this.clearScene();

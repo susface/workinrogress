@@ -1291,8 +1291,6 @@ function handleProcessTrackerNotification(message) {
 
             // Update the database with accurate runtime
             try {
-                const db = initDatabase();
-
                 // Update session with accurate duration
                 db.prepare(`
                     UPDATE game_sessions
@@ -1307,8 +1305,6 @@ function handleProcessTrackerNotification(message) {
                     SET total_play_time = total_play_time + ?
                     WHERE id = ?
                 `).run(runtime, gameId);
-
-                db.close();
 
                 // Remove from active sessions
                 activeGameSessions.delete(gameId);
@@ -3436,7 +3432,6 @@ ipcMain.handle('scan-game-soundtrack', async (event, gameId) => {
 // Check for game updates
 ipcMain.handle('check-game-updates', async () => {
     try {
-        const db = initDatabase();
         const games = db.prepare('SELECT * FROM games').all();
 
         // Update last check time
@@ -3460,8 +3455,6 @@ ipcMain.handle('check-game-updates', async () => {
             transaction(updates);
         }
 
-        db.close();
-
         return { success: true, updates };
     } catch (error) {
         console.error('Error checking game updates:', error);
@@ -3472,11 +3465,9 @@ ipcMain.handle('check-game-updates', async () => {
 // Update a game
 ipcMain.handle('update-game', async (event, gameId) => {
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
 
         if (!game) {
-            db.close();
             return { success: false, error: 'Game not found' };
         }
 
@@ -3533,8 +3524,6 @@ ipcMain.handle('update-game', async (event, gameId) => {
 
         // Mark as updated in database
         db.prepare('UPDATE games SET update_available = 0 WHERE id = ?').run(gameId);
-
-        db.close();
 
         return { success: true, message: updateMessage, triggered: updateTriggered };
     } catch (error) {
@@ -3819,9 +3808,7 @@ async function scanGenericMods(installDir) {
 // Get mods for a game
 ipcMain.handle('get-game-mods', async (event, gameId) => {
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        db.close();
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -3847,9 +3834,7 @@ ipcMain.handle('get-game-mods', async (event, gameId) => {
 // Scan for new mods
 ipcMain.handle('scan-game-mods', async (event, gameId) => {
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        db.close();
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -3888,9 +3873,7 @@ ipcMain.handle('scan-game-mods', async (event, gameId) => {
 // Apply mod changes (enable/disable, load order)
 ipcMain.handle('apply-mod-changes', async (event, gameId, mods) => {
     try {
-        const db = initDatabase();
         const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        db.close();
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -4023,13 +4006,7 @@ ipcMain.handle('apply-mod-changes', async (event, gameId, mods) => {
 // Open mod folder
 ipcMain.handle('open-mod-folder', async (event, gameId) => {
     try {
-        const db = initDatabase();
-        let game;
-        try {
-            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        } finally {
-            db.close();
-        }
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -4071,13 +4048,7 @@ ipcMain.handle('open-mod-folder', async (event, gameId) => {
 // Delete a mod
 ipcMain.handle('delete-mod', async (event, gameId, modId) => {
     try {
-        const db = initDatabase();
-        let game;
-        try {
-            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        } finally {
-            db.close();
-        }
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -4172,13 +4143,7 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
         const https = require('https');
 
         // Look up game to get title and thunderstore_community
-        const db = initDatabase();
-        let game;
-        try {
-            game = db.prepare('SELECT title, thunderstore_community FROM games WHERE id = ?').get(gameId);
-        } finally {
-            db.close();
-        }
+        const game = db.prepare('SELECT title, thunderstore_community FROM games WHERE id = ?').get(gameId);
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -4382,7 +4347,6 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
 
 // Set the Thunderstore community name for a game
 ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName) => {
-    const db = initDatabase();
     try {
         // Validate game exists
         const game = db.prepare('SELECT id FROM games WHERE id = ?').get(gameId);
@@ -4407,8 +4371,6 @@ ipcMain.handle('set-thunderstore-community', async (event, gameId, communityName
     } catch (error) {
         console.error('[THUNDERSTORE] Error setting Thunderstore community:', error);
         return { success: false, error: error.message };
-    } finally {
-        db.close();
     }
 });
 
@@ -4420,13 +4382,7 @@ ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => 
             return { success: false, error: 'Invalid mod package data' };
         }
 
-        const db = initDatabase();
-        let game;
-        try {
-            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        } finally {
-            db.close();
-        }
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -4534,13 +4490,7 @@ ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => 
 // Install BepInEx for Unity games
 ipcMain.handle('install-bepinex', async (event, gameId) => {
     try {
-        const db = initDatabase();
-        let game;
-        try {
-            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        } finally {
-            db.close();
-        }
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -4643,13 +4593,7 @@ ipcMain.handle('install-bepinex', async (event, gameId) => {
 // Install MelonLoader for Unity games
 ipcMain.handle('install-melonloader', async (event, gameId) => {
     try {
-        const db = initDatabase();
-        let game;
-        try {
-            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-        } finally {
-            db.close();
-        }
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
 
         if (!game) {
             return { success: false, error: 'Game not found' };
@@ -4759,6 +4703,9 @@ if (isDev) {
 // App lifecycle handlers for playtime tracking
 app.on('before-quit', () => {
     console.log('[PLAYTIME] App closing, ending all active sessions');
+    if (db) {
+        db.close();
+    }
     stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
@@ -4767,6 +4714,9 @@ app.on('before-quit', () => {
 
 app.on('will-quit', () => {
     console.log('[PLAYTIME] App quitting');
+    if (db) {
+        db.close();
+    }
     stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
@@ -4775,6 +4725,9 @@ app.on('will-quit', () => {
 
 // Handle window close
 app.on('window-all-closed', () => {
+    if (db) {
+        db.close();
+    }
     stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
