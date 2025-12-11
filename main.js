@@ -4487,6 +4487,89 @@ ipcMain.handle('install-thunderstore-mod', async (event, gameId, modPackage) => 
     }
 });
 
+// Check mod loader status (BepInEx/MelonLoader)
+ipcMain.handle('check-mod-loader-status', async (event, gameId, loaderType) => {
+    try {
+        const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        if (!game.install_directory || !fs.existsSync(game.install_directory)) {
+            return { success: false, error: 'Game installation directory not found' };
+        }
+
+        const installDir = game.install_directory;
+        let isInstalled = false;
+        let message = '';
+
+        if (loaderType === 'bepinex') {
+            // Check for BepInEx
+            // 1. Check for folder
+            const bepInExFolder = path.join(installDir, 'BepInEx');
+            const hasFolder = fs.existsSync(bepInExFolder);
+
+            // 2. Check for core DLL (confirms it's not just an empty folder)
+            const coreDllPath = path.join(bepInExFolder, 'core', 'BepInEx.dll');
+            const hasCoreDll = fs.existsSync(coreDllPath);
+
+            // 3. Check for proxy DLL (winhttp.dll, doorstop_config.ini, or version.dll)
+            const hasWinHttp = fs.existsSync(path.join(installDir, 'winhttp.dll'));
+            const hasDoorstop = fs.existsSync(path.join(installDir, 'doorstop_config.ini'));
+            const hasVersion = fs.existsSync(path.join(installDir, 'version.dll'));
+            const hasProxy = hasWinHttp || hasDoorstop || hasVersion;
+
+            isInstalled = hasFolder && hasCoreDll && hasProxy;
+
+            if (isInstalled) {
+                message = 'BepInEx is correctly installed';
+            } else if (hasFolder) {
+                message = 'BepInEx folder exists but core files or proxy are missing';
+            } else {
+                message = 'BepInEx is not installed';
+            }
+
+        } else if (loaderType === 'melonloader') {
+            // Check for MelonLoader
+            // 1. Check for folder
+            const melonFolder = path.join(installDir, 'MelonLoader');
+            const hasFolder = fs.existsSync(melonFolder);
+
+            // 2. Check for core DLL
+            // Note: In some versions it might be in different subfolders, but typically standard install has it.
+            // Some ML versions have it directly in MelonLoader/MelonLoader.dll or MelonLoader/Core/MelonLoader.dll
+            const coreDllPath1 = path.join(melonFolder, 'MelonLoader.dll');
+            const coreDllPath2 = path.join(melonFolder, 'Core', 'MelonLoader.dll'); // Newer versions might use Core
+            const hasCoreDll = fs.existsSync(coreDllPath1) || fs.existsSync(coreDllPath2);
+
+            // 3. Check for proxy DLL (version.dll, winmm.dll, or dobby.dll)
+            const hasVersion = fs.existsSync(path.join(installDir, 'version.dll'));
+            const hasWinmm = fs.existsSync(path.join(installDir, 'winmm.dll'));
+            const hasDobby = fs.existsSync(path.join(installDir, 'dobby.dll'));
+            const hasProxy = hasVersion || hasWinmm || hasDobby;
+
+            isInstalled = hasFolder && hasCoreDll && hasProxy;
+
+            if (isInstalled) {
+                message = 'MelonLoader is correctly installed';
+            } else if (hasFolder) {
+                message = 'MelonLoader folder exists but core files or proxy are missing';
+            } else {
+                message = 'MelonLoader is not installed';
+            }
+        } else {
+            return { success: false, error: 'Invalid loader type' };
+        }
+
+        return { success: true, isInstalled, message };
+
+    } catch (error) {
+        console.error('Error checking mod loader status:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // Install BepInEx for Unity games
 ipcMain.handle('install-bepinex', async (event, gameId) => {
     try {
@@ -4500,10 +4583,10 @@ ipcMain.handle('install-bepinex', async (event, gameId) => {
             return { success: false, error: 'Game installation directory not found' };
         }
 
-        // Check if already installed
+        // Check if already installed (we allow re-installation/repair now)
         const bepInExPath = path.join(game.install_directory, 'BepInEx');
         if (fs.existsSync(bepInExPath)) {
-            return { success: true, message: 'BepInEx is already installed', alreadyInstalled: true };
+            console.log('[BEPINEX] BepInEx folder exists, proceeding with installation (repair/update)');
         }
 
         const https = require('https');
@@ -4603,10 +4686,10 @@ ipcMain.handle('install-melonloader', async (event, gameId) => {
             return { success: false, error: 'Game installation directory not found' };
         }
 
-        // Check if already installed
+        // Check if already installed (we allow re-installation/repair now)
         const melonLoaderPath = path.join(game.install_directory, 'MelonLoader');
         if (fs.existsSync(melonLoaderPath)) {
-            return { success: true, message: 'MelonLoader is already installed', alreadyInstalled: true };
+            console.log('[MELONLOADER] MelonLoader folder exists, proceeding with installation (repair/update)');
         }
 
         const https = require('https');
