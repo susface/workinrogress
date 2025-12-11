@@ -1029,15 +1029,72 @@ class ModManager {
      * Show mod info
      */
     showModInfo(mod) {
-        const info = `
-Name: ${mod.name}
-Version: ${mod.version || '1.0'}
-Author: ${mod.author || 'Unknown'}
-Description: ${mod.description || 'No description available'}
-        `.trim();
+        this.createModInfoModal(mod);
+    }
 
-        alert(info);
-        // TODO: Create better info modal
+    /**
+     * Create and show mod info modal
+     */
+    createModInfoModal(mod) {
+        // Remove existing modal if present
+        let modal = document.getElementById('mod-info-modal');
+        if (modal) {
+            modal.remove();
+        }
+
+        modal = document.createElement('div');
+        modal.id = 'mod-info-modal';
+        modal.className = 'modal active mod-info-modal-container';
+
+        const descriptionHtml = this.markdownToHtml(mod.description || 'No description available');
+
+        modal.innerHTML = `
+            <div class="modal-content mod-info-content">
+                <div class="modal-header">
+                    <h3>ℹ️ ${this.escapeHtml(mod.name)}</h3>
+                    <button class="close-btn">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="mod-info-grid">
+                        <div class="info-item">
+                            <strong class="label">Version:</strong>
+                            <span class="value">${this.escapeHtml(mod.version || '1.0')}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong class="label">Author:</strong>
+                            <span class="value">${this.escapeHtml(mod.author || 'Unknown')}</span>
+                        </div>
+                        <div class="info-item full-width">
+                            <strong class="label block">Description:</strong>
+                            <div class="description-box">
+                                ${descriptionHtml}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn close-modal-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Event listeners
+        const close = () => {
+            modal.classList.remove('active');
+            setTimeout(() => modal.remove(), 300);
+        };
+
+        modal.querySelector('.close-btn').addEventListener('click', close);
+        modal.querySelector('.close-modal-btn').addEventListener('click', close);
+
+        // Click outside to close
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                close();
+            }
+        });
     }
 
     /**

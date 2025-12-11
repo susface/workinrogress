@@ -1,0 +1,48 @@
+
+/* Mod Info Modal Styles */
+.mod-info-modal-container {
+    z-index: 10001 !important; /* Ensure it's on top of mod manager */
+}
+
+.mod-info-content {
+    max-width: 500px;
+}
+
+.mod-info-grid {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.mod-info-content .label {
+    color: #aaa;
+}
+
+.mod-info-content .value {
+    color: #fff;
+}
+
+.mod-info-content .full-width {
+    grid-column: 1 / -1;
+}
+
+.mod-info-content .label.block {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.mod-info-content .description-box {
+    background: rgba(0,0,0,0.2);
+    padding: 12px;
+    border-radius: 6px;
+    color: #ddd;
+    font-size: 14px;
+    line-height: 1.5;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.mod-info-content .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+}
