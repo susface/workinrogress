@@ -3507,14 +3507,63 @@ ipcMain.handle('update-game', async (event, gameId) => {
             return { success: false, error: 'Game not found' };
         }
 
-        // TODO: Implement actual game update logic
+        // Implement actual game update logic
         // This would trigger the platform's update mechanism (Steam, Epic, Xbox)
-        // For now, just mark as updated
+        let updateTriggered = false;
+        let updateMessage = 'Update started';
+
+        if (game.platform === 'steam') {
+            // Steam: Validate files triggers update check
+            if (game.app_id) {
+                await shell.openExternal(`steam://validate/${game.app_id}`);
+                updateTriggered = true;
+            }
+        } else if (game.platform === 'epic') {
+            // Epic: Launch store page or verify
+            // Extract App Name from launch command
+            let appName = null;
+            if (game.launch_command && game.launch_command.includes('com.epicgames.launcher://apps/')) {
+                const match = game.launch_command.match(/apps\/([^?]+)/);
+                if (match) {
+                    appName = match[1];
+                }
+            }
+
+            if (appName) {
+                await shell.openExternal(`com.epicgames.launcher://apps/${appName}?action=verify`);
+                updateTriggered = true;
+            } else {
+                // Fallback to launching launcher
+                await shell.openExternal('com.epicgames.launcher://');
+                updateTriggered = true;
+                updateMessage = 'Opened Epic Games Launcher';
+            }
+        } else if (game.platform === 'xbox') {
+            // Xbox: Open Store page
+            if (game.app_id && game.app_id.length > 5) {
+                // Assume app_id is Store ID
+                await shell.openExternal(`ms-windows-store://pdp/?ProductId=${game.app_id}`);
+                updateTriggered = true;
+            } else if (game.package_name) {
+                // Try PFN
+                await shell.openExternal(`ms-windows-store://pdp/?PFN=${game.package_name}`);
+                updateTriggered = true;
+            } else {
+                await shell.openExternal('ms-windows-store://updates');
+                updateTriggered = true;
+                updateMessage = 'Opened Microsoft Store Updates';
+            }
+        } else {
+            console.log(`[UPDATE] Automatic updates not supported for platform: ${game.platform}`);
+            updateMessage = `Automatic updates not supported for ${game.platform}`;
+        }
+
+        // Mark as updated in database
         db.prepare('UPDATE games SET update_available = 0 WHERE id = ?').run(gameId);
 
         db.close();
 
-        return { success: true };
+        return { success: true, message: updateMessage, triggered: updateTriggered };
     } catch (error) {
         console.error('Error updating game:', error);
         return { success: false, error: error.message };
