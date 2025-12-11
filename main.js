@@ -3646,8 +3646,90 @@ ipcMain.handle('open-mod-folder', async (event, gameId) => {
 // Delete a mod
 ipcMain.handle('delete-mod', async (event, gameId, modId) => {
     try {
-        // TODO: Implement mod deletion logic
-        // Would delete mod files from the game's mod directory
+        const db = initDatabase();
+        let game;
+        try {
+            game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+        } finally {
+            db.close();
+        }
+
+        if (!game) {
+            return { success: false, error: 'Game not found' };
+        }
+
+        // Validate modId to prevent directory traversal
+        if (!modId || typeof modId !== 'string' || modId.includes('/') || modId.includes('\\') || modId.includes('..')) {
+             return { success: false, error: 'Invalid mod ID' };
+        }
+
+        let modPathToDelete = null;
+        let foundLocation = '';
+
+        // 1. Check Steam Workshop
+        if (game.has_workshop_support && game.workshop_id) {
+            const workshopPath = await getWorkshopPath(game.app_id);
+            if (workshopPath && fs.existsSync(workshopPath)) {
+                const potentialPath = path.join(workshopPath, modId);
+                // Verify existence and that it's a direct child (prevent traversal)
+                if (fs.existsSync(potentialPath)) {
+                     const relative = path.relative(workshopPath, potentialPath);
+                     if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+                        modPathToDelete = potentialPath;
+                        foundLocation = 'workshop';
+                     }
+                }
+            }
+        }
+
+        // 2. Check Game Install Directory (Unity & Generic)
+        if (!modPathToDelete && game.install_directory && fs.existsSync(game.install_directory)) {
+            const installDir = game.install_directory;
+
+            // List of folders to search
+            const searchFolders = [];
+
+            // Unity specific folders
+            if (game.engine === 'Unity') {
+                searchFolders.push(path.join(installDir, 'BepInEx', 'plugins'));
+                searchFolders.push(path.join(installDir, 'Mods')); // MelonLoader
+            }
+
+            // Generic folders
+            searchFolders.push(path.join(installDir, 'mods'));
+            searchFolders.push(path.join(installDir, 'Mods'));
+            searchFolders.push(path.join(installDir, 'data', 'mods'));
+            searchFolders.push(path.join(installDir, 'Data', 'Mods'));
+
+            // Check each folder
+            for (const folder of searchFolders) {
+                if (fs.existsSync(folder)) {
+                    const potentialPath = path.join(folder, modId);
+                    if (fs.existsSync(potentialPath)) {
+                        const relative = path.relative(folder, potentialPath);
+                         if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+                            modPathToDelete = potentialPath;
+                            foundLocation = 'game_dir';
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!modPathToDelete) {
+             return { success: false, error: 'Mod file or directory not found' };
+        }
+
+        console.log(`[DELETE-MOD] Deleting mod at: ${modPathToDelete} (${foundLocation})`);
+
+        const stats = await fs.promises.stat(modPathToDelete);
+        if (stats.isDirectory()) {
+            await fs.promises.rm(modPathToDelete, { recursive: true, force: true });
+        } else {
+            await fs.promises.unlink(modPathToDelete);
+        }
+
         return { success: true };
     } catch (error) {
         console.error('Error deleting mod:', error);
