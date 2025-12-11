@@ -74,9 +74,50 @@ class EpicScanner:
         self.boxart_dir = boxart_dir
         self.manifests_path = self._find_manifests_directory()
 
+    def _get_registry_manifest_path(self) -> Optional[Path]:
+        """Try to find manifest path from Windows Registry"""
+        if platform.system() != 'Windows':
+            return None
+
+        try:
+            import winreg
+
+            # Try 64-bit registry first
+            key_paths = [
+                r"SOFTWARE\Epic Games\EpicGamesLauncher",
+                r"SOFTWARE\WOW6432Node\Epic Games\EpicGamesLauncher"
+            ]
+
+            for key_path in key_paths:
+                try:
+                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as key:
+                        app_data_path, _ = winreg.QueryValueEx(key, "AppDataPath")
+                        if app_data_path:
+                            manifest_path = Path(app_data_path) / 'Manifests'
+                            if manifest_path.exists() and manifest_path.is_dir():
+                                print(f"  Found manifests path from Registry: {manifest_path}")
+                                return manifest_path
+                except OSError:
+                    continue
+
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"Error accessing Registry: {e}")
+
+        return None
+
     def _find_manifests_directory(self) -> Optional[Path]:
         """Find Epic Games manifests directory"""
         system = platform.system()
+
+        # First check Registry on Windows
+        if system == 'Windows':
+            reg_path = self._get_registry_manifest_path()
+            if reg_path:
+                return reg_path
+
+        # Fallback to standard paths
         paths = self.EPIC_PATHS.get(system, [])
 
         for path in paths:
@@ -282,12 +323,16 @@ class EpicScanner:
 
         if platform.system() == 'Windows':
             # Check all drive letters
-            for drive in ['C', 'D', 'E', 'F', 'G']:
+            import string
+            available_drives = ['%s:' % d for d in string.ascii_uppercase if os.path.exists('%s:' % d)]
+
+            for drive in available_drives:
                 possible_paths.extend([
-                    f"{drive}:\\Program Files\\Epic Games\\Fortnite",
-                    f"{drive}:\\Epic Games\\Fortnite",
-                    f"{drive}:\\Games\\Epic Games\\Fortnite",
-                    f"{drive}:\\Fortnite"
+                    f"{drive}\\Program Files\\Epic Games\\Fortnite",
+                    f"{drive}\\Program Files (x86)\\Epic Games\\Fortnite",
+                    f"{drive}\\Epic Games\\Fortnite",
+                    f"{drive}\\Games\\Epic Games\\Fortnite",
+                    f"{drive}\\Fortnite"
                 ])
 
         print("  Searching for Fortnite manually...")

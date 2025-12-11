@@ -1556,27 +1556,21 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
 
             // Start process tracking if available
             if (processTrackerReady && game) {
-                // Determine delay based on game type
-                // Unreal Engine games with anticheat need more time for the preloader to finish
-                const gameTitleLower = game.title.toLowerCase();
-                const isUnrealGame = ['fortnite', 'valorant', 'dead by daylight', 'arc raiders', 'the finals', 'escape from tarkov']
-                    .some(unrealGame => gameTitleLower.includes(unrealGame));
+                // Determine if we need to use pending tracking (e.g. for games with anticheat)
+                // We no longer need hardcoded delays, we'll use the robust pending tracking system
+                console.log(`[PROCESS_TRACKER] Initiating robust tracking for ${game.title}`);
 
-                const trackingDelay = isUnrealGame ? 60000 : 3000; // 60 seconds for Unreal, 3 seconds for others
-
-                console.log(`[PROCESS_TRACKER] Waiting ${trackingDelay / 1000} seconds before tracking ${game.title}${isUnrealGame ? ' (Unreal Engine game with anticheat)' : ''}`);
-
-                // Wait for the game to launch (longer for Unreal Engine games)
+                // Use a short delay just to ensure the process launch command has executed
                 safeSetTimeout(async () => {
                     try {
-                        // Filter out common utility exes (defined outside block for scope)
+                        // Filter out common utility exes
                         const skipExes = [
                             'createdump.exe', 'unins000.exe', 'uninstall.exe', 'setup.exe',
                             'updater.exe', 'launcher.exe', 'crash_reporter.exe', 'crashhandler.exe',
                             'epicgameslauncher.exe', 'epicwebhelper.exe'
                         ];
 
-                        // Known anti-cheat and launcher executables that spawn the actual game
+                        // Known anti-cheat and launcher executables
                         const antiCheatLaunchers = [
                             'easyanticheat.exe',
                             'battleye.exe',
@@ -1604,17 +1598,9 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                             'dead by daylight': ['DeadByDaylight-Win64-Shipping.exe']
                         };
 
-                        // Games that use Unreal Engine and have anticheat preloaders
-                        // These need a longer delay before tracking starts
-                        const unrealEngineGames = [
-                            'fortnite', 'valorant', 'dead by daylight', 'arc raiders',
-                            'the finals', 'escape from tarkov'
-                        ];
-
                         // Try to find exe path in install directory
                         let exePath = '';
                         if (game.install_directory && fs.existsSync(game.install_directory)) {
-
                             // Helper function to recursively find exe files
                             const findExeFiles = (dir, depth = 0, maxDepth = 3) => {
                                 if (depth > maxDepth || !fs.existsSync(dir)) return [];
@@ -1627,7 +1613,6 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                                         const fullPath = path.join(dir, entry.name);
 
                                         if (entry.isDirectory()) {
-                                            // Recurse into subdirectories
                                             results.push(...findExeFiles(fullPath, depth + 1, maxDepth));
                                         } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.exe')) {
                                             const stats = fs.statSync(fullPath);
@@ -1640,9 +1625,7 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                                     }
                                 } catch (error) {
                                     // Skip directories we can't read
-                                    console.log(`[PROCESS_TRACKER] Error reading directory ${dir}:`, error.message);
                                 }
-
                                 return results;
                             };
 
@@ -1666,7 +1649,6 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
 
                             // If no known executable found, search recursively
                             if (!exePath) {
-                                console.log(`[PROCESS_TRACKER] Searching for executable in ${game.install_directory}`);
                                 const allExeFiles = findExeFiles(game.install_directory);
 
                                 // Filter out utility exes
@@ -1683,44 +1665,28 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                             }
                         }
 
+                        // Prepare tracking options
+                        const trackingOptions = {
+                            session_id: sessionId,
+                            game_name: game.title,
+                            track_children: true,
+                            wait_for_process: true, // Enable pending tracking
+                            timeout: 600 // 10 minutes timeout to allow for updates/anticheat
+                        };
+
                         if (exePath) {
-                            console.log(`[PROCESS_TRACKER] Starting tracking for ${game.title} at ${exePath}`);
+                            trackingOptions.exe_path = exePath;
 
-                            // Extract exe name for process tracking
-                            const exeName = path.basename(exePath);
-
-                            // Check if this is likely an anti-cheat launcher
-                            const isAntiCheat = antiCheatLaunchers.includes(exeName.toLowerCase());
-
-                            // For known games, also try to track by process name
-                            // This helps when anti-cheat launchers spawn the actual game
-                            const trackingOptions = {
-                                session_id: sessionId,
-                                exe_path: exePath,
-                                game_name: game.title,
-                                track_children: true // Enable child process tracking
-                            };
-
-                            // If we know the actual game exe names, add them for tracking
+                            // Add known process names as fallback
                             const gameTitleLower = game.title.toLowerCase();
                             for (const [gameName, exeNames] of Object.entries(knownGameExes)) {
                                 if (gameTitleLower.includes(gameName)) {
-                                    // Add all possible exe names for this game
                                     trackingOptions.process_names = exeNames.map(name => name.toLowerCase());
-                                    console.log(`[PROCESS_TRACKER] Will also track processes: ${exeNames.join(', ')}`);
                                     break;
                                 }
                             }
-
-                            // If it's an anti-cheat launcher, give it more time to spawn the game
-                            if (isAntiCheat) {
-                                console.log(`[PROCESS_TRACKER] Detected anti-cheat launcher, will monitor for child processes`);
-                            }
-
-                            await sendProcessTrackerCommand('start_tracking', trackingOptions);
                         } else {
-                            // Even if we couldn't find the exe path, try tracking by process name
-                            // This is useful for games launched through stores/launchers
+                            // Only process names available
                             const gameTitleLower = game.title.toLowerCase();
                             let processNames = null;
 
@@ -1732,21 +1698,15 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                             }
 
                             if (processNames && processNames.length > 0) {
-                                console.log(`[PROCESS_TRACKER] Could not find exe path, but will track by process names: ${processNames.join(', ')}`);
-                                await sendProcessTrackerCommand('start_tracking', {
-                                    session_id: sessionId,
-                                    game_name: game.title,
-                                    process_names: processNames,
-                                    track_children: true
-                                });
-                            } else {
-                                console.log(`[PROCESS_TRACKER] Could not find exe for ${game.title}, tracking disabled`);
+                                trackingOptions.process_names = processNames;
                             }
                         }
+
+                        await sendProcessTrackerCommand('start_tracking', trackingOptions);
                     } catch (error) {
                         console.error('[PROCESS_TRACKER] Error starting tracking:', error);
                     }
-                }, trackingDelay); // Wait based on game type (3s normal, 60s for Unreal Engine)
+                }, 2000); // Small 2s delay to allow launcher to start
             }
 
             // Note: No auto-end timeout - tracking continues until game process ends or app closes

@@ -13,7 +13,8 @@ class ProcessTrackerService:
     def __init__(self):
         self.tracker = ProcessTracker()
         self.running = True
-        self.monitor_interval = 30  # Check every 30 seconds
+        self.monitor_interval = 2  # Check every 2 seconds for better responsiveness
+        self.pending_sessions = {}  # {session_id: {params, start_time, timeout}}
 
     def log(self, message):
         """Log to stderr to avoid interfering with JSON output"""
@@ -45,21 +46,36 @@ class ProcessTrackerService:
             session_id = params['session_id']
             exe_path = params.get('exe_path', '')
             game_name = params.get('game_name', 'Unknown Game')
+            wait_for_process = params.get('wait_for_process', True)
+            timeout = params.get('timeout', 300)  # Default 5 minutes timeout
 
-            # For Steam/Epic URLs, we might not have exe_path initially
-            # We'll try to find the process after a delay
-            if not exe_path or not exe_path.endswith('.exe'):
-                self.log(f"No exe path for {game_name}, will try to detect process")
-                # Store session for later detection
-                self.send_response(True, {'tracking_started': False, 'pending': True})
-                return
-
+            # Try to start tracking immediately
             success = self.tracker.start_tracking(session_id, exe_path, game_name)
-            self.send_response(True, {
-                'tracking_started': success,
-                'session_id': session_id,
-                'game_name': game_name
-            })
+
+            if success:
+                self.send_response(True, {
+                    'tracking_started': True,
+                    'session_id': session_id,
+                    'game_name': game_name
+                })
+            elif wait_for_process:
+                # Add to pending sessions
+                self.pending_sessions[session_id] = {
+                    'params': params,
+                    'start_time': time.time(),
+                    'timeout': timeout
+                }
+                self.log(f"Process not found for {game_name}, added to pending list (timeout: {timeout}s)")
+                self.send_response(True, {
+                    'tracking_started': False,
+                    'pending': True,
+                    'session_id': session_id,
+                    'game_name': game_name,
+                    'message': 'Waiting for process to start'
+                })
+            else:
+                self.send_response(False, error=f"Process not found: {exe_path}")
+
         except Exception as e:
             self.log(f"Error in start_tracking: {e}")
             self.send_response(False, error=str(e))
@@ -68,6 +84,17 @@ class ProcessTrackerService:
         """Stop tracking a session"""
         try:
             session_id = params['session_id']
+
+            # Check if it's a pending session
+            if session_id in self.pending_sessions:
+                del self.pending_sessions[session_id]
+                self.send_response(True, {
+                    'session_id': session_id,
+                    'runtime': 0,
+                    'message': 'Pending tracking cancelled'
+                })
+                return
+
             runtime = self.tracker.stop_tracking(session_id)
             self.send_response(True, {
                 'session_id': session_id,
@@ -81,6 +108,16 @@ class ProcessTrackerService:
         """Check if a session is still running"""
         try:
             session_id = params['session_id']
+
+            if session_id in self.pending_sessions:
+                self.send_response(True, {
+                    'session_id': session_id,
+                    'is_running': False,
+                    'status': 'pending',
+                    'runtime': 0
+                })
+                return
+
             is_running = self.tracker.is_process_running(session_id)
             runtime = self.tracker.get_runtime(session_id) if is_running else 0
 
@@ -97,6 +134,14 @@ class ProcessTrackerService:
         """Get all active sessions"""
         try:
             sessions = self.tracker.get_active_sessions()
+            # Add pending sessions
+            for sid, info in self.pending_sessions.items():
+                sessions.append({
+                    'session_id': sid,
+                    'game_name': info['params'].get('game_name', 'Unknown'),
+                    'status': 'pending',
+                    'elapsed_wait': time.time() - info['start_time']
+                })
             self.send_response(True, {'sessions': sessions})
         except Exception as e:
             self.log(f"Error in get_all_sessions: {e}")
@@ -111,6 +156,47 @@ class ProcessTrackerService:
             self.log(f"Error in check_all: {e}")
             self.send_response(False, error=str(e))
 
+    def check_pending_sessions(self):
+        """Check if any pending sessions have started"""
+        current_time = time.time()
+        started_sessions = []
+        timed_out_sessions = []
+
+        for session_id, info in list(self.pending_sessions.items()):
+            params = info['params']
+            exe_path = params.get('exe_path', '')
+            game_name = params.get('game_name', 'Unknown')
+            timeout = info['timeout']
+            start_time = info['start_time']
+
+            # Check timeout
+            if current_time - start_time > timeout:
+                timed_out_sessions.append(session_id)
+                continue
+
+            # Try to start tracking
+            if self.tracker.start_tracking(session_id, exe_path, game_name):
+                started_sessions.append((session_id, game_name))
+
+        # Update pending list and notify
+        for session_id, game_name in started_sessions:
+            del self.pending_sessions[session_id]
+            self.send_notification('tracking_started', {
+                'session_id': session_id,
+                'game_name': game_name
+            })
+            self.log(f"Pending tracking started for {game_name}")
+
+        for session_id in timed_out_sessions:
+            game_name = self.pending_sessions[session_id]['params'].get('game_name', 'Unknown')
+            del self.pending_sessions[session_id]
+            self.send_notification('tracking_failed', {
+                'session_id': session_id,
+                'game_name': game_name,
+                'reason': 'timeout'
+            })
+            self.log(f"Pending tracking timed out for {game_name}")
+
     def monitor_processes(self):
         """Background thread to monitor all processes"""
         self.log("Starting process monitor thread")
@@ -119,7 +205,7 @@ class ProcessTrackerService:
             try:
                 time.sleep(self.monitor_interval)
 
-                # Check all processes
+                # Check active processes
                 status = self.tracker.check_all_processes()
 
                 # Send notification for ended processes
@@ -132,6 +218,9 @@ class ProcessTrackerService:
                         })
                         # Stop tracking this session
                         self.tracker.stop_tracking(session_id)
+
+                # Check pending sessions
+                self.check_pending_sessions()
 
             except Exception as e:
                 self.log(f"Error in monitor thread: {e}")
