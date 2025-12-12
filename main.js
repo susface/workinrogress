@@ -1290,6 +1290,7 @@ function handleProcessTrackerNotification(message) {
             console.log(`[PROCESS_TRACKER] Game ${gameId} process ended, runtime: ${runtime}s`);
 
             // Update the database with accurate runtime
+            const db = initDatabase();
             try {
                 // Update session with accurate duration
                 db.prepare(`
@@ -1312,6 +1313,8 @@ function handleProcessTrackerNotification(message) {
                 console.log(`[PROCESS_TRACKER] Updated playtime for game ${gameId}: +${runtime}s`);
             } catch (error) {
                 console.error('[PROCESS_TRACKER] Error updating playtime:', error);
+            } finally {
+                if (db) db.close();
             }
         }
     }
@@ -3431,7 +3434,9 @@ ipcMain.handle('scan-game-soundtrack', async (event, gameId) => {
 
 // Check for game updates
 ipcMain.handle('check-game-updates', async () => {
+    let db;
     try {
+        db = initDatabase();
         const games = db.prepare('SELECT * FROM games').all();
 
         // Update last check time
@@ -3459,6 +3464,8 @@ ipcMain.handle('check-game-updates', async () => {
     } catch (error) {
         console.error('Error checking game updates:', error);
         return { success: false, error: error.message };
+    } finally {
+        if (db) db.close();
     }
 });
 
@@ -4786,9 +4793,6 @@ if (isDev) {
 // App lifecycle handlers for playtime tracking
 app.on('before-quit', () => {
     console.log('[PLAYTIME] App closing, ending all active sessions');
-    if (db) {
-        db.close();
-    }
     stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
@@ -4797,9 +4801,6 @@ app.on('before-quit', () => {
 
 app.on('will-quit', () => {
     console.log('[PLAYTIME] App quitting');
-    if (db) {
-        db.close();
-    }
     stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
@@ -4808,9 +4809,6 @@ app.on('will-quit', () => {
 
 // Handle window close
 app.on('window-all-closed', () => {
-    if (db) {
-        db.close();
-    }
     stopSessionCleanupMonitor();
     endAllActiveSessions();
     shutdownProcessTracker();
