@@ -49,12 +49,12 @@ class CoverFlow {
             vrGameFilter
         };
 
-        // Copy instance properties from modules
-        Object.assign(this, coverFlowSettings);
-        Object.assign(this, coverFlowTextures);
-        Object.assign(this, coverFlowUIUtils);
-        Object.assign(this, coverFlowNavigation);
-        Object.assign(this, coverFlowUI);
+        // Apply core mixin modules (copies properties and binds methods)
+        this.applyModule(coverFlowSettings);
+        this.applyModule(coverFlowTextures);
+        this.applyModule(coverFlowUIUtils);
+        this.applyModule(coverFlowNavigation);
+        this.applyModule(coverFlowUI);
 
         // Copy enhancement module properties
         Object.assign(this, coverFlowEnhancements);
@@ -71,24 +71,6 @@ class CoverFlow {
         Object.assign(this, updateNotifications);
         Object.assign(this, portableMode);
         Object.assign(this, modManager);
-
-        // SURGICAL FIX: Override specific methods that need to come from modules
-        // This is needed because Object.assign doesn't copy prototype methods
-        // Only override the methods we specifically need from modules
-        this.cacheElements = coverFlowUI.cacheElements.bind(this);
-        this.updateInfo = coverFlowUI.updateInfo.bind(this);
-        this.toggleAudioPlayback = coverFlowUI.toggleAudioPlayback.bind(this);
-        this.showVisualizer = coverFlowUI.showVisualizer.bind(this);
-        this.hideVisualizer = coverFlowUI.hideVisualizer.bind(this);
-        this.initializeVisualizer = coverFlowUI.initializeVisualizer.bind(this);
-        this.startVisualizerAnimation = coverFlowUI.startVisualizerAnimation.bind(this);
-        this.setupVisualizerControls = coverFlowUI.setupVisualizerControls.bind(this);
-        this.formatTime = coverFlowUI.formatTime.bind(this);
-        this.createFileTypeThumbnail = coverFlowUI.createFileTypeThumbnail.bind(this);
-        this.showToast = coverFlowUIUtils.showToast.bind(this);
-
-        // Bind settings control setup from module (includes background music buttons)
-        this.setupSettingsControls = coverFlowSettings.setupSettingsControls.bind(this);
 
         // Bind module methods for dropdown menu items
         this.toggleInsights = sessionInsights.toggleInsights.bind(sessionInsights);
@@ -243,6 +225,34 @@ class CoverFlow {
             window.logger?.error('COVERFLOW', 'Failed to initialize album data:', error);
             this.hideLoadingScreen();
         });
+    }
+
+    /**
+     * Apply a module as a mixin, binding methods to this instance.
+     * This ensures prototype methods are copied and bound correctly.
+     * @param {Object} moduleInstance - The module instance to mix in
+     */
+    applyModule(moduleInstance) {
+        // Copy instance properties
+        Object.assign(this, moduleInstance);
+
+        // Copy prototype methods
+        let proto = Object.getPrototypeOf(moduleInstance);
+        // Traverse prototype chain up to Object.prototype
+        while (proto && proto !== Object.prototype) {
+            Object.getOwnPropertyNames(proto).forEach(name => {
+                if (name !== 'constructor') {
+                    const desc = Object.getOwnPropertyDescriptor(proto, name);
+                    // Only copy functions
+                    if (desc && typeof desc.value === 'function') {
+                        // Bind to this instance (the CoverFlow instance)
+                        // This allows methods to access CoverFlow state (this.settings, this.covers, etc)
+                        this[name] = desc.value.bind(this);
+                    }
+                }
+            });
+            proto = Object.getPrototypeOf(proto);
+        }
     }
 
     detectGPU() {

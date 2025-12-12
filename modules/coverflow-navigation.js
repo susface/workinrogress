@@ -60,17 +60,6 @@ class CoverFlowNavigation {
         this.navigateTo(randomIndex);
     }
 
-    /**
-     * Update cover positions with smooth animation
-     * NOTE: This is a placeholder - the main CoverFlow class has the full implementation
-     * This module version is NOT used because it's a prototype method and Object.assign
-     * doesn't copy prototype methods. The main class implementation is used instead.
-     * @param {boolean} immediate - Skip animation if true
-     */
-    updateCoverPositions(immediate = false) {
-        // Placeholder - main class implementation is used
-        console.warn('Module updateCoverPositions called - this should not happen');
-    }
 }
 
 // Export for module systems
