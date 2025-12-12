@@ -3159,7 +3159,7 @@ class CoverFlow {
 
             // Close dropdown when clicking outside
             document.addEventListener('click', (e) => {
-                if (!e.target.closest('.dropdown-container')) {
+                if (!e.target.closest('#more-dropdown') && !e.target.closest('#more-btn')) {
                     moreDropdown.style.display = 'none';
                 }
             });
