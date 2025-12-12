@@ -10,6 +10,8 @@ class SearchEnhancements {
         this.maxRecentSearches = 10;
         this.voiceRecognition = null;
         this.isVoiceActive = false;
+        this.abortController = null;
+        this.filterAbortController = null;
 
         window.logger?.debug('SEARCH', 'Search enhancements initialized');
     }
@@ -41,22 +43,29 @@ class SearchEnhancements {
         const searchInput = document.getElementById('search-input');
         if (!searchInput) return;
 
+        // Cleanup previous event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
         // Replace the existing search functionality with fuzzy search
         searchInput.addEventListener('input', (e) => {
             this.performFuzzySearch(e.target.value);
-        });
+        }, { signal });
 
         // Add recent searches dropdown
         searchInput.addEventListener('focus', () => {
             this.showRecentSearches();
-        });
+        }, { signal });
 
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-container')) {
                 this.hideRecentSearches();
             }
-        });
+        }, { signal });
     }
 
     /**
@@ -392,12 +401,19 @@ class SearchEnhancements {
 
         modal.style.display = 'flex';
 
+        // Cleanup previous filter event listeners
+        if (this.filterAbortController) {
+            this.filterAbortController.abort();
+        }
+        this.filterAbortController = new AbortController();
+        const signal = this.filterAbortController.signal;
+
         // Add change listeners
         const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
         checkboxes.forEach(cb => {
             cb.addEventListener('change', () => {
                 this.updateFilterState(cb.dataset.filter, cb.value, cb.checked);
-            });
+            }, { signal });
         });
     }
 
@@ -626,6 +642,28 @@ class SearchEnhancements {
             btn.classList.remove('active');
             btn.innerHTML = '🎤';
         }
+    }
+
+    /**
+     * Cleanup - remove all event listeners
+     */
+    cleanup() {
+        // Cleanup all event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+        if (this.filterAbortController) {
+            this.filterAbortController.abort();
+            this.filterAbortController = null;
+        }
+
+        // Stop voice recognition if active
+        if (this.voiceRecognition && this.isVoiceActive) {
+            this.voiceRecognition.stop();
+        }
+        this.voiceRecognition = null;
+        this.isVoiceActive = false;
     }
 }
 

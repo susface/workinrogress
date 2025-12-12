@@ -8,6 +8,9 @@ class UpdateNotifications {
         this.updateBadge = null;
         this.pendingUpdates = [];
         this.checkInterval = null;
+        this.badgeAbortController = null;
+        this.modalAbortController = null;
+        this.listAbortController = null;
     }
 
     /**
@@ -46,7 +49,13 @@ class UpdateNotifications {
             <span class="update-count">0</span>
         `;
         badge.title = 'Game updates available';
-        badge.addEventListener('click', () => this.showUpdatesPanel());
+
+        // Cleanup previous badge event listener
+        if (this.badgeAbortController) {
+            this.badgeAbortController.abort();
+        }
+        this.badgeAbortController = new AbortController();
+        badge.addEventListener('click', () => this.showUpdatesPanel(), { signal: this.badgeAbortController.signal });
 
         topControls.insertBefore(badge, topControls.firstChild);
         this.updateBadge = badge;
@@ -160,24 +169,31 @@ class UpdateNotifications {
 
         document.body.appendChild(modal);
 
+        // Cleanup previous modal event listeners
+        if (this.modalAbortController) {
+            this.modalAbortController.abort();
+        }
+        this.modalAbortController = new AbortController();
+        const signal = this.modalAbortController.signal;
+
         // Event listeners
         modal.querySelector('.close-btn').addEventListener('click', () => {
             this.closeUpdatesModal();
-        });
+        }, { signal });
 
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeUpdatesModal();
             }
-        });
+        }, { signal });
 
         document.getElementById('update-all-btn').addEventListener('click', () => {
             this.updateAllGames();
-        });
+        }, { signal });
 
         document.getElementById('dismiss-updates-btn').addEventListener('click', () => {
             this.closeUpdatesModal();
-        });
+        }, { signal });
     }
 
     /**
@@ -210,12 +226,19 @@ class UpdateNotifications {
             </div>
         `).join('');
 
+        // Cleanup previous list event listeners
+        if (this.listAbortController) {
+            this.listAbortController.abort();
+        }
+        this.listAbortController = new AbortController();
+        const signal = this.listAbortController.signal;
+
         // Add click handlers to individual update buttons
         container.querySelectorAll('.update-game-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const index = parseInt(e.target.dataset.index, 10);
                 this.updateGame(this.pendingUpdates[index]);
-            });
+            }, { signal });
         });
     }
 
@@ -294,6 +317,20 @@ class UpdateNotifications {
      * Cleanup on destroy
      */
     cleanup() {
+        // Cleanup all event listeners
+        if (this.badgeAbortController) {
+            this.badgeAbortController.abort();
+            this.badgeAbortController = null;
+        }
+        if (this.modalAbortController) {
+            this.modalAbortController.abort();
+            this.modalAbortController = null;
+        }
+        if (this.listAbortController) {
+            this.listAbortController.abort();
+            this.listAbortController = null;
+        }
+
         if (this.checkInterval) {
             clearInterval(this.checkInterval);
             this.checkInterval = null;

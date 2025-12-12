@@ -190,7 +190,7 @@ class KeyboardNavigation {
             if (e.key === 'F11') {
                 e.preventDefault();
             }
-        });
+        }, { signal: this.abortController.signal });
     }
 
     /**
