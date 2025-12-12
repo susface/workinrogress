@@ -733,6 +733,12 @@ class CoverFlowUI {
     startVisualizerAnimation(canvas) {
         if (!this.analyser) return;
 
+        // Cancel any existing animation to prevent memory leaks and multiple loops
+        if (this.visualizerAnimationId) {
+            cancelAnimationFrame(this.visualizerAnimationId);
+            this.visualizerAnimationId = null;
+        }
+
         const ctx = canvas.getContext('2d');
         const bufferLength = this.analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
@@ -748,9 +754,15 @@ class CoverFlowUI {
         const draw = () => {
             this.visualizerAnimationId = requestAnimationFrame(draw);
 
-            this.analyser.getByteFrequencyData(dataArray);
-
             const mode = this.settings.visualizerMode || 'bars';
+
+            // Use time domain data for waveform/oscilloscope, frequency data for others
+            if (mode === 'waveform' || mode === 'oscilloscope') {
+                this.analyser.getByteTimeDomainData(dataArray);
+            } else {
+                this.analyser.getByteFrequencyData(dataArray);
+            }
+
             const centerX = width / 2;
             const centerY = height / 2;
 
@@ -970,13 +982,14 @@ class CoverFlowUI {
 
                     for (let i = 0; i < bufferLength; i++) {
                         const x = (i / bufferLength) * width;
-                        const v = dataArray[i] / 128;
-                        const y = (v * height) / 2;
+                        // Center is 128 (silence). Map 0..255 to -1..1
+                        const v = (dataArray[i] / 128.0) - 1.0;
+                        const y = v * (height / 2);
 
                         if (i === 0) {
-                            ctx.moveTo(x, centerY - y);
+                            ctx.moveTo(x, centerY + y);
                         } else {
-                            ctx.lineTo(x, centerY - y);
+                            ctx.lineTo(x, centerY + y);
                         }
                     }
 
@@ -1115,6 +1128,8 @@ class CoverFlowUI {
      * Cleanup audio player resources
      */
     cleanup() {
+        this.hideVisualizer();
+
         if (this.audioPlayer) {
             this.audioPlayer.pause();
             this.audioPlayer.src = '';
