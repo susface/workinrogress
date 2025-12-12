@@ -129,6 +129,17 @@ if (isPortableMode) {
     console.log('[PORTABLE] Data path:', gameDataPath);
 }
 
+// Game Mappings
+let gameMappings = {
+    nexus: {},
+    thunderstore: {},
+    processTracking: {
+        knownExes: {},
+        skipExes: [],
+        antiCheatLaunchers: []
+    }
+};
+
 // Ensure directories exist
 function ensureDirectories() {
     [gameDataPath, iconsPath, boxartPath].forEach(dir => {
@@ -136,6 +147,132 @@ function ensureDirectories() {
             fs.mkdirSync(dir, { recursive: true });
         }
     });
+}
+
+// Load game mappings
+function loadGameMappings() {
+    const mappingsPath = path.join(gameDataPath, 'mappings.json');
+
+    // Default mappings structure
+    const defaultMappings = {
+        nexus: {
+            'skyrim': 'skyrim',
+            'skyrim special edition': 'skyrimspecialedition',
+            'skyrim se': 'skyrimspecialedition',
+            'fallout 4': 'fallout4',
+            'stardew valley': 'stardewvalley',
+            'cyberpunk 2077': 'cyberpunk2077',
+            'bg3': 'baldursgate3',
+            'baldurs gate 3': 'baldursgate3',
+            'starfield': 'starfield',
+            'elden ring': 'eldenring',
+            'monster hunter: world': 'monsterhunterworld',
+            'mh:w': 'monsterhunterworld',
+            'mhw': 'monsterhunterworld',
+            'witcher 3': 'witcher3',
+            'the witcher 3': 'witcher3',
+            'morrowind': 'morrowind',
+            'oblivion': 'oblivion',
+            'fallout new vegas': 'newvegas',
+            'fnv': 'newvegas',
+            'fallout 3': 'fallout3',
+            'mount & blade ii: bannerlord': 'mountandblade2bannerlord',
+            'bannerlord': 'mountandblade2bannerlord',
+            'valheim': 'valheim',
+            'subnautica': 'subnautica',
+            'no mans sky': 'nomanssky',
+            'no man\'s sky': 'nomanssky',
+            'dark souls': 'darksouls',
+            'dark souls 3': 'darksouls3',
+            'mass effect legendary edition': 'masseffectlegendaryedition',
+            'sims 4': 'thesims4'
+        },
+        thunderstore: {
+            'risk of rain 2': 'riskofrain2',
+            'riskofrain2': 'riskofrain2',
+            'ror2': 'riskofrain2',
+            'lethal company': 'lethal-company',
+            'content warning': 'content-warning',
+            'valheim': 'valheim',
+            'outward': 'outward',
+            'h3vr': 'h3vr',
+            'boneworks': 'boneworks',
+            'risk of rain returns': 'risk-of-rain-returns',
+            'sons of the forest': 'sons-of-the-forest',
+            'cult of the lamb': 'cult-of-the-lamb',
+            'subnautica': 'subnautica',
+            'below zero': 'below-zero',
+            'dyson sphere program': 'dyson-sphere-program',
+            'titanfall 2': 'northstar',
+            'northstar': 'northstar',
+            'core keeper': 'core-keeper',
+            'raft': 'raft',
+            'gtfo': 'gtfo',
+            'rounds': 'rounds',
+            'timberborn': 'timberborn',
+            'totally accurate battle simulator': 'totally-accurate-battle-simulator',
+            'tabs': 'totally-accurate-battle-simulator',
+            'across the obelisk': 'across-the-obelisk',
+            'trombone champ': 'trombone-champ'
+        },
+        processTracking: {
+            knownExes: {
+                'fortnite': ['FortniteClient-Win64-Shipping.exe', 'FortniteLauncher.exe', 'FortniteClient-Win64-Shipping_EAC_EOS.exe'],
+                'apex legends': ['r5apex.exe'],
+                'valorant': ['VALORANT-Win64-Shipping.exe', 'VALORANT.exe'],
+                'call of duty': ['cod.exe', 'modernwarfare.exe', 'blackops.exe'],
+                'overwatch': ['Overwatch.exe'],
+                'league of legends': ['League of Legends.exe'],
+                'arc raiders': ['PioneerGame.exe', 'ArcRaiders.exe'],
+                'the finals': ['Discovery.exe'],
+                'rainbow six siege': ['RainbowSix.exe', 'R6S.exe'],
+                'escape from tarkov': ['EscapeFromTarkov.exe'],
+                'hunt showdown': ['HuntGame.exe'],
+                'dead by daylight': ['DeadByDaylight-Win64-Shipping.exe'],
+                'counter-strike 2': ['cs2.exe']
+            },
+            skipExes: [
+                'createdump.exe', 'unins000.exe', 'uninstall.exe', 'setup.exe',
+                'updater.exe', 'launcher.exe', 'crash_reporter.exe', 'crashhandler.exe',
+                'epicgameslauncher.exe', 'epicwebhelper.exe'
+            ],
+            antiCheatLaunchers: [
+                'easyanticheat.exe',
+                'battleye.exe',
+                'beclient.exe',
+                'ricochetanticheat.exe',
+                'vanguard.exe',
+                'faceit.exe',
+                'nprotect.exe'
+            ]
+        }
+    };
+
+    // Create default mappings if not exists
+    if (!fs.existsSync(mappingsPath)) {
+        try {
+            fs.writeFileSync(mappingsPath, JSON.stringify(defaultMappings, null, 4));
+            console.log('[MAPPINGS] Created default mappings file');
+        } catch (e) {
+            console.error('[MAPPINGS] Failed to create default mappings:', e);
+        }
+    }
+
+    // Load mappings
+    try {
+        if (fs.existsSync(mappingsPath)) {
+            const data = fs.readFileSync(mappingsPath, 'utf8');
+            gameMappings = JSON.parse(data);
+            console.log('[MAPPINGS] Loaded game mappings');
+        } else {
+            // Fallback to memory defaults if file creation failed
+            gameMappings = defaultMappings;
+            console.log('[MAPPINGS] Using in-memory default mappings');
+        }
+    } catch (e) {
+        console.error('[MAPPINGS] Failed to load mappings, using defaults:', e);
+        gameMappings = defaultMappings;
+    }
 }
 
 // Initialize database
@@ -618,6 +755,7 @@ app.whenReady().then(() => {
     }
 
     ensureDirectories();
+    loadGameMappings();
 
     if (isDebugMode) {
         console.log('[DEBUG] Directories ensured');
@@ -1562,40 +1700,10 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                 // Use a short delay just to ensure the process launch command has executed
                 safeSetTimeout(async () => {
                     try {
-                        // Filter out common utility exes
-                        const skipExes = [
-                            'createdump.exe', 'unins000.exe', 'uninstall.exe', 'setup.exe',
-                            'updater.exe', 'launcher.exe', 'crash_reporter.exe', 'crashhandler.exe',
-                            'epicgameslauncher.exe', 'epicwebhelper.exe'
-                        ];
-
-                        // Known anti-cheat and launcher executables
-                        const antiCheatLaunchers = [
-                            'easyanticheat.exe',
-                            'battleye.exe',
-                            'beclient.exe',
-                            'ricochetanticheat.exe',
-                            'vanguard.exe',
-                            'faceit.exe',
-                            'nprotect.exe'
-                        ];
-
-                        // Known game executable patterns for specific games
-                        // Format: 'game name': ['actual_game.exe', 'launcher.exe']
-                        const knownGameExes = {
-                            'fortnite': ['FortniteClient-Win64-Shipping.exe', 'FortniteLauncher.exe', 'FortniteClient-Win64-Shipping_EAC_EOS.exe'],
-                            'apex legends': ['r5apex.exe'],
-                            'valorant': ['VALORANT-Win64-Shipping.exe', 'VALORANT.exe'],
-                            'call of duty': ['cod.exe', 'modernwarfare.exe', 'blackops.exe'],
-                            'overwatch': ['Overwatch.exe'],
-                            'league of legends': ['League of Legends.exe'],
-                            'arc raiders': ['PioneerGame.exe', 'ArcRaiders.exe'],
-                            'the finals': ['Discovery.exe'],
-                            'rainbow six siege': ['RainbowSix.exe', 'R6S.exe'],
-                            'escape from tarkov': ['EscapeFromTarkov.exe'],
-                            'hunt showdown': ['HuntGame.exe'],
-                            'dead by daylight': ['DeadByDaylight-Win64-Shipping.exe']
-                        };
+                            // Use loaded mappings or fallbacks
+                            const skipExes = gameMappings.processTracking.skipExes || [];
+                            const antiCheatLaunchers = gameMappings.processTracking.antiCheatLaunchers || [];
+                            const knownGameExes = gameMappings.processTracking.knownExes || {};
 
                         // Try to find exe path in install directory
                         let exePath = '';
@@ -1879,41 +1987,8 @@ ipcMain.handle('search-nexus-mods', async (event, gameId, apiKey) => {
 
         // Handle null/undefined/empty/"null" string cases
         if (!gameDomain || typeof gameDomain !== 'string' || gameDomain === 'null' || gameDomain.trim() === '') {
-            // Common game mappings for Nexus Mods
-            const commonMappings = {
-                'skyrim': 'skyrim',
-                'skyrim special edition': 'skyrimspecialedition',
-                'skyrim se': 'skyrimspecialedition',
-                'fallout 4': 'fallout4',
-                'stardew valley': 'stardewvalley',
-                'cyberpunk 2077': 'cyberpunk2077',
-                'bg3': 'baldursgate3',
-                'baldurs gate 3': 'baldursgate3',
-                'starfield': 'starfield',
-                'elden ring': 'eldenring',
-                'monster hunter: world': 'monsterhunterworld',
-                'mh:w': 'monsterhunterworld',
-                'mhw': 'monsterhunterworld',
-                'witcher 3': 'witcher3',
-                'the witcher 3': 'witcher3',
-                'morrowind': 'morrowind',
-                'oblivion': 'oblivion',
-                'fallout new vegas': 'newvegas',
-                'fnv': 'newvegas',
-                'fallout 3': 'fallout3',
-                'mount & blade ii: bannerlord': 'mountandblade2bannerlord',
-                'bannerlord': 'mountandblade2bannerlord',
-                'valheim': 'valheim',
-                'subnautica': 'subnautica',
-                'no mans sky': 'nomanssky',
-                'no man\'s sky': 'nomanssky',
-                'dark souls': 'darksouls',
-                'dark souls 3': 'darksouls3',
-                'mass effect legendary edition': 'masseffectlegendaryedition',
-                'sims 4': 'thesims4'
-            };
-
             const titleLower = game.title.toLowerCase().trim();
+            const commonMappings = gameMappings.nexus || {};
 
             // Check common mappings first
             if (commonMappings[titleLower]) {
@@ -4163,37 +4238,8 @@ ipcMain.handle('search-thunderstore-mods', async (event, gameId) => {
         // Handle null/undefined/empty/"null" string cases
         // Add typeof check for extra safety
         if (!communitySlug || typeof communitySlug !== 'string' || communitySlug === 'null' || communitySlug.trim() === '') {
-            // Common game mappings for Thunderstore
-            const commonMappings = {
-                'risk of rain 2': 'riskofrain2',
-                'riskofrain2': 'riskofrain2',
-                'ror2': 'riskofrain2',
-                'lethal company': 'lethal-company',
-                'content warning': 'content-warning',
-                'valheim': 'valheim',
-                'outward': 'outward',
-                'h3vr': 'h3vr',
-                'boneworks': 'boneworks',
-                'risk of rain returns': 'risk-of-rain-returns',
-                'sons of the forest': 'sons-of-the-forest',
-                'cult of the lamb': 'cult-of-the-lamb',
-                'subnautica': 'subnautica',
-                'below zero': 'below-zero',
-                'dyson sphere program': 'dyson-sphere-program',
-                'titanfall 2': 'northstar',
-                'northstar': 'northstar',
-                'core keeper': 'core-keeper',
-                'raft': 'raft',
-                'gtfo': 'gtfo',
-                'rounds': 'rounds',
-                'timberborn': 'timberborn',
-                'totally accurate battle simulator': 'totally-accurate-battle-simulator',
-                'tabs': 'totally-accurate-battle-simulator',
-                'across the obelisk': 'across-the-obelisk',
-                'trombone champ': 'trombone-champ'
-            };
-
             const titleLower = game.title.toLowerCase().trim();
+            const commonMappings = gameMappings.thunderstore || {};
 
             // Check common mappings first
             if (commonMappings[titleLower]) {
