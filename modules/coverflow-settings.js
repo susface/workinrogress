@@ -28,6 +28,8 @@ class CoverFlowSettings {
             autoRotate: false,
             autoRotateSpeed: 0.01,
             backgroundColor: '#1a1a2e',
+            gradientStart: '#4fc3f7',
+            gradientEnd: '#1a1a2e',
             glassEffect: true,
             bloomEffect: false,
             bloomIntensity: 1.0,
@@ -96,6 +98,7 @@ class CoverFlowSettings {
 
             // Apply visual settings
             this.updateBackgroundColor(this.settings.backgroundColor);
+            this.updateGradientColors(this.settings.gradientStart, this.settings.gradientEnd);
 
             if (this.settings.bloomEffect) {
                 this.toggleBloomEffect();
@@ -286,6 +289,20 @@ class CoverFlowSettings {
     }
 
     /**
+     * Update gradient colors
+     */
+    updateGradientColors(start, end) {
+        if (start) this.settings.gradientStart = start;
+        if (end) this.settings.gradientEnd = end;
+
+        const root = document.documentElement;
+        if (start) root.style.setProperty('--gradient-start', start);
+        if (end) root.style.setProperty('--gradient-end', end);
+
+        this.saveSettings();
+    }
+
+    /**
      * Setup settings panel controls
      */
     setupSettingsControls() {
@@ -359,6 +376,27 @@ class CoverFlowSettings {
                     this.updateBackgroundColor(e.target.value);
                 });
             }
+
+            // Gradient pickers
+            const gradientStartPicker = document.getElementById('gradient-start-color');
+            const gradientEndPicker = document.getElementById('gradient-end-color');
+
+            if (gradientStartPicker) {
+                gradientStartPicker.value = this.settings.gradientStart || '#4fc3f7';
+                gradientStartPicker.addEventListener('input', (e) => {
+                    this.updateGradientColors(e.target.value, null);
+                });
+            }
+
+            if (gradientEndPicker) {
+                gradientEndPicker.value = this.settings.gradientEnd || '#1a1a2e';
+                gradientEndPicker.addEventListener('input', (e) => {
+                    this.updateGradientColors(null, e.target.value);
+                });
+            }
+
+            // Initialize gradient colors from settings
+            this.updateGradientColors(this.settings.gradientStart, this.settings.gradientEnd);
 
             // Glass effect toggle
             const glassToggle = document.getElementById('glass-effect');

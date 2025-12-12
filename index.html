@@ -27,6 +27,13 @@
         <p>Loading CoverFlow...</p>
     </div>
 
+    <!-- Scanning Overlay -->
+    <div id="scanning-overlay" class="hidden">
+        <div class="spinner"></div>
+        <h2>Scanning for Games...</h2>
+        <div id="scan-progress-bar-overlay"></div>
+    </div>
+
     <!-- Main Container -->
     <div id="container">
         <!-- Top Bar -->
@@ -165,6 +172,16 @@
                     <label>Background Color</label>
                     <input type="color" id="background-color" value="#000000">
                     <small class="setting-info">Change the background color of the 3D scene</small>
+                </div>
+                <div class="setting-group">
+                    <label>Gradient Start</label>
+                    <input type="color" id="gradient-start-color" value="#4fc3f7">
+                    <small class="setting-info">Top color of the UI background gradient</small>
+                </div>
+                <div class="setting-group">
+                    <label>Gradient End</label>
+                    <input type="color" id="gradient-end-color" value="#1a1a2e">
+                    <small class="setting-info">Bottom color of the UI background gradient</small>
                 </div>
 
                 <div class="setting-divider"></div>

@@ -1857,6 +1857,12 @@ class CoverFlow {
 
     // Start game scan
     async startGameScan() {
+        // Show the enhanced scanning overlay
+        const overlay = document.getElementById('scanning-overlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+        }
+
         if (this.isElectron) {
             // Electron mode - use IPC
             const result = await window.electronAPI.startScan();
@@ -1866,6 +1872,8 @@ class CoverFlow {
                 document.getElementById('scan-games-btn').disabled = true;
             } else {
                 this.showToast(result.error || 'Failed to start scan', 'error');
+                // Hide overlay if failed immediately
+                if (overlay) overlay.classList.add('hidden');
             }
             return;
         }
@@ -1873,6 +1881,7 @@ class CoverFlow {
         // Browser mode - existing code
         if (!this.serverAvailable) {
             this.showToast('Game scanner server is not running. Please start the server first.', 'error');
+            if (overlay) overlay.classList.add('hidden');
             return;
         }
 
@@ -1895,10 +1904,12 @@ class CoverFlow {
             } else {
                 const error = await response.json();
                 this.showToast(error.error || 'Failed to start scan', 'error');
+                if (overlay) overlay.classList.add('hidden');
             }
         } catch (error) {
             console.error('Scan start error:', error);
             this.showToast('Failed to start game scan', 'error');
+            if (overlay) overlay.classList.add('hidden');
         }
     }
 
@@ -1907,6 +1918,10 @@ class CoverFlow {
         if (this.scanInterval) {
             clearInterval(this.scanInterval);
         }
+
+        const overlay = document.getElementById('scanning-overlay');
+        const overlayText = overlay ? overlay.querySelector('h2') : null;
+        const overlayProgress = document.getElementById('scan-progress-bar-overlay');
 
         this.scanInterval = setInterval(async () => {
             try {
@@ -1918,8 +1933,12 @@ class CoverFlow {
                     const statusText = document.getElementById('scan-status-text');
                     const progressBar = document.getElementById('scan-progress-bar');
 
-                    statusText.textContent = status.message;
-                    progressBar.style.width = status.progress + '%';
+                    if (statusText) statusText.textContent = status.message;
+                    if (progressBar) progressBar.style.width = status.progress + '%';
+
+                    // Update overlay text
+                    if (overlayText) overlayText.textContent = status.message || 'Scanning...';
+                    if (overlayProgress) overlayProgress.textContent = `${Math.round(status.progress)}%`;
 
                     // Check if scan is complete
                     if (!status.scanning) {
@@ -1930,6 +1949,7 @@ class CoverFlow {
                         setTimeout(() => {
                             document.getElementById('scan-progress-group').style.display = 'none';
                             document.getElementById('scan-games-btn').disabled = false;
+                            if (overlay) overlay.classList.add('hidden');
                         }, 2000);
 
                         if (status.error) {
@@ -1950,6 +1970,7 @@ class CoverFlow {
                 this.scanInterval = null;
                 document.getElementById('scan-progress-group').style.display = 'none';
                 document.getElementById('scan-games-btn').disabled = false;
+                if (overlay) overlay.classList.add('hidden');
             }
         }, 1000); // Poll every second
     }
@@ -1961,17 +1982,28 @@ class CoverFlow {
         const statusText = document.getElementById('scan-status-text');
         const progressBar = document.getElementById('scan-progress-bar');
 
+        const overlay = document.getElementById('scanning-overlay');
+        const overlayText = overlay ? overlay.querySelector('h2') : null;
+        const overlayProgress = document.getElementById('scan-progress-bar-overlay');
+
         if (statusText) statusText.textContent = status.message;
         if (progressBar) progressBar.style.width = status.progress + '%';
+
+        // Update overlay
+        if (overlayText) overlayText.textContent = status.message || 'Scanning...';
+        if (overlayProgress) overlayProgress.textContent = `${Math.round(status.progress)}%`;
     }
 
     // Handle scan completion from Electron
     async handleScanComplete(status) {
         if (!this.isElectron) return;
 
+        const overlay = document.getElementById('scanning-overlay');
+
         setTimeout(() => {
             document.getElementById('scan-progress-group').style.display = 'none';
             document.getElementById('scan-games-btn').disabled = false;
+            if (overlay) overlay.classList.add('hidden');
         }, 2000);
 
         if (status.error) {
