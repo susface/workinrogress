@@ -748,18 +748,18 @@ class UIComponents {
     createDuplicateManager() {
         const manager = document.createElement('div');
         manager.id = 'duplicate-game-manager';
-        manager.className = 'side-panel'; // Use a more generic class for styling
+        manager.className = 'duplicate-manager'; // Use a more generic class for styling
         manager.style.display = 'none';
         manager.innerHTML = `
-            <div class="side-panel-header">
+            <div class="duplicate-header">
                 <h2>🔍 Duplicate Game Manager</h2>
                 <button class="close-btn">×</button>
             </div>
-            <div class="side-panel-content">
-                <p class="side-panel-description">
+            <div class="duplicate-content">
+                <p class="duplicate-description">
                     Found games that exist on multiple platforms. Choose which version to keep visible or hide.
                 </p>
-                <div id="duplicate-list" class="side-panel-list"></div>
+                <div id="duplicate-list" class="duplicate-list"></div>
             </div>
         `;
 
