@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Visualizer Verification</title>
+    <style>
+        body { background: #000; color: #fff; }
+        canvas { border: 1px solid #444; }
+        .visualizer-hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="visualizer-panel">
+        <canvas id="visualizer-canvas" width="800" height="600"></canvas>
+        <div id="visualizer-controls">
+            <select id="visualizer-mode">
+                <option value="bars">Bars</option>
+                <option value="oscilloscope">Oscilloscope</option>
+                <option value="waveform">Waveform</option>
+                <option value="circle">Circle</option>
+                <option value="trippy">Trippy</option>
+                <option value="particles">Particles</option>
+                <option value="starfield">Starfield</option>
+            </select>
+            <div id="visualizer-current-time">0:00</div>
+            <div id="visualizer-duration">3:00</div>
+            <input type="range" id="visualizer-seek" value="0">
+            <input type="range" id="visualizer-volume" value="100">
+            <button id="visualizer-play-pause">Play</button>
+            <button id="visualizer-close">Close</button>
+        </div>
+    </div>
+
+    <!-- Mock coverflow structure for binding -->
+    <script>
+        // Mock CoverFlow class
+        window.CoverFlow = function() {
+            this.settings = {
+                visualizerMode: 'bars',
+                audioReactiveEnabled: true
+            };
+            this.audioPlayer = {
+                paused: false,
+                play: () => Promise.resolve(),
+                pause: () => {},
+                currentTime: 0,
+                duration: 180,
+                volume: 1.0,
+                addEventListener: () => {},
+                removeEventListener: () => {}
+            };
+        };
+    </script>
+
+    <!-- Load the module code (we'll inject it or load it via file) -->
+    <!-- For this test, we'll manually instantiate and drive it -->
+    <script src="../modules/coverflow-ui.js"></script>
+
+    <script>
+        // Mock AudioContext and Analyser
+        const mockAudioContext = {
+            createAnalyser: () => {
+                return {
+                    frequencyBinCount: 256,
+                    connect: () => {},
+                    getByteFrequencyData: (array) => {
+                        // Fill with frequency data (spectrum)
+                        for (let i = 0; i < array.length; i++) {
+                            // Low frequencies have higher amplitude
+                            array[i] = Math.max(0, 255 - i);
+                        }
+                    },
+                    getByteTimeDomainData: (array) => {
+                        // Fill with time domain data (sine wave centered at 128)
+                        for (let i = 0; i < array.length; i++) {
+                            // Sine wave
+                            const val = 128 + Math.sin(i * 0.1 + Date.now() * 0.005) * 100;
+                            array[i] = Math.floor(val);
+                        }
+                    }
+                };
+            },
+            createMediaElementSource: () => {
+                return { connect: () => {} };
+            },
+            destination: {}
+        };
+        window.AudioContext = function() { return mockAudioContext; };
+        window.webkitAudioContext = window.AudioContext;
+
+        // Initialize
+        const ui = new CoverFlowUI();
+        // Bind to a mock context like CoverFlow does
+        const context = new window.CoverFlow();
+
+        // Mock showToast
+        context.showToast = console.log;
+
+        // Bind methods
+        context.initializeVisualizer = ui.initializeVisualizer.bind(context);
+        context.startVisualizerAnimation = ui.startVisualizerAnimation.bind(context);
+        context.setupVisualizerControls = ui.setupVisualizerControls.bind(context);
+        context.formatTime = ui.formatTime.bind(context);
+
+        // Start
+        const canvas = document.getElementById('visualizer-canvas');
+        context.initializeVisualizer(canvas);
+
+        // Helper to switch modes
+        window.setMode = (mode) => {
+            context.settings.visualizerMode = mode;
+        };
+    </script>
+</body>
+</html>

@@ -736,6 +736,7 @@ class CoverFlowUI {
         const ctx = canvas.getContext('2d');
         const bufferLength = this.analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
+        const timeDomainArray = new Uint8Array(bufferLength);
 
         // Get CSS dimensions for drawing
         const rect = canvas.getBoundingClientRect();
@@ -749,6 +750,7 @@ class CoverFlowUI {
             this.visualizerAnimationId = requestAnimationFrame(draw);
 
             this.analyser.getByteFrequencyData(dataArray);
+            this.analyser.getByteTimeDomainData(timeDomainArray);
 
             const mode = this.settings.visualizerMode || 'bars';
             const centerX = width / 2;
@@ -839,7 +841,7 @@ class CoverFlowUI {
                     break;
 
                 case 'waveform':
-                    // Waveform visualizer
+                    // Waveform visualizer - uses time domain data
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
                     ctx.fillRect(0, 0, width, height);
 
@@ -851,8 +853,8 @@ class CoverFlowUI {
                     let x = 0;
 
                     for (let i = 0; i < bufferLength; i++) {
-                        const v = dataArray[i] / 255;
-                        const y = v * height;
+                        const v = timeDomainArray[i] / 128.0;
+                        const y = v * height / 2;
 
                         if (i === 0) {
                             ctx.moveTo(x, y);
@@ -939,7 +941,7 @@ class CoverFlowUI {
                     break;
 
                 case 'oscilloscope':
-                    // Oscilloscope visualizer
+                    // Oscilloscope visualizer - uses time domain data
                     ctx.fillStyle = 'rgba(0, 20, 0, 0.2)';
                     ctx.fillRect(0, 0, width, height);
 
@@ -970,13 +972,15 @@ class CoverFlowUI {
 
                     for (let i = 0; i < bufferLength; i++) {
                         const x = (i / bufferLength) * width;
-                        const v = dataArray[i] / 128;
-                        const y = (v * height) / 2;
+
+                        // v is 0..2 where 1 is center (128)
+                        const v = timeDomainArray[i] / 128.0;
+                        const y = v * height / 2;
 
                         if (i === 0) {
-                            ctx.moveTo(x, centerY - y);
+                            ctx.moveTo(x, y);
                         } else {
-                            ctx.lineTo(x, centerY - y);
+                            ctx.lineTo(x, y);
                         }
                     }
 
