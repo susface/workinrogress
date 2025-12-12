@@ -11,6 +11,8 @@ class VideoPlayer {
         this.youtubePlayer = null;
         this.playlist = [];
         this.currentIndex = 0;
+        this.abortController = null;
+        this.playlistAbortController = null;
     }
 
     /**
@@ -78,40 +80,47 @@ class VideoPlayer {
         const player = document.getElementById('video-player');
         if (!player) return;
 
+        // Cleanup previous event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
         // Minimize
         player.querySelector('.video-player-minimize-btn').addEventListener('click', () => {
             this.minimizePlayer();
-        });
+        }, { signal });
 
         // Close
         player.querySelector('.video-player-close-btn').addEventListener('click', () => {
             this.closePlayer();
-        });
+        }, { signal });
 
         // Previous video
         player.querySelector('.prev-video-btn').addEventListener('click', () => {
             this.previousVideo();
-        });
+        }, { signal });
 
         // Next video
         player.querySelector('.next-video-btn').addEventListener('click', () => {
             this.nextVideo();
-        });
+        }, { signal });
 
         // Fullscreen
         player.querySelector('.fullscreen-video-btn').addEventListener('click', () => {
             this.toggleFullscreen();
-        });
+        }, { signal });
 
         // Open in browser
         player.querySelector('.open-external-btn').addEventListener('click', () => {
             this.openInBrowser();
-        });
+        }, { signal });
 
         // Clear playlist
         player.querySelector('.clear-video-playlist-btn').addEventListener('click', () => {
             this.clearPlaylist();
-        });
+        }, { signal });
     }
 
     /**
@@ -370,12 +379,19 @@ class VideoPlayer {
             </div>
         `).join('');
 
+        // Cleanup previous playlist event listeners
+        if (this.playlistAbortController) {
+            this.playlistAbortController.abort();
+        }
+        this.playlistAbortController = new AbortController();
+        const signal = this.playlistAbortController.signal;
+
         // Add click handlers
         container.querySelectorAll('.video-playlist-item').forEach(item => {
             item.addEventListener('click', () => {
                 const index = parseInt(item.dataset.index, 10);
                 this.playVideo(index);
-            });
+            }, { signal });
         });
 
         this.highlightCurrentVideo();
@@ -438,6 +454,16 @@ class VideoPlayer {
      * Cleanup
      */
     cleanup() {
+        // Cleanup all event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+        if (this.playlistAbortController) {
+            this.playlistAbortController.abort();
+            this.playlistAbortController = null;
+        }
+
         const videoElement = document.getElementById('local-video-element');
         if (videoElement) {
             videoElement.pause();

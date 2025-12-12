@@ -15,6 +15,7 @@ class FeaturesManager {
         this.backlogManager = null;
         this.screenshotGallery = null;
         this.visualEffects = null;
+        this.abortController = null;
     }
 
     /**
@@ -400,6 +401,13 @@ class FeaturesManager {
         document.body.appendChild(sidebar);
         this.updateRecentlyLaunched();
 
+        // Cleanup previous event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
         // Update every 30 seconds (only when tab is visible to save resources)
         this.recentLaunchedInterval = setInterval(() => {
             if (!document.hidden) {
@@ -422,11 +430,11 @@ class FeaturesManager {
         };
 
         if (searchInput) {
-            searchInput.addEventListener('focus', moveSidebarDown);
+            searchInput.addEventListener('focus', moveSidebarDown, { signal });
             searchInput.addEventListener('blur', () => {
                 // Delay to allow click on clear button
                 setTimeout(moveSidebarUp, 200);
-            });
+            }, { signal });
 
             // Also watch for typing
             searchInput.addEventListener('input', () => {
@@ -435,14 +443,14 @@ class FeaturesManager {
                 } else {
                     moveSidebarUp();
                 }
-            });
+            }, { signal });
         }
 
         // Also watch for clear button
         if (clearSearchBtn) {
             clearSearchBtn.addEventListener('click', () => {
                 setTimeout(moveSidebarUp, 100);
-            });
+            }, { signal });
         }
 
         // Dynamic viewport repositioning
@@ -497,8 +505,8 @@ class FeaturesManager {
             resizeTimeout = setTimeout(repositionSidebar, 100);
         };
 
-        window.addEventListener('resize', throttledReposition);
-        window.addEventListener('scroll', throttledReposition);
+        window.addEventListener('resize', throttledReposition, { signal });
+        window.addEventListener('scroll', throttledReposition, { signal });
 
         // Initial check
         setTimeout(repositionSidebar, 100);
@@ -976,6 +984,12 @@ class FeaturesManager {
      * Cleanup on destroy
      */
     cleanup() {
+        // Cleanup all event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+
         if (this.recentLaunchedInterval) {
             clearInterval(this.recentLaunchedInterval);
             this.recentLaunchedInterval = null;
