@@ -997,6 +997,200 @@ class CoverFlowUI {
                     ctx.shadowBlur = 0;
                     break;
 
+                case 'dna':
+                    // DNA Helix
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                    ctx.fillRect(0, 0, width, height);
+
+                    time += 0.02;
+                    const strands = 2;
+                    const points = 40;
+                    const spacing = height / points;
+
+                    for (let i = 0; i < points; i++) {
+                        const y = i * spacing;
+                        const audioIndex = Math.floor((i / points) * bufferLength);
+                        const intensity = dataArray[audioIndex] / 255;
+                        const waveX = Math.sin(i * 0.5 + time) * 100 * (0.5 + intensity);
+
+                        // Draw connection
+                        ctx.beginPath();
+                        ctx.moveTo(centerX - waveX, y);
+                        ctx.lineTo(centerX + waveX, y);
+                        ctx.strokeStyle = `hsla(${i * 5 + time * 50}, 70%, 50%, 0.3)`;
+                        ctx.lineWidth = 1 + intensity * 5;
+                        ctx.stroke();
+
+                        // Draw nucleotides
+                        for (let s = 0; s < strands; s++) {
+                            const x = s === 0 ? centerX - waveX : centerX + waveX;
+                            const size = 5 + intensity * 10;
+
+                            ctx.beginPath();
+                            ctx.arc(x, y, size, 0, Math.PI * 2);
+                            ctx.fillStyle = s === 0 ? '#4fc3f7' : '#ff6b6b';
+                            ctx.shadowBlur = size * 2;
+                            ctx.shadowColor = ctx.fillStyle;
+                            ctx.fill();
+                            ctx.shadowBlur = 0;
+                        }
+                    }
+                    break;
+
+                case 'matrix':
+                    // Matrix Rain
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                    ctx.fillRect(0, 0, width, height);
+
+                    // Initialize drops if needed
+                    if (!this.matrixDrops || this.matrixDrops.length !== Math.floor(width / 20)) {
+                        this.matrixDrops = new Array(Math.floor(width / 20)).fill(0);
+                    }
+
+                    ctx.fillStyle = '#0F0';
+                    ctx.font = '15px monospace';
+
+                    for (let i = 0; i < this.matrixDrops.length; i++) {
+                        const audioIndex = Math.floor((i / this.matrixDrops.length) * bufferLength);
+                        const intensity = dataArray[audioIndex] / 255;
+
+                        // Pick a random character
+                        const text = String.fromCharCode(0x30A0 + Math.random() * 96);
+
+                        // Color based on audio
+                        const brightness = 50 + intensity * 50;
+                        ctx.fillStyle = `hsl(120, 100%, ${brightness}%)`;
+
+                        const x = i * 20;
+                        const y = this.matrixDrops[i] * 20;
+
+                        ctx.fillText(text, x, y);
+
+                        // Reset drop or move it down
+                        if (y > height && Math.random() > 0.975) {
+                            this.matrixDrops[i] = 0;
+                        }
+
+                        // Move faster with louder audio
+                        this.matrixDrops[i] += 0.5 + intensity;
+                    }
+                    break;
+
+                case 'fireworks':
+                    // Fireworks
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.fillRect(0, 0, width, height);
+
+                    time += 0.05;
+
+                    // Use audio peaks to trigger fireworks
+                    let bassAvg = 0;
+                    for(let i = 0; i < 20; i++) bassAvg += dataArray[i];
+                    bassAvg /= 20;
+
+                    if (bassAvg > 200 && Math.random() > 0.8) {
+                        if (!this.fireworks) this.fireworks = [];
+                        this.fireworks.push({
+                            x: Math.random() * width,
+                            y: height,
+                            targetY: height * 0.2 + Math.random() * height * 0.5,
+                            color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                            particles: null
+                        });
+                    }
+
+                    if (this.fireworks) {
+                        for (let i = this.fireworks.length - 1; i >= 0; i--) {
+                            const fw = this.fireworks[i];
+
+                            if (!fw.particles) {
+                                // Rising phase
+                                ctx.beginPath();
+                                ctx.arc(fw.x, fw.y, 3, 0, Math.PI * 2);
+                                ctx.fillStyle = fw.color;
+                                ctx.fill();
+
+                                fw.y -= 10;
+
+                                if (fw.y <= fw.targetY) {
+                                    // Explode
+                                    fw.particles = [];
+                                    for (let p = 0; p < 50; p++) {
+                                        const angle = Math.random() * Math.PI * 2;
+                                        const speed = Math.random() * 5 + 2;
+                                        fw.particles.push({
+                                            x: fw.x,
+                                            y: fw.y,
+                                            vx: Math.cos(angle) * speed,
+                                            vy: Math.sin(angle) * speed,
+                                            life: 1.0
+                                        });
+                                    }
+                                }
+                            } else {
+                                // Explosion phase
+                                for (let p = 0; p < fw.particles.length; p++) {
+                                    const part = fw.particles[p];
+                                    ctx.beginPath();
+                                    ctx.arc(part.x, part.y, 2, 0, Math.PI * 2);
+                                    ctx.fillStyle = fw.color;
+                                    ctx.globalAlpha = part.life;
+                                    ctx.fill();
+                                    ctx.globalAlpha = 1.0;
+
+                                    part.x += part.vx;
+                                    part.y += part.vy;
+                                    part.vy += 0.1; // gravity
+                                    part.life -= 0.02;
+                                }
+
+                                // Remove dead particles
+                                fw.particles = fw.particles.filter(p => p.life > 0);
+                                if (fw.particles.length === 0) {
+                                    this.fireworks.splice(i, 1);
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                case 'tunnel':
+                    // Neon Tunnel
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.fillRect(0, 0, width, height);
+
+                    time += 0.02;
+
+                    // Draw tunnel rings
+                    for (let i = 0; i < 20; i++) {
+                        const z = (time + i * 0.5) % 10; // Depth movement
+                        const scale = 1 / z; // Perspective scale
+
+                        if (z < 0.1) continue;
+
+                        const ringRadius = 500 * scale;
+
+                        // Audio affects shape
+                        const audioIndex = Math.floor((i / 20) * bufferLength);
+                        const distortion = (dataArray[audioIndex] / 255) * 50 * scale;
+
+                        ctx.beginPath();
+                        for (let a = 0; a <= Math.PI * 2; a += 0.1) {
+                            const r = ringRadius + Math.sin(a * 5 + time) * distortion;
+                            const x = centerX + Math.cos(a) * r;
+                            const y = centerY + Math.sin(a) * r;
+                            if (a === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+
+                        const hue = (time * 20 + i * 20) % 360;
+                        ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${Math.min(1, scale)})`;
+                        ctx.lineWidth = 5 * scale;
+                        ctx.stroke();
+                    }
+                    break;
+
                 default:
                     // Original frequency bars visualizer
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';

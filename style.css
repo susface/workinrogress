@@ -1971,11 +1971,22 @@ body.frosted-glass-mode .setting-group {
 
 /* Window controls for frameless window */
 #window-controls {
+    position: fixed; /* Fixed to window to always stay on right */
+    top: 10px;
+    right: 10px;
+    z-index: 10001; /* Above top bar content */
     display: flex !important;
     gap: 5px;
     align-items: center;
     visibility: visible !important;
     opacity: 1 !important;
+    -webkit-app-region: no-drag; /* Ensure clickable */
+    app-region: no-drag;
+}
+
+/* Adjust top bar padding to prevent overlap */
+#top-bar {
+    padding-right: 120px !important; /* Make space for window controls */
 }
 
 /* Hide window controls when not in Electron or when in frosted glass mode */
@@ -2005,6 +2016,8 @@ body.frosted-glass-mode .setting-group {
     align-items: center;
     justify-content: center;
     line-height: 1;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
 }
 
 #window-controls button:hover {
