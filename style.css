@@ -4,6 +4,8 @@
     --secondary-color: #81c784;
     --background-color: #000000;
     --text-color: #ffffff;
+    --gradient-start: #4fc3f7;
+    --gradient-end: #1a1a2e;
 }
 
 * {
@@ -14,7 +16,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+    background: linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
     color: #ffffff;
     overflow: hidden;
     height: 100vh;
@@ -2031,3 +2033,56 @@ body.frosted-glass-mode #window-controls #close-btn:hover {
     border-color: rgba(255, 0, 0, 0.8);
 }
 
+
+/* Scanning Overlay */
+#scanning-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10001; /* Higher than top bar */
+    transition: opacity 0.5s ease;
+}
+
+#scanning-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#scanning-overlay h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    animation: pulseText 2s infinite;
+}
+
+@keyframes pulseText {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+#scanning-overlay .spinner {
+    width: 80px;
+    height: 80px;
+    border-width: 6px;
+    border-color: rgba(255, 255, 255, 0.1);
+    border-top-color: var(--primary-color);
+    margin-bottom: 30px;
+}
+
+#scan-progress-bar-overlay {
+    font-family: monospace;
+    color: #fff;
+    margin-top: 20px;
+    font-size: 16px;
+    color: var(--secondary-color);
+}
