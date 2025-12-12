@@ -3206,7 +3206,18 @@ class CoverFlow {
             });
         });
 
-        this.setupSettingsControls();
+        try {
+            this.setupSettingsControls();
+        } catch (e) {
+            console.error('[COVERFLOW] Error setting up settings controls:', e);
+        }
+
+        // Ensure server status is checked even if settings setup fails
+        try {
+            this.checkServerStatus();
+        } catch (e) {
+            console.error('[COVERFLOW] Error checking server status in addEventListeners:', e);
+        }
     }
 
     setupSettingsControls() {

@@ -289,502 +289,677 @@ class CoverFlowSettings {
      * Setup settings panel controls
      */
     setupSettingsControls() {
-        // Cover spacing slider
-        const spacingSlider = document.getElementById('cover-spacing');
-        const spacingValue = document.getElementById('spacing-value');
-        if (spacingSlider && spacingValue) {
-            spacingSlider.value = this.settings.coverSpacing * 10;
-            spacingValue.textContent = this.settings.coverSpacing;
+        console.log('[SETTINGS] Setting up controls...');
 
-            spacingSlider.addEventListener('input', (e) => {
-                this.settings.coverSpacing = parseFloat(e.target.value) / 10;
-                spacingValue.textContent = (e.target.value / 10).toFixed(1);
-                this.updateCoverPositions();
-                this.saveSettings();
-            });
-        }
+        try {
+            // Cover spacing slider
+            const spacingSlider = document.getElementById('cover-spacing');
+            const spacingValue = document.getElementById('spacing-value');
+            if (spacingSlider && spacingValue) {
+                spacingSlider.value = this.settings.coverSpacing * 10;
+                spacingValue.textContent = this.settings.coverSpacing;
 
-        // Side angle slider
-        const angleSlider = document.getElementById('side-angle');
-        const angleValue = document.getElementById('angle-value');
-        if (angleSlider && angleValue) {
-            angleSlider.value = (this.settings.sideAngle * 180 / Math.PI);
-            angleValue.textContent = (this.settings.sideAngle * (180 / Math.PI)).toFixed(0) + '°';
-
-            angleSlider.addEventListener('input', (e) => {
-                this.settings.sideAngle = parseFloat(e.target.value) * (Math.PI / 180);
-                angleValue.textContent = parseFloat(e.target.value).toFixed(0) + '°';
-                this.updateCoverPositions();
-                this.saveSettings();
-            });
-        }
-
-        // Animation speed slider
-        const speedSlider = document.getElementById('animation-speed');
-        const speedValue = document.getElementById('speed-value');
-        if (speedSlider && speedValue) {
-            speedSlider.value = this.settings.animationSpeed * 10;
-            speedValue.textContent = (this.settings.animationSpeed * 10).toFixed(0);
-
-            speedSlider.addEventListener('input', (e) => {
-                this.settings.animationSpeed = parseFloat(e.target.value) / 10;
-                speedValue.textContent = e.target.value;
-                this.saveSettings();
-            });
-        }
-
-        // Scroll speed slider
-        const scrollSpeedSlider = document.getElementById('scroll-speed');
-        const scrollSpeedValue = document.getElementById('scroll-speed-value');
-        if (scrollSpeedSlider && scrollSpeedValue) {
-            scrollSpeedSlider.value = this.settings.scrollSpeed;
-            scrollSpeedValue.textContent = this.settings.scrollSpeed + 'x';
-
-            scrollSpeedSlider.addEventListener('input', (e) => {
-                this.settings.scrollSpeed = parseFloat(e.target.value);
-                scrollSpeedValue.textContent = e.target.value + 'x';
-                this.saveSettings();
-            });
-        }
-
-        // Background color picker
-        const bgColorPicker = document.getElementById('bg-color');
-        if (bgColorPicker) {
-            bgColorPicker.value = this.settings.backgroundColor;
-
-            bgColorPicker.addEventListener('input', (e) => {
-                this.updateBackgroundColor(e.target.value);
-            });
-        }
-
-        // Glass effect toggle
-        const glassToggle = document.getElementById('glass-effect');
-        if (glassToggle) {
-            glassToggle.checked = this.settings.glassEffect;
-
-            glassToggle.addEventListener('change', () => {
-                this.toggleGlassEffect();
-            });
-        }
-
-        // Show reflections toggle
-        const reflectionsToggle = document.getElementById('reflection-toggle');
-        if (reflectionsToggle) {
-            reflectionsToggle.checked = this.settings.showReflections;
-
-            reflectionsToggle.addEventListener('change', () => {
-                this.settings.showReflections = !this.settings.showReflections;
-                this.reflections.forEach(ref => {
-                    ref.visible = this.settings.showReflections;
+                spacingSlider.addEventListener('input', (e) => {
+                    this.settings.coverSpacing = parseFloat(e.target.value) / 10;
+                    spacingValue.textContent = (e.target.value / 10).toFixed(1);
+                    this.updateCoverPositions();
+                    this.saveSettings();
                 });
-                this.saveSettings();
-            });
-        }
-
-        // Bloom effect toggle
-        const bloomToggle = document.getElementById('bloom-effect');
-        if (bloomToggle) {
-            bloomToggle.checked = this.settings.bloomEffect;
-
-            bloomToggle.addEventListener('change', () => {
-                this.toggleBloomEffect();
-            });
-        }
-
-        // Bloom intensity slider
-        const bloomIntensitySlider = document.getElementById('bloom-intensity');
-        const bloomIntensityValue = document.getElementById('bloom-value');
-        if (bloomIntensitySlider && bloomIntensityValue) {
-            bloomIntensitySlider.value = this.settings.bloomIntensity * 10;
-            bloomIntensityValue.textContent = this.settings.bloomIntensity;
-
-            bloomIntensitySlider.addEventListener('input', (e) => {
-                this.updateBloomIntensity(e.target.value / 10);
-                bloomIntensityValue.textContent = (e.target.value / 10).toFixed(1);
-            });
-        }
-
-        // SSAO effect toggle
-        const ssaoToggle = document.getElementById('ssao-effect');
-        if (ssaoToggle) {
-            ssaoToggle.checked = this.settings.ssaoEffect;
-
-            ssaoToggle.addEventListener('change', () => {
-                this.toggleSSAOEffect();
-            });
-        }
-
-        // Depth of Field toggle
-        const dofToggle = document.getElementById('depth-of-field-toggle');
-        if (dofToggle) {
-            dofToggle.checked = this.settings.depthOfField;
-
-            dofToggle.addEventListener('change', () => {
-                this.toggleDepthOfField();
-            });
-        }
-
-        // VR mode toggle
-        const vrToggle = document.getElementById('vr-mode-toggle');
-        if (vrToggle) {
-            vrToggle.checked = this.settings.vrMode;
-
-            vrToggle.addEventListener('change', () => {
-                this.toggleVRMode();
-            });
-        }
-
-        // Hardware rendering toggle
-        const hwToggle = document.getElementById('hardware-rendering');
-        if (hwToggle) {
-            hwToggle.checked = this.settings.hardwareRendering;
-
-            hwToggle.addEventListener('change', () => {
-                this.toggleHardwareRendering();
-            });
-        }
-
-        // Auto-rotate toggle
-        const autoRotateToggle = document.getElementById('auto-rotate');
-        if (autoRotateToggle) {
-            autoRotateToggle.checked = this.settings.autoRotate;
-
-            autoRotateToggle.addEventListener('change', () => {
-                this.toggleAutoRotate();
-            });
-        }
-
-        // FPS counter toggle
-        const fpsToggle = document.getElementById('fps-counter-toggle');
-        if (fpsToggle) {
-            fpsToggle.checked = this.settings.fpsCounter;
-
-            fpsToggle.addEventListener('change', () => {
-                this.settings.fpsCounter = !this.settings.fpsCounter;
-                const fpsCounter = document.getElementById('fps-counter');
-                if (fpsCounter) {
-                    fpsCounter.style.display = this.settings.fpsCounter ? 'block' : 'none';
-                }
-                this.saveSettings();
-            });
-        }
-
-        // Visualizer mode selector
-        const visualizerMode = document.getElementById('visualizer-mode');
-        if (visualizerMode) {
-            visualizerMode.value = this.settings.visualizerMode || 'bars';
-
-            visualizerMode.addEventListener('change', () => {
-                this.settings.visualizerMode = visualizerMode.value;
-                this.saveSettings();
-                this.showToast(`Visualizer mode set to ${visualizerMode.value}`, 'success');
-            });
-        }
-
-        // Error logging toggle
-        const errorLoggingToggle = document.getElementById('error-logging-toggle');
-        if (errorLoggingToggle) {
-            errorLoggingToggle.checked = this.settings.errorLogging;
-
-            // Show/hide view error log button based on error logging setting
-            const logGroup = document.getElementById('view-error-log-group');
-            if (logGroup) {
-                logGroup.style.display = this.settings.errorLogging ? 'block' : 'none';
             }
 
-            errorLoggingToggle.addEventListener('change', () => {
-                this.settings.errorLogging = !this.settings.errorLogging;
-                this.saveSettings();
-                this.showToast(
-                    this.settings.errorLogging ? 'Error logging enabled' : 'Error logging disabled',
-                    'info'
-                );
+            // Side angle slider
+            const angleSlider = document.getElementById('side-angle');
+            const angleValue = document.getElementById('angle-value');
+            if (angleSlider && angleValue) {
+                angleSlider.value = (this.settings.sideAngle * 180 / Math.PI);
+                angleValue.textContent = (this.settings.sideAngle * (180 / Math.PI)).toFixed(0) + '°';
 
-                // Toggle view log button visibility
+                angleSlider.addEventListener('input', (e) => {
+                    this.settings.sideAngle = parseFloat(e.target.value) * (Math.PI / 180);
+                    angleValue.textContent = parseFloat(e.target.value).toFixed(0) + '°';
+                    this.updateCoverPositions();
+                    this.saveSettings();
+                });
+            }
+
+            // Animation speed slider
+            const speedSlider = document.getElementById('animation-speed');
+            const speedValue = document.getElementById('speed-value');
+            if (speedSlider && speedValue) {
+                speedSlider.value = this.settings.animationSpeed * 10;
+                speedValue.textContent = (this.settings.animationSpeed * 10).toFixed(0);
+
+                speedSlider.addEventListener('input', (e) => {
+                    this.settings.animationSpeed = parseFloat(e.target.value) / 10;
+                    speedValue.textContent = e.target.value;
+                    this.saveSettings();
+                });
+            }
+
+            // Scroll speed slider
+            const scrollSpeedSlider = document.getElementById('scroll-speed');
+            const scrollSpeedValue = document.getElementById('scroll-speed-value');
+            if (scrollSpeedSlider && scrollSpeedValue) {
+                scrollSpeedSlider.value = this.settings.scrollSpeed;
+                scrollSpeedValue.textContent = this.settings.scrollSpeed + 'x';
+
+                scrollSpeedSlider.addEventListener('input', (e) => {
+                    this.settings.scrollSpeed = parseFloat(e.target.value);
+                    scrollSpeedValue.textContent = e.target.value + 'x';
+                    this.saveSettings();
+                });
+            }
+
+            // Background color picker
+            const bgColorPicker = document.getElementById('background-color') || document.getElementById('bg-color');
+            if (bgColorPicker) {
+                bgColorPicker.value = this.settings.backgroundColor;
+
+                bgColorPicker.addEventListener('input', (e) => {
+                    this.updateBackgroundColor(e.target.value);
+                });
+            }
+
+            // Glass effect toggle
+            const glassToggle = document.getElementById('glass-effect');
+            if (glassToggle) {
+                glassToggle.checked = this.settings.glassEffect;
+
+                glassToggle.addEventListener('change', () => {
+                    this.toggleGlassEffect();
+                });
+            }
+
+            // Show reflections toggle
+            const reflectionsToggle = document.getElementById('reflection-toggle');
+            if (reflectionsToggle) {
+                reflectionsToggle.checked = this.settings.showReflections;
+
+                reflectionsToggle.addEventListener('change', () => {
+                    this.settings.showReflections = !this.settings.showReflections;
+                    this.reflections.forEach(ref => {
+                        ref.visible = this.settings.showReflections;
+                    });
+                    this.saveSettings();
+                });
+            }
+
+            // Bloom effect toggle
+            const bloomToggle = document.getElementById('bloom-effect');
+            if (bloomToggle) {
+                bloomToggle.checked = this.settings.bloomEffect;
+
+                bloomToggle.addEventListener('change', () => {
+                    this.toggleBloomEffect();
+                });
+            }
+
+            // Bloom intensity slider
+            const bloomIntensitySlider = document.getElementById('bloom-intensity');
+            const bloomIntensityValue = document.getElementById('bloom-value');
+            if (bloomIntensitySlider && bloomIntensityValue) {
+                bloomIntensitySlider.value = this.settings.bloomIntensity * 10;
+                bloomIntensityValue.textContent = this.settings.bloomIntensity;
+
+                bloomIntensitySlider.addEventListener('input', (e) => {
+                    this.updateBloomIntensity(e.target.value / 10);
+                    bloomIntensityValue.textContent = (e.target.value / 10).toFixed(1);
+                });
+            }
+
+            // SSAO effect toggle
+            const ssaoToggle = document.getElementById('ssao-effect');
+            if (ssaoToggle) {
+                ssaoToggle.checked = this.settings.ssaoEffect;
+
+                ssaoToggle.addEventListener('change', () => {
+                    this.toggleSSAOEffect();
+                });
+            }
+
+            // Depth of Field toggle
+            const dofToggle = document.getElementById('depth-of-field-toggle');
+            if (dofToggle) {
+                dofToggle.checked = this.settings.depthOfField;
+
+                dofToggle.addEventListener('change', () => {
+                    this.toggleDepthOfField();
+                });
+            }
+
+            // VR mode toggle
+            const vrToggle = document.getElementById('vr-mode-toggle');
+            if (vrToggle) {
+                vrToggle.checked = this.settings.vrMode;
+
+                vrToggle.addEventListener('change', () => {
+                    this.toggleVRMode();
+                });
+            }
+
+            // Hardware rendering toggle
+            const hwToggle = document.getElementById('hardware-rendering');
+            if (hwToggle) {
+                hwToggle.checked = this.settings.hardwareRendering;
+
+                hwToggle.addEventListener('change', () => {
+                    this.toggleHardwareRendering();
+                });
+            }
+
+            // Auto-rotate toggle
+            const autoRotateToggle = document.getElementById('auto-rotate');
+            if (autoRotateToggle) {
+                autoRotateToggle.checked = this.settings.autoRotate;
+
+                autoRotateToggle.addEventListener('change', () => {
+                    this.toggleAutoRotate();
+                });
+            }
+
+            // FPS counter toggle
+            const fpsToggle = document.getElementById('fps-counter-toggle');
+            if (fpsToggle) {
+                fpsToggle.checked = this.settings.showFpsCounter;
+
+                fpsToggle.addEventListener('change', () => {
+                    this.settings.showFpsCounter = !this.settings.showFpsCounter;
+                    const fpsCounter = document.getElementById('fps-counter');
+                    if (fpsCounter) {
+                        fpsCounter.style.display = this.settings.showFpsCounter ? 'block' : 'none';
+                    }
+                    this.saveSettings();
+                });
+            }
+
+            // Visualizer mode selector
+            const visualizerMode = document.getElementById('visualizer-mode');
+            if (visualizerMode) {
+                visualizerMode.value = this.settings.visualizerMode || 'bars';
+
+                visualizerMode.addEventListener('change', () => {
+                    this.settings.visualizerMode = visualizerMode.value;
+                    this.saveSettings();
+                    this.showToast(`Visualizer mode set to ${visualizerMode.value}`, 'success');
+                });
+            }
+
+            // Error logging toggle
+            const errorLoggingToggle = document.getElementById('error-logging-toggle');
+            if (errorLoggingToggle) {
+                errorLoggingToggle.checked = this.settings.errorLogging;
+
+                // Show/hide view error log button based on error logging setting
+                const logGroup = document.getElementById('view-error-log-group');
                 if (logGroup) {
                     logGroup.style.display = this.settings.errorLogging ? 'block' : 'none';
                 }
-            });
-        }
 
-        // View error log button handler
-        const viewLogBtn = document.getElementById('view-error-log-btn');
-        if (viewLogBtn) {
-            viewLogBtn.addEventListener('click', () => {
-                this.viewErrorLog();
-            });
-        }
+                errorLoggingToggle.addEventListener('change', () => {
+                    this.settings.errorLogging = !this.settings.errorLogging;
+                    this.saveSettings();
+                    this.showToast(
+                        this.settings.errorLogging ? 'Error logging enabled' : 'Error logging disabled',
+                        'info'
+                    );
 
-        // Enhancement feature toggles
-        const soundEffectsToggle = document.getElementById('sound-effects-toggle');
-        if (soundEffectsToggle) {
-            soundEffectsToggle.checked = this.settings.soundEffects;
-            soundEffectsToggle.addEventListener('change', () => {
-                this.toggleSoundEffects();
-            });
-        }
+                    // Toggle view log button visibility
+                    if (logGroup) {
+                        logGroup.style.display = this.settings.errorLogging ? 'block' : 'none';
+                    }
+                });
+            }
 
-        // Background music controls
-        const backgroundMusicToggle = document.getElementById('background-music-toggle');
-        if (backgroundMusicToggle) {
-            // Load initial state from BackgroundMusic module's settings
-            try {
-                const bgMusicSettings = localStorage.getItem('background-music-settings');
-                if (bgMusicSettings) {
-                    const parsed = JSON.parse(bgMusicSettings);
-                    backgroundMusicToggle.checked = parsed.backgroundMusicEnabled !== false;
-                } else {
+            // View error log button handler
+            const viewLogBtn = document.getElementById('view-error-log-btn');
+            if (viewLogBtn) {
+                viewLogBtn.addEventListener('click', () => {
+                    this.viewErrorLog();
+                });
+            }
+
+            // Enhancement feature toggles
+            const soundEffectsToggle = document.getElementById('sound-effects-toggle');
+            if (soundEffectsToggle) {
+                soundEffectsToggle.checked = this.settings.soundEffects;
+                soundEffectsToggle.addEventListener('change', () => {
+                    this.toggleSoundEffects();
+                });
+            }
+
+            // Background music controls
+            const backgroundMusicToggle = document.getElementById('background-music-toggle');
+            if (backgroundMusicToggle) {
+                // Load initial state from BackgroundMusic module's settings
+                try {
+                    const bgMusicSettings = localStorage.getItem('background-music-settings');
+                    if (bgMusicSettings) {
+                        const parsed = JSON.parse(bgMusicSettings);
+                        backgroundMusicToggle.checked = parsed.backgroundMusicEnabled !== false;
+                    } else {
+                        backgroundMusicToggle.checked = this.settings.backgroundMusicEnabled !== false;
+                    }
+                } catch (e) {
                     backgroundMusicToggle.checked = this.settings.backgroundMusicEnabled !== false;
                 }
-            } catch (e) {
-                backgroundMusicToggle.checked = this.settings.backgroundMusicEnabled !== false;
-            }
 
-            backgroundMusicToggle.addEventListener('change', () => {
-                console.log('[SETTINGS] Background music toggle changed to:', backgroundMusicToggle.checked);
+                backgroundMusicToggle.addEventListener('change', () => {
+                    console.log('[SETTINGS] Background music toggle changed to:', backgroundMusicToggle.checked);
 
-                // The toggleBackgroundMusic method handles everything including saving settings
-                if (this.toggleBackgroundMusic && typeof this.toggleBackgroundMusic === 'function') {
-                    console.log('[SETTINGS] Calling toggleBackgroundMusic method');
-                    this.toggleBackgroundMusic();
-                } else {
-                    console.warn('[SETTINGS] toggleBackgroundMusic method not available');
-                }
-            });
-        }
-
-        const backgroundMusicVolume = document.getElementById('background-music-volume');
-        const bgMusicVolumeValue = document.getElementById('bg-music-volume-value');
-        if (backgroundMusicVolume && bgMusicVolumeValue) {
-            // Load actual volume from BackgroundMusic module's settings
-            let currentVolume = 0.3; // default
-
-            // Try to get from BackgroundMusic module if it exists
-            try {
-                const bgMusicSettings = localStorage.getItem('background-music-settings');
-                if (bgMusicSettings) {
-                    const parsed = JSON.parse(bgMusicSettings);
-                    if (parsed.backgroundMusicVolume !== undefined) {
-                        currentVolume = parsed.backgroundMusicVolume;
+                    // The toggleBackgroundMusic method handles everything including saving settings
+                    if (this.toggleBackgroundMusic && typeof this.toggleBackgroundMusic === 'function') {
+                        console.log('[SETTINGS] Calling toggleBackgroundMusic method');
+                        this.toggleBackgroundMusic();
+                    } else {
+                        console.warn('[SETTINGS] toggleBackgroundMusic method not available');
                     }
-                }
-            } catch (e) {
-                console.warn('[SETTINGS] Could not load background music volume:', e);
+                });
             }
 
-            // Also check if the module is already loaded and has the volume set
-            if (this.volume !== undefined) {
-                currentVolume = this.volume;
+            const backgroundMusicVolume = document.getElementById('background-music-volume');
+            const bgMusicVolumeValue = document.getElementById('bg-music-volume-value');
+            if (backgroundMusicVolume && bgMusicVolumeValue) {
+                // Load actual volume from BackgroundMusic module's settings
+                let currentVolume = 0.3; // default
+
+                // Try to get from BackgroundMusic module if it exists
+                try {
+                    const bgMusicSettings = localStorage.getItem('background-music-settings');
+                    if (bgMusicSettings) {
+                        const parsed = JSON.parse(bgMusicSettings);
+                        if (parsed.backgroundMusicVolume !== undefined) {
+                            currentVolume = parsed.backgroundMusicVolume;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[SETTINGS] Could not load background music volume:', e);
+                }
+
+                // Also check if the module is already loaded and has the volume set
+                if (this.volume !== undefined) {
+                    currentVolume = this.volume;
+                }
+
+                backgroundMusicVolume.value = currentVolume * 100;
+                bgMusicVolumeValue.textContent = Math.round(currentVolume * 100) + '%';
+
+                backgroundMusicVolume.addEventListener('input', (e) => {
+                    const volume = parseFloat(e.target.value) / 100;
+                    bgMusicVolumeValue.textContent = e.target.value + '%';
+
+                    console.log('[SETTINGS] Background music volume changed to:', volume);
+
+                    // The setBackgroundMusicVolume method handles saving settings
+                    if (this.setBackgroundMusicVolume && typeof this.setBackgroundMusicVolume === 'function') {
+                        console.log('[SETTINGS] Calling setBackgroundMusicVolume method');
+                        this.setBackgroundMusicVolume(volume);
+                    } else {
+                        console.warn('[SETTINGS] setBackgroundMusicVolume method not available');
+                    }
+                });
             }
 
-            backgroundMusicVolume.value = currentVolume * 100;
-            bgMusicVolumeValue.textContent = Math.round(currentVolume * 100) + '%';
-
-            backgroundMusicVolume.addEventListener('input', (e) => {
-                const volume = parseFloat(e.target.value) / 100;
-                bgMusicVolumeValue.textContent = e.target.value + '%';
-
-                console.log('[SETTINGS] Background music volume changed to:', volume);
-
-                // The setBackgroundMusicVolume method handles saving settings
-                if (this.setBackgroundMusicVolume && typeof this.setBackgroundMusicVolume === 'function') {
-                    console.log('[SETTINGS] Calling setBackgroundMusicVolume method');
-                    this.setBackgroundMusicVolume(volume);
-                } else {
-                    console.warn('[SETTINGS] setBackgroundMusicVolume method not available');
-                }
-            });
-        }
-
-        const selectBgMusicBtn = document.getElementById('select-bg-music-btn');
-        if (selectBgMusicBtn) {
-            // Function to display currently selected file
-            const displayCurrentFile = () => {
-                const fileDisplay = document.getElementById('current-music-file-display');
-                if (fileDisplay) {
-                    try {
-                        const bgMusicSettings = localStorage.getItem('background-music-settings');
-                        if (bgMusicSettings) {
-                            const settings = JSON.parse(bgMusicSettings);
-                            if (settings.backgroundMusicPath) {
-                                const fileName = settings.backgroundMusicPath.split(/[\\/]/).pop();
-                                fileDisplay.textContent = `Selected: ${fileName}`;
-                                console.log('[SETTINGS] Current music file:', fileName);
+            const selectBgMusicBtn = document.getElementById('select-bg-music-btn');
+            if (selectBgMusicBtn) {
+                // Function to display currently selected file
+                const displayCurrentFile = () => {
+                    const fileDisplay = document.getElementById('current-music-file-display');
+                    if (fileDisplay) {
+                        try {
+                            const bgMusicSettings = localStorage.getItem('background-music-settings');
+                            if (bgMusicSettings) {
+                                const settings = JSON.parse(bgMusicSettings);
+                                if (settings.backgroundMusicPath) {
+                                    const fileName = settings.backgroundMusicPath.split(/[\\/]/).pop();
+                                    fileDisplay.textContent = `Selected: ${fileName}`;
+                                    console.log('[SETTINGS] Current music file:', fileName);
+                                } else {
+                                    fileDisplay.textContent = 'No file selected';
+                                }
                             } else {
                                 fileDisplay.textContent = 'No file selected';
                             }
-                        } else {
-                            fileDisplay.textContent = 'No file selected';
+                        } catch (e) {
+                            console.error('[SETTINGS] Error displaying current file:', e);
+                            fileDisplay.textContent = 'Error loading file info';
                         }
-                    } catch (e) {
-                        console.error('[SETTINGS] Error displaying current file:', e);
-                        fileDisplay.textContent = 'Error loading file info';
                     }
-                }
-            };
+                };
 
-            // Display current file on load
-            displayCurrentFile();
+                // Display current file on load
+                displayCurrentFile();
 
-            selectBgMusicBtn.addEventListener('click', async () => {
-                console.log('[SETTINGS] Select background music clicked');
-                console.log('[SETTINGS] loadCustomBackgroundMusic available?', typeof this.loadCustomBackgroundMusic);
+                selectBgMusicBtn.addEventListener('click', async () => {
+                    console.log('[SETTINGS] Select background music clicked');
+                    console.log('[SETTINGS] loadCustomBackgroundMusic available?', typeof this.loadCustomBackgroundMusic);
 
-                // Use the background music module's loadCustomBackgroundMusic method
-                if (this.loadCustomBackgroundMusic && typeof this.loadCustomBackgroundMusic === 'function') {
-                    console.log('[SETTINGS] Calling loadCustomBackgroundMusic method');
-                    try {
-                        await this.loadCustomBackgroundMusic();
-                        // Wait a bit and then update the display
-                        setTimeout(displayCurrentFile, 500);
-                    } catch (error) {
-                        console.error('[SETTINGS] Error loading custom music:', error);
-                        this.showToast('Failed to load custom music', 'error');
+                    // Use the background music module's loadCustomBackgroundMusic method
+                    if (this.loadCustomBackgroundMusic && typeof this.loadCustomBackgroundMusic === 'function') {
+                        console.log('[SETTINGS] Calling loadCustomBackgroundMusic method');
+                        try {
+                            await this.loadCustomBackgroundMusic();
+                            // Wait a bit and then update the display
+                            setTimeout(displayCurrentFile, 500);
+                        } catch (error) {
+                            console.error('[SETTINGS] Error loading custom music:', error);
+                            this.showToast('Failed to load custom music', 'error');
+                        }
+                    } else {
+                        console.warn('[SETTINGS] loadCustomBackgroundMusic method not available');
+                        this.showToast('Background music selection not available', 'error');
                     }
-                } else {
-                    console.warn('[SETTINGS] loadCustomBackgroundMusic method not available');
-                    this.showToast('Background music selection not available', 'error');
-                }
-            });
-        }
+                });
+            }
 
-        const resetBgMusicBtn = document.getElementById('reset-bg-music-btn');
-        if (resetBgMusicBtn) {
-            resetBgMusicBtn.addEventListener('click', () => {
-                console.log('[SETTINGS] Reset background music clicked');
-                console.log('[SETTINGS] resetBackgroundMusicToDefault available?', typeof this.resetBackgroundMusicToDefault);
+            const resetBgMusicBtn = document.getElementById('reset-bg-music-btn');
+            if (resetBgMusicBtn) {
+                resetBgMusicBtn.addEventListener('click', () => {
+                    console.log('[SETTINGS] Reset background music clicked');
+                    console.log('[SETTINGS] resetBackgroundMusicToDefault available?', typeof this.resetBackgroundMusicToDefault);
 
-                if (this.resetBackgroundMusicToDefault && typeof this.resetBackgroundMusicToDefault === 'function') {
-                    console.log('[SETTINGS] Calling resetBackgroundMusicToDefault method');
-                    try {
-                        this.resetBackgroundMusicToDefault();
-                        // Update the display after resetting
-                        if (selectBgMusicBtn) {
-                            const displayCurrentFile = () => {
-                                const fileDisplay = document.getElementById('current-music-file-display');
-                                if (fileDisplay) {
-                                    try {
-                                        const bgMusicSettings = localStorage.getItem('background-music-settings');
-                                        if (bgMusicSettings) {
-                                            const settings = JSON.parse(bgMusicSettings);
-                                            if (settings.backgroundMusicPath) {
-                                                const fileName = settings.backgroundMusicPath.split(/[\\/]/).pop();
-                                                fileDisplay.textContent = `Selected: ${fileName}`;
+                    if (this.resetBackgroundMusicToDefault && typeof this.resetBackgroundMusicToDefault === 'function') {
+                        console.log('[SETTINGS] Calling resetBackgroundMusicToDefault method');
+                        try {
+                            this.resetBackgroundMusicToDefault();
+                            // Update the display after resetting
+                            if (selectBgMusicBtn) {
+                                const displayCurrentFile = () => {
+                                    const fileDisplay = document.getElementById('current-music-file-display');
+                                    if (fileDisplay) {
+                                        try {
+                                            const bgMusicSettings = localStorage.getItem('background-music-settings');
+                                            if (bgMusicSettings) {
+                                                const settings = JSON.parse(bgMusicSettings);
+                                                if (settings.backgroundMusicPath) {
+                                                    const fileName = settings.backgroundMusicPath.split(/[\\/]/).pop();
+                                                    fileDisplay.textContent = `Selected: ${fileName}`;
+                                                } else {
+                                                    fileDisplay.textContent = 'No file selected';
+                                                }
                                             } else {
                                                 fileDisplay.textContent = 'No file selected';
                                             }
-                                        } else {
-                                            fileDisplay.textContent = 'No file selected';
+                                        } catch (e) {
+                                            fileDisplay.textContent = 'Error loading file info';
                                         }
-                                    } catch (e) {
-                                        fileDisplay.textContent = 'Error loading file info';
                                     }
-                                }
-                            };
-                            setTimeout(displayCurrentFile, 500);
+                                };
+                                setTimeout(displayCurrentFile, 500);
+                            }
+                        } catch (error) {
+                            console.error('[SETTINGS] Error resetting background music:', error);
+                            this.showToast('Failed to reset music', 'error');
                         }
-                    } catch (error) {
-                        console.error('[SETTINGS] Error resetting background music:', error);
-                        this.showToast('Failed to reset music', 'error');
+                    } else {
+                        console.warn('[SETTINGS] resetBackgroundMusicToDefault method not available');
+                        this.showToast('Reset not available', 'error');
                     }
-                } else {
-                    console.warn('[SETTINGS] resetBackgroundMusicToDefault method not available');
-                    this.showToast('Reset not available', 'error');
-                }
-            });
+                });
+            }
+
+            const touchGesturesToggle = document.getElementById('touch-gestures-toggle');
+            if (touchGesturesToggle) {
+                touchGesturesToggle.checked = this.settings.touchGestures;
+                touchGesturesToggle.addEventListener('change', () => {
+                    this.toggleTouchGestures();
+                });
+            }
+
+            const platformAnimationsToggle = document.getElementById('platform-animations-toggle');
+            if (platformAnimationsToggle) {
+                platformAnimationsToggle.checked = this.settings.platformAnimations;
+                platformAnimationsToggle.addEventListener('change', () => {
+                    this.togglePlatformAnimations();
+                });
+            }
+
+            const dynamicBackgroundToggle = document.getElementById('dynamic-background-toggle');
+            if (dynamicBackgroundToggle) {
+                dynamicBackgroundToggle.checked = this.settings.dynamicBackground;
+                dynamicBackgroundToggle.addEventListener('change', () => {
+                    this.settings.dynamicBackground = !this.settings.dynamicBackground;
+                    this.saveSettings();
+                    this.showToast(
+                        this.settings.dynamicBackground ? 'Dynamic background enabled' : 'Dynamic background disabled',
+                        'success'
+                    );
+                });
+            }
+
+            const infiniteLoopToggle = document.getElementById('infinite-loop-toggle');
+            if (infiniteLoopToggle) {
+                infiniteLoopToggle.checked = this.settings.infiniteLoop;
+                infiniteLoopToggle.addEventListener('change', () => {
+                    this.settings.infiniteLoop = !this.settings.infiniteLoop;
+                    this.saveSettings();
+                    this.showToast(
+                        this.settings.infiniteLoop ? 'Infinite loop enabled' : 'Infinite loop disabled',
+                        'success'
+                    );
+                });
+            }
+
+            const zoomOnSelectToggle = document.getElementById('zoom-on-select-toggle');
+            if (zoomOnSelectToggle) {
+                zoomOnSelectToggle.checked = this.settings.zoomOnSelect;
+                zoomOnSelectToggle.addEventListener('change', () => {
+                    this.settings.zoomOnSelect = !this.settings.zoomOnSelect;
+                    this.saveSettings();
+                    this.showToast(
+                        this.settings.zoomOnSelect ? 'Zoom on selection enabled' : 'Zoom on selection disabled',
+                        'success'
+                    );
+                });
+            }
+
+            // Export/Import settings buttons
+            const exportBtn = document.getElementById('export-settings-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    this.exportSettings();
+                });
+            }
+
+            const importBtn = document.getElementById('import-settings-btn');
+            if (importBtn) {
+                importBtn.addEventListener('click', () => {
+                    const input = document.getElementById('settings-file-input');
+                    if (input) input.click();
+                });
+            }
+
+            const settingsFileInput = document.getElementById('settings-file-input');
+            if (settingsFileInput) {
+                settingsFileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                this.importSettings(event.target.result);
+                                this.closeAllModals();
+                            } catch (error) {
+                                this.showToast('Invalid settings file format', 'error');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                });
+            }
+
+            // Reset settings
+            const resetBtn = document.getElementById('reset-settings');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    this.settings = this.getDefaultSettings();
+                    this.saveSettings();
+                    this.setupSettingsControls();
+
+                    if (this.autoRotateInterval) {
+                        clearInterval(this.autoRotateInterval);
+                        this.autoRotateInterval = null;
+                    }
+
+                    // Rebuild scene
+                    this.clearScene();
+                    this.createCovers();
+                    this.createThumbnails();
+                    this.updateInfo();
+
+                    const fpsCounter = document.getElementById('fps-counter');
+                    if (fpsCounter) fpsCounter.style.display = 'none';
+
+                    this.showToast('Settings reset to defaults', 'info');
+                });
+            }
+
+            // JSON file loading
+            const loadJsonBtn = document.getElementById('load-json-btn');
+            if (loadJsonBtn) {
+                loadJsonBtn.addEventListener('click', () => {
+                    const input = document.getElementById('json-file-input');
+                    if (input) input.click();
+                });
+            }
+
+            const jsonFileInput = document.getElementById('json-file-input');
+            if (jsonFileInput) {
+                jsonFileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const jsonData = JSON.parse(event.target.result);
+                                this.loadFromJSON(jsonData);
+                                this.showToast(`Loaded ${this.filteredAlbums.length} albums successfully!`, 'success');
+                                this.closeAllModals();
+                            } catch (error) {
+                                this.showToast('Invalid JSON file format', 'error');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                });
+            }
+
+            // Game scanner buttons
+            const scanGamesBtn = document.getElementById('scan-games-btn');
+            if (scanGamesBtn) {
+                scanGamesBtn.addEventListener('click', () => {
+                    console.log('[COVERFLOW] Scan games button clicked');
+                    this.startGameScan();
+                });
+            } else {
+                console.warn('[COVERFLOW] scan-games-btn not found');
+            }
+
+            const reloadGamesBtn = document.getElementById('reload-games-btn');
+            if (reloadGamesBtn) {
+                reloadGamesBtn.addEventListener('click', () => {
+                    console.log('[COVERFLOW] Reload games button clicked');
+                    this.reloadGamesFromServer();
+                });
+            } else {
+                console.warn('[COVERFLOW] reload-games-btn not found');
+            }
+
+            // Reload interface button
+            const reloadInterfaceBtn = document.getElementById('reload-interface-btn');
+            if (reloadInterfaceBtn) {
+                reloadInterfaceBtn.addEventListener('click', () => {
+                    location.reload();
+                });
+            }
+
+            // Media folder button
+            const mediaFolderBtn = document.getElementById('add-media-folder-btn');
+            if (mediaFolderBtn) {
+                mediaFolderBtn.addEventListener('click', () => {
+                    this.selectAndScanMediaFolder();
+                });
+            }
+
+            // Logging controls
+            const logLevelSelect = document.getElementById('log-level-select');
+            if (logLevelSelect) {
+                logLevelSelect.value = window.logger?.getLogLevelName() || 'INFO';
+                logLevelSelect.addEventListener('change', (e) => {
+                    window.logger?.setLogLevel(e.target.value);
+                    this.showToast(`Log level set to ${e.target.value}`, 'info');
+                });
+            }
+
+            const disableVRLogs = document.getElementById('disable-vr-logs');
+            if (disableVRLogs) {
+                disableVRLogs.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        window.logger?.disableModule('VR');
+                        window.logger?.disableModule('VR_FILTER');
+                    } else {
+                        window.logger?.enableModule('VR');
+                        window.logger?.enableModule('VR_FILTER');
+                    }
+                    this.showToast(`VR logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
+                });
+            }
+
+            const disableModManagerLogs = document.getElementById('disable-mod-manager-logs');
+            if (disableModManagerLogs) {
+                disableModManagerLogs.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        window.logger?.disableModule('MOD_MANAGER');
+                    } else {
+                        window.logger?.enableModule('MOD_MANAGER');
+                    }
+                    this.showToast(`Mod Manager logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
+                });
+            }
+
+            const disableVideoLogs = document.getElementById('disable-video-logs');
+            if (disableVideoLogs) {
+                disableVideoLogs.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        window.logger?.disableModule('VIDEO');
+                    } else {
+                        window.logger?.enableModule('VIDEO');
+                    }
+                    this.showToast(`Video Player logs ${e.target.checked ? 'disabled' : 'enabled'}`, 'info');
+                });
+            }
+
+            // Clear game data button
+            const clearGameDataBtn = document.getElementById('clear-game-data-btn');
+            if (clearGameDataBtn) {
+                clearGameDataBtn.addEventListener('click', async () => {
+                    console.log('[COVERFLOW] Clear game data button clicked');
+                    if (confirm('⚠️ This will delete all scanned game data!\n\nYou will need to scan for games again.\n\nAre you sure?')) {
+                        console.log('[COVERFLOW] User confirmed clear game data');
+                        if (window.electronAPI) {
+                            const result = await window.electronAPI.clearGameData();
+                            if (result.success) {
+                                alert('✓ Game data cleared successfully!\n\nClick "Scan for Games" to find games again.');
+                                // Reload to show empty library
+                                await this.loadGames();
+                            } else {
+                                alert('❌ Failed to clear game data: ' + (result.error || 'Unknown error'));
+                            }
+                        } else {
+                            console.warn('Clear game data not supported in browser mode');
+                        }
+                    }
+                });
+            }
+
+        } catch (error) {
+            console.error('[SETTINGS] Error setting up controls:', error);
         }
 
-        const touchGesturesToggle = document.getElementById('touch-gestures-toggle');
-        if (touchGesturesToggle) {
-            touchGesturesToggle.checked = this.settings.touchGestures;
-            touchGesturesToggle.addEventListener('change', () => {
-                this.toggleTouchGestures();
-            });
-        }
-
-        const platformAnimationsToggle = document.getElementById('platform-animations-toggle');
-        if (platformAnimationsToggle) {
-            platformAnimationsToggle.checked = this.settings.platformAnimations;
-            platformAnimationsToggle.addEventListener('change', () => {
-                this.togglePlatformAnimations();
-            });
-        }
-
-        const dynamicBackgroundToggle = document.getElementById('dynamic-background-toggle');
-        if (dynamicBackgroundToggle) {
-            dynamicBackgroundToggle.checked = this.settings.dynamicBackground;
-            dynamicBackgroundToggle.addEventListener('change', () => {
-                this.settings.dynamicBackground = !this.settings.dynamicBackground;
-                this.saveSettings();
-                this.showToast(
-                    this.settings.dynamicBackground ? 'Dynamic background enabled' : 'Dynamic background disabled',
-                    'success'
-                );
-            });
-        }
-
-        const infiniteLoopToggle = document.getElementById('infinite-loop-toggle');
-        if (infiniteLoopToggle) {
-            infiniteLoopToggle.checked = this.settings.infiniteLoop;
-            infiniteLoopToggle.addEventListener('change', () => {
-                this.settings.infiniteLoop = !this.settings.infiniteLoop;
-                this.saveSettings();
-                this.showToast(
-                    this.settings.infiniteLoop ? 'Infinite loop enabled' : 'Infinite loop disabled',
-                    'success'
-                );
-            });
-        }
-
-        const zoomOnSelectToggle = document.getElementById('zoom-on-select-toggle');
-        if (zoomOnSelectToggle) {
-            zoomOnSelectToggle.checked = this.settings.zoomOnSelect;
-            zoomOnSelectToggle.addEventListener('change', () => {
-                this.settings.zoomOnSelect = !this.settings.zoomOnSelect;
-                this.saveSettings();
-                this.showToast(
-                    this.settings.zoomOnSelect ? 'Zoom on selection enabled' : 'Zoom on selection disabled',
-                    'success'
-                );
-            });
-        }
-
-        // Export/Import settings buttons
-        document.getElementById('export-settings-btn').addEventListener('click', () => {
-            this.exportSettings();
-        });
-
-        document.getElementById('import-settings-btn').addEventListener('click', () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-
-                    reader.onload = (event) => {
-                        this.importSettings(event.target.result);
-                        // Clean up
-                        reader.onload = null;
-                    };
-
-                    reader.readAsText(file);
-                }
-                // Clean up input element
-                input.onchange = null;
-            };
-
-            input.click();
-        });
-
-        // Reload interface button
-        const reloadInterfaceBtn = document.getElementById('reload-interface-btn');
-        if (reloadInterfaceBtn) {
-            reloadInterfaceBtn.addEventListener('click', () => {
-                location.reload();
-            });
+        // Check server status on load - ensure this runs even if controls fail
+        try {
+            this.checkServerStatus();
+        } catch (error) {
+            console.error('[SETTINGS] Error checking server status:', error);
         }
     }
 }
