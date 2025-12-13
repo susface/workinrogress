@@ -6,6 +6,7 @@ class StatisticsDashboard {
         this.activeModal = null;
         this.stats = null;
         this.completionData = this.loadCompletionData();
+        this.abortController = null;
     }
 
     // Load completion data from localStorage
@@ -247,6 +248,9 @@ class StatisticsDashboard {
             this.closeModal();
         }
 
+        // Create abort controller for event cleanup
+        this.abortController = new AbortController();
+
         // Show loading state
         const modal = document.createElement('div');
         modal.id = 'statistics-dashboard-modal';
@@ -300,7 +304,7 @@ class StatisticsDashboard {
                     <button id="close-stats-btn" class="btn" style="margin-top: 20px; padding: 10px 25px;">Close</button>
                 </div>
             `;
-            modal.querySelector('#close-stats-btn').addEventListener('click', () => this.closeModal());
+            modal.querySelector('#close-stats-btn').addEventListener('click', () => this.closeModal(), { signal: this.abortController?.signal });
             return;
         }
 
@@ -509,16 +513,18 @@ class StatisticsDashboard {
             </div>
         `;
 
-        // Setup event listeners
+        // Setup event listeners with abort signal for cleanup
+        const signal = this.abortController?.signal;
+
         modal.querySelector('#close-dashboard').addEventListener('click', () => {
             this.closeModal();
-        });
+        }, { signal });
 
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeModal();
             }
-        });
+        }, { signal });
     }
 
     renderCompletionCard(label, count, color) {
@@ -618,10 +624,19 @@ class StatisticsDashboard {
     }
 
     closeModal() {
+        // Abort all event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+
         if (this.activeModal) {
             this.activeModal.remove();
             this.activeModal = null;
         }
+
+        // Clear stats to free memory
+        this.stats = null;
     }
 
     escapeHtml(text) {
@@ -633,6 +648,7 @@ class StatisticsDashboard {
 
     destroy() {
         this.closeModal();
+        this.completionData = null;
     }
 }
 

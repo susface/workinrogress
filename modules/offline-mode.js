@@ -10,15 +10,19 @@ class OfflineModeManager {
         this.statusIndicator = null;
         this.lastOnlineCheck = null;
         this.checkInterval = null;
+
+        // Bind handlers for proper event listener cleanup
+        this._boundHandleOnline = this.handleOnline.bind(this);
+        this._boundHandleOffline = this.handleOffline.bind(this);
     }
 
     // Initialize offline mode
     init() {
         console.log('[OFFLINE_MODE] Initializing offline mode manager');
 
-        // Setup network event listeners
-        window.addEventListener('online', () => this.handleOnline());
-        window.addEventListener('offline', () => this.handleOffline());
+        // Setup network event listeners using bound handlers for proper cleanup
+        window.addEventListener('online', this._boundHandleOnline);
+        window.addEventListener('offline', this._boundHandleOffline);
 
         // Create status indicator
         this.createStatusIndicator();
@@ -429,16 +433,23 @@ class OfflineModeManager {
     destroy() {
         if (this.checkInterval) {
             clearInterval(this.checkInterval);
+            this.checkInterval = null;
         }
 
-        window.removeEventListener('online', this.handleOnline);
-        window.removeEventListener('offline', this.handleOffline);
+        // Remove event listeners using bound handlers
+        window.removeEventListener('online', this._boundHandleOnline);
+        window.removeEventListener('offline', this._boundHandleOffline);
 
         if (this.statusIndicator) {
             this.statusIndicator.remove();
+            this.statusIndicator = null;
         }
 
+        // Clear all references
         this.listeners = [];
+        this.offlineCache.clear();
+        this.pendingSync = [];
+
         console.log('[OFFLINE_MODE] Offline mode manager destroyed');
     }
 }
