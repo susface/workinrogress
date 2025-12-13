@@ -80,6 +80,7 @@ class FeaturesManager {
         this.setupScreenshotGalleryButton();
         this.setupVisualEffectsButton();
         this.setupRecentlyLaunched();
+        this.setupNewFeatureButtons();
     }
 
     /**
@@ -978,6 +979,81 @@ class FeaturesManager {
         });
 
         document.body.appendChild(modal);
+    }
+
+    /**
+     * Setup new feature buttons (2025 - Enhanced Features)
+     */
+    setupNewFeatureButtons() {
+        console.log('[FEATURES] Setting up new feature buttons...');
+
+        // Statistics Dashboard button
+        const statisticsBtn = document.getElementById('statistics-btn-menu');
+        if (statisticsBtn) {
+            statisticsBtn.addEventListener('click', () => {
+                console.log('[FEATURES] Statistics button clicked');
+                if (window.statisticsDashboard) {
+                    window.statisticsDashboard.showDashboard();
+                } else {
+                    console.warn('[FEATURES] Statistics dashboard not available');
+                }
+                // Close dropdown
+                const dropdown = document.getElementById('more-dropdown');
+                if (dropdown) dropdown.style.display = 'none';
+            });
+            console.log('[FEATURES] Statistics button initialized');
+        }
+
+        // Cover Art Fetcher button
+        const coverFetcherBtn = document.getElementById('cover-fetcher-btn-menu');
+        if (coverFetcherBtn) {
+            coverFetcherBtn.addEventListener('click', () => {
+                console.log('[FEATURES] Cover Fetcher button clicked');
+                if (window.coverArtFetcher) {
+                    // Get current game from coverflow
+                    const currentGame = this.coverflow?.getCurrentGame?.() ||
+                                         this.coverflow?.allAlbums?.[this.coverflow?.currentIndex] ||
+                                         null;
+                    window.coverArtFetcher.showSearchModal(currentGame);
+                } else {
+                    console.warn('[FEATURES] Cover art fetcher not available');
+                }
+                // Close dropdown
+                const dropdown = document.getElementById('more-dropdown');
+                if (dropdown) dropdown.style.display = 'none';
+            });
+            console.log('[FEATURES] Cover Fetcher button initialized');
+        }
+
+        // Launch Profiles button
+        const launchProfilesBtn = document.getElementById('launch-profiles-btn-menu');
+        if (launchProfilesBtn) {
+            launchProfilesBtn.addEventListener('click', () => {
+                console.log('[FEATURES] Launch Profiles button clicked');
+                if (window.launchProfilesManager) {
+                    // Get current game from coverflow
+                    const currentGame = this.coverflow?.getCurrentGame?.() ||
+                                         this.coverflow?.allAlbums?.[this.coverflow?.currentIndex] ||
+                                         null;
+                    if (currentGame) {
+                        window.launchProfilesManager.showProfilesModal(currentGame);
+                    } else {
+                        // Show toast that no game is selected
+                        if (this.coverflow?.showToast) {
+                            this.coverflow.showToast('Select a game first', 'warning');
+                        }
+                    }
+                } else {
+                    console.warn('[FEATURES] Launch profiles manager not available');
+                }
+                // Close dropdown
+                const dropdown = document.getElementById('more-dropdown');
+                if (dropdown) dropdown.style.display = 'none';
+            });
+            console.log('[FEATURES] Launch Profiles button initialized');
+        }
+
+        console.log('[FEATURES] New feature buttons setup complete');
     }
 
     /**
