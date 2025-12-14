@@ -5,6 +5,7 @@ class LaunchProfilesManager {
     constructor() {
         this.profiles = this.loadProfiles();
         this.activeModal = null;
+        this.abortController = null;
     }
 
     // Load profiles from localStorage
@@ -145,6 +146,9 @@ class LaunchProfilesManager {
         if (this.activeModal) {
             this.closeModal();
         }
+
+        // Create abort controller for event cleanup
+        this.abortController = new AbortController();
 
         const profiles = this.getGameProfiles(game.id);
 
@@ -313,32 +317,34 @@ class LaunchProfilesManager {
     }
 
     setupModalEvents(modal, game) {
+        const signal = this.abortController?.signal;
+
         // Close button
         modal.querySelector('#close-profiles').addEventListener('click', () => {
             this.closeModal();
-        });
+        }, { signal });
 
         // Click outside to close
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeModal();
             }
-        });
+        }, { signal });
 
         // Create profile button
         modal.querySelector('#create-profile-btn').addEventListener('click', () => {
             this.showEditor(modal);
-        });
+        }, { signal });
 
         // Cancel editor
         modal.querySelector('#cancel-profile-btn').addEventListener('click', () => {
             this.hideEditor(modal);
-        });
+        }, { signal });
 
         // Save profile
         modal.querySelector('#save-profile-btn').addEventListener('click', () => {
             this.saveProfile(modal, game);
-        });
+        }, { signal });
 
         // Profile action buttons (using event delegation)
         modal.querySelector('#profiles-list').addEventListener('click', (e) => {
@@ -360,7 +366,7 @@ class LaunchProfilesManager {
                     this.refreshProfilesList(modal, game);
                 }
             }
-        });
+        }, { signal });
     }
 
     showEditor(modal, profile = null) {
@@ -508,6 +514,12 @@ class LaunchProfilesManager {
     }
 
     closeModal() {
+        // Abort all event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+
         if (this.activeModal) {
             this.activeModal.remove();
             this.activeModal = null;

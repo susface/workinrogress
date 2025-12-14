@@ -10,6 +10,8 @@ class CoverArtFetcher {
         this.fetchQueue = [];
         this.isProcessingQueue = false;
         this.activeModal = null;
+        this.pendingTimeouts = [];
+        this.abortController = null;
     }
 
     // Initialize the fetcher
@@ -209,6 +211,9 @@ class CoverArtFetcher {
             this.closeModal();
         }
 
+        // Create abort controller for event cleanup
+        this.abortController = new AbortController();
+
         const modal = document.createElement('div');
         modal.id = 'cover-fetcher-modal';
         modal.className = 'modal-overlay';
@@ -305,53 +310,59 @@ class CoverArtFetcher {
 
         // Auto-search if game name is provided
         if (game?.title || game?.name) {
-            setTimeout(() => {
-                document.getElementById('search-steam-btn').click();
+            const timeoutId = setTimeout(() => {
+                const searchBtn = document.getElementById('search-steam-btn');
+                if (searchBtn && this.activeModal) {
+                    searchBtn.click();
+                }
             }, 300);
+            this.pendingTimeouts.push(timeoutId);
         }
     }
 
     setupModalEvents(modal, game) {
+        const signal = this.abortController?.signal;
+
         // Close button
         modal.querySelector('#close-fetcher').addEventListener('click', () => {
             this.closeModal();
-        });
+        }, { signal });
 
         // Click outside to close
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeModal();
             }
-        });
+        }, { signal });
 
         // Search buttons
         modal.querySelector('#search-covers-btn').addEventListener('click', () => {
             const query = modal.querySelector('#cover-search-input').value;
             this.performSearch(query, 'steam');
-        });
+        }, { signal });
 
         modal.querySelector('#search-steam-btn').addEventListener('click', () => {
             const query = modal.querySelector('#cover-search-input').value;
             this.performSearch(query, 'steam');
-        });
+        }, { signal });
 
         modal.querySelector('#search-steamgriddb-btn').addEventListener('click', () => {
             const query = modal.querySelector('#cover-search-input').value;
             this.performSearch(query, 'steamgriddb');
-        });
+        }, { signal });
 
         // API settings toggle
         modal.querySelector('#configure-api-btn').addEventListener('click', () => {
             const panel = modal.querySelector('#api-settings-panel');
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        });
+        }, { signal });
 
         // Save API keys
         modal.querySelector('#save-api-keys-btn').addEventListener('click', () => {
             const steamGridDBKey = modal.querySelector('#steamgriddb-key-input').value;
             this.setApiKeys(steamGridDBKey);
             this.showStatus('API keys saved!', 'success');
-        });
+        }, { signal });
 
         // Enter key to search
         modal.querySelector('#cover-search-input').addEventListener('keypress', (e) => {
@@ -359,7 +370,7 @@ class CoverArtFetcher {
                 const query = modal.querySelector('#cover-search-input').value;
                 this.performSearch(query, 'steam');
             }
-        });
+        }, { signal });
     }
 
     async performSearch(query, source = 'steam') {
@@ -418,23 +429,24 @@ class CoverArtFetcher {
         // Store results for click handling
         this.currentResults = results.results;
 
-        // Add click handlers
+        // Add click handlers with abort signal for cleanup
+        const signal = this.abortController?.signal;
         container.querySelectorAll('.cover-result').forEach((el, index) => {
             el.addEventListener('click', () => {
                 this.selectCover(results.results[index]);
-            });
+            }, { signal });
 
             el.addEventListener('mouseenter', () => {
                 el.style.transform = 'scale(1.05)';
                 el.style.boxShadow = '0 10px 30px rgba(79, 195, 247, 0.3)';
                 el.style.borderColor = '#4fc3f7';
-            });
+            }, { signal });
 
             el.addEventListener('mouseleave', () => {
                 el.style.transform = 'scale(1)';
                 el.style.boxShadow = 'none';
                 el.style.borderColor = 'transparent';
-            });
+            }, { signal });
         });
 
         this.showStatus(`Found ${results.results.length} covers from ${results.source}`, 'success');
@@ -488,9 +500,10 @@ class CoverArtFetcher {
                     this.saveCache();
 
                     // Close modal after a delay
-                    setTimeout(() => {
-                        this.closeModal();
+                    const timeoutId = setTimeout(() => {
+                        if (this.activeModal) this.closeModal();
                     }, 1000);
+                    this.pendingTimeouts.push(timeoutId);
                 } else {
                     throw new Error(result.error || 'Failed to save cover');
                 }
@@ -515,9 +528,10 @@ class CoverArtFetcher {
                 }
 
                 this.showStatus('Cover art applied!', 'success');
-                setTimeout(() => {
-                    this.closeModal();
+                const timeoutId = setTimeout(() => {
+                    if (this.activeModal) this.closeModal();
                 }, 1000);
+                this.pendingTimeouts.push(timeoutId);
             }
 
         } catch (error) {
@@ -544,6 +558,16 @@ class CoverArtFetcher {
     }
 
     closeModal() {
+        // Abort all event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+
+        // Clear all pending timeouts
+        this.pendingTimeouts.forEach(id => clearTimeout(id));
+        this.pendingTimeouts = [];
+
         if (this.activeModal) {
             this.activeModal.remove();
             this.activeModal = null;
@@ -617,6 +641,8 @@ class CoverArtFetcher {
     destroy() {
         this.closeModal();
         this.cache.clear();
+        this.fetchQueue = [];
+        this.isProcessingQueue = false;
     }
 }
 
