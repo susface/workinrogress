@@ -2907,7 +2907,7 @@ class VisualEffectsManager {
                 <h3>VR/3D Stereoscopic Mode</h3>
                 <label>
                     <input type="checkbox" id="stereo3DEnabled" ${this.settings.stereo3DEnabled ? 'checked' : ''}>
-                    Enable Stereoscopic 3D
+                    Enable Stereoscopic 3D (SBS)
                 </label>
                 <div style="margin-left: 20px; ${!this.settings.stereo3DEnabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
                     <label style="font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
@@ -2922,7 +2922,7 @@ class VisualEffectsManager {
                     <input type="range" id="convergence" min="0.5" max="2.0" step="0.1" value="${this.settings.convergence}" style="width: 100%;">
                 </div>
                 <small style="display: block; margin-top: 8px; font-size: 0.85em; opacity: 0.7;">
-                    ℹ️ Use with VR headset or red-cyan 3D glasses
+                    ℹ️ Use with 3D Monitors (Side-by-Side), VR headsets, or stereoscopic displays.
                 </small>
             </div>
 
