@@ -3897,7 +3897,11 @@ class CoverFlow {
         }
 
         // Render with post-processing if enabled, otherwise normal render
-        if (this.composer && (this.settings.bloomEffect || this.settings.ssaoEffect)) {
+        // Prioritize Stereo 3D rendering if enabled
+        if (this.visualEffectsManager &&
+            (this.visualEffectsManager.settings.stereo3DEnabled || this.visualEffectsManager.settings.vrModeEnabled)) {
+            this.visualEffectsManager.renderStereo();
+        } else if (this.composer && (this.settings.bloomEffect || this.settings.ssaoEffect)) {
             this.composer.render();
         } else {
             this.renderer.render(this.scene, this.camera);
