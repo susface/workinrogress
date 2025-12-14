@@ -3894,6 +3894,8 @@ class CoverFlow {
         // Update visual effects
         if (this.visualEffectsManager) {
             this.visualEffectsManager.update(this.covers);
+            // Always update 3D effects to handle animations and cleanup/toggling visibility
+            this.visualEffectsManager.update3DEffects(this.covers, this.currentIndex);
         }
 
         // Render with post-processing if enabled, otherwise normal render

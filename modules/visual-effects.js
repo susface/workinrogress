@@ -30,6 +30,11 @@ class VisualEffectsManager {
         this.idleAnimations = [];
         this.coversCache = []; // Cache covers for cleanup
 
+        // 3D Mode specific effects
+        this.tunnelMesh = null;
+        this.activeCoverGlow = null;
+        this.particles3D = null;
+
         // Mouse/cursor tracking
         this.mouseX = 0;
         this.mouseY = 0;
@@ -169,6 +174,11 @@ class VisualEffectsManager {
         try {
             // Setup mouse tracking
             this.setupMouseTracking();
+
+            // Initialize 3D effects resources early (but don't add to scene yet)
+            this.init3DTunnel();
+            this.init3DParticles();
+            this.initActiveCoverGlow();
 
             // Initialize enabled effects with error handling
             if (this.settings.particlesEnabled) {
@@ -2044,6 +2054,217 @@ class VisualEffectsManager {
         };
 
         animate();
+    }
+
+    // ==================== 3D MODE SPECIFIC EFFECTS ====================
+
+    /**
+     * Initialize 3D Tunnel Effect
+     */
+    init3DTunnel() {
+        // Create a wireframe tunnel extending into distance
+        const length = 100;
+        const radius = 15;
+        const segments = 64;
+
+        const geometry = new THREE.CylinderGeometry(radius, radius, length, segments, 20, true);
+        geometry.rotateX(-Math.PI / 2); // Point towards camera
+
+        // Create grid texture
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#000000';
+        context.fillRect(0, 0, 512, 512);
+        context.strokeStyle = '#4fc3f7';
+        context.lineWidth = 2;
+
+        // Draw grid
+        const step = 64;
+        for (let i = 0; i <= 512; i += step) {
+            context.beginPath();
+            context.moveTo(i, 0);
+            context.lineTo(i, 512);
+            context.stroke();
+
+            context.beginPath();
+            context.moveTo(0, i);
+            context.lineTo(512, i);
+            context.stroke();
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(4, 20);
+
+        const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.BackSide,
+            transparent: true,
+            opacity: 0.2,
+            blending: THREE.AdditiveBlending
+        });
+
+        this.tunnelMesh = new THREE.Mesh(geometry, material);
+        this.tunnelMesh.position.z = -length / 2;
+        this.tunnelMesh.visible = false; // Hidden by default
+
+        this.scene.add(this.tunnelMesh);
+    }
+
+    /**
+     * Initialize Deep 3D Particles
+     */
+    init3DParticles() {
+        const geometry = new THREE.BufferGeometry();
+        const count = 2000;
+        const positions = [];
+        const sizes = [];
+
+        for (let i = 0; i < count; i++) {
+            // Wide distribution for deep 3D effect
+            positions.push(
+                (Math.random() - 0.5) * 100, // x
+                (Math.random() - 0.5) * 60,  // y
+                (Math.random() - 0.5) * 100 - 20 // z (mostly in front/behind)
+            );
+            sizes.push(Math.random() * 0.2);
+        }
+
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+
+        const material = new THREE.PointsMaterial({
+            color: 0x4fc3f7,
+            size: 0.1,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
+
+        this.particles3D = new THREE.Points(geometry, material);
+        this.particles3D.visible = false;
+        this.scene.add(this.particles3D);
+    }
+
+    /**
+     * Initialize Active Cover Glow (Fake Volumetric)
+     */
+    initActiveCoverGlow() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        // Create radial glow
+        const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+        gradient.addColorStop(0, 'rgba(79, 195, 247, 0.8)'); // Bright center
+        gradient.addColorStop(0.4, 'rgba(79, 195, 247, 0.2)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 256, 256);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            color: 0xffffff,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        this.activeCoverGlow = new THREE.Sprite(material);
+        this.activeCoverGlow.scale.set(6, 6, 1);
+        this.activeCoverGlow.visible = false;
+        this.scene.add(this.activeCoverGlow);
+    }
+
+    /**
+     * Update 3D Effects Loop
+     */
+    update3DEffects(covers, currentIndex) {
+        const time = Date.now() * 0.001;
+        const is3DMode = this.settings.stereo3DEnabled || this.settings.vrModeEnabled;
+
+        // Toggle visibility based on mode
+        if (this.tunnelMesh) this.tunnelMesh.visible = is3DMode;
+        if (this.particles3D) this.particles3D.visible = is3DMode;
+        if (this.activeCoverGlow) this.activeCoverGlow.visible = is3DMode;
+
+        // If not in 3D mode, ensure any modified covers are reset to local zero
+        if (!is3DMode) {
+            if (covers) {
+                covers.forEach(cover => {
+                    if (cover && (cover.position.z !== 0 || cover.position.y !== 0)) {
+                        cover.position.set(0, 0, 0);
+                        cover.scale.set(1, 1, 1);
+                    }
+                });
+            }
+            return;
+        }
+
+        // 1. Update Tunnel
+        if (this.tunnelMesh) {
+            // Move texture coordinates to create speed effect
+            if (this.tunnelMesh.material.map) {
+                this.tunnelMesh.material.map.offset.y -= 0.005; // Move "forward"
+            }
+            // Gentle rotation
+            this.tunnelMesh.rotation.z = Math.sin(time * 0.2) * 0.1;
+        }
+
+        // 2. Update Particles
+        if (this.particles3D) {
+            this.particles3D.rotation.y = time * 0.05; // Slow rotation
+
+            // Pulse opacity
+            this.particles3D.material.opacity = 0.4 + Math.sin(time) * 0.2;
+        }
+
+        // 3. Update Active Cover "Pop" and Glow
+        if (covers) {
+            covers.forEach((cover, index) => {
+                if (!cover) return;
+
+                if (index === currentIndex) {
+                    // Active Cover: Pop Out Effect
+                    // We modify the Mesh position (local to the Group), not the Group itself
+                    // This avoids fighting with the layout engine and cumulative errors
+
+                    // Add "breathing" scale effect (absolute set)
+                    const breathe = 1 + Math.sin(time * 2) * 0.02;
+                    cover.scale.setScalar(breathe);
+
+                    // Set absolute local position offset
+                    cover.position.z = 1.5;
+                    cover.position.y = 0.2;
+
+                    // Update Glow Position (follow the parent group + local mesh offset)
+                    if (this.activeCoverGlow && cover.parent) {
+                        this.activeCoverGlow.position.copy(cover.parent.position);
+                        // Add the local offset we just applied to the cover
+                        this.activeCoverGlow.position.y += 0.2;
+                        this.activeCoverGlow.position.z += 1.0; // Slightly behind the popped cover (1.5 - 0.5)
+
+                        // Pulse the glow
+                        const glowPulse = 5 + Math.sin(time * 3) * 0.5;
+                        this.activeCoverGlow.scale.set(glowPulse, glowPulse * 1.5, 1);
+                        this.activeCoverGlow.material.opacity = 0.5 + Math.sin(time * 4) * 0.2;
+                    }
+                } else {
+                    // Inactive Covers: Reset to baseline
+                    // Important: Reset local transforms so they don't get stuck if previously active
+                    if (cover.position.z !== 0 || cover.position.y !== 0) {
+                        cover.position.set(0, 0, 0);
+                        cover.scale.set(1, 1, 1);
+                    }
+                }
+            });
+        }
     }
 
     // ==================== ENHANCED REFLECTIONS ====================
