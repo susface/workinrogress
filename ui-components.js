@@ -309,6 +309,7 @@ class UIComponents {
             document.body.appendChild(wrapper);
         }
 
+        // PERFORMANCE: Use lazy loading for images and DocumentFragment for DOM operations
         const gridHtml = games.map(game => {
             const imagePath = game.boxart_path || game.icon_path;
             const imageSrc = this.getImageSrc(imagePath);
@@ -317,8 +318,10 @@ class UIComponents {
             return `
             <div class="grid-item" data-game-id="${game.id}">
                 <div class="grid-item-image">
-                    <img src="${imageSrc}"
+                    <img src="placeholder.png"
+                         data-src="${imageSrc}"
                          alt="${safeTitle}"
+                         loading="lazy"
                          onerror="this.src='placeholder.png'"/>
                     ${game.update_available ? '<div class="update-badge">UPDATE</div>' : ''}
                     ${game.is_favorite ? '<div class="favorite-badge">⭐</div>' : ''}
@@ -342,8 +345,39 @@ class UIComponents {
 
         wrapper.innerHTML = `<div class="grid-view-container">${gridHtml}</div>`;
 
+        // PERFORMANCE: Use IntersectionObserver for lazy loading images
+        this._setupLazyLoading(wrapper);
+
         // Add event listeners for play and favorite buttons
         this.attachGridListEventListeners(wrapper, games, this.gridViewAbortController.signal);
+    }
+
+    // PERFORMANCE: Lazy load images as they come into view
+    _setupLazyLoading(container) {
+        if (!('IntersectionObserver' in window)) {
+            // Fallback: load all images immediately if IntersectionObserver not supported
+            container.querySelectorAll('img[data-src]').forEach(img => {
+                img.src = img.dataset.src;
+            });
+            return;
+        }
+
+        const imageObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    if (img.dataset.src) {
+                        img.src = img.dataset.src;
+                        delete img.dataset.src;
+                    }
+                    imageObserver.unobserve(img);
+                }
+            });
+        }, { rootMargin: '50px' });
+
+        container.querySelectorAll('img[data-src]').forEach(img => {
+            imageObserver.observe(img);
+        });
     }
 
     renderListView(games) {
@@ -360,6 +394,7 @@ class UIComponents {
             document.body.appendChild(wrapper);
         }
 
+        // PERFORMANCE: Use lazy loading for images
         const tableHtml = `
             <table class="list-table">
                 <thead>
@@ -381,7 +416,7 @@ class UIComponents {
                         const safePlatform = this.escapeHtml(game.platform);
                         return `
                         <tr data-game-id="${game.id}">
-                            <td><img src="${imageSrc}" width="40" height="40" onerror="this.src='placeholder.png'"/></td>
+                            <td><img src="placeholder.png" data-src="${imageSrc}" width="40" height="40" loading="lazy" onerror="this.src='placeholder.png'"/></td>
                             <td>
                                 <strong>${safeTitle}</strong>
                                 ${game.is_favorite ? ' ⭐' : ''}
@@ -405,6 +440,9 @@ class UIComponents {
         `;
 
         wrapper.innerHTML = `<div class="list-view-container">${tableHtml}</div>`;
+
+        // PERFORMANCE: Use IntersectionObserver for lazy loading images
+        this._setupLazyLoading(wrapper);
 
         // Add event listeners for play and favorite buttons
         this.attachGridListEventListeners(wrapper, games, this.listViewAbortController.signal);
