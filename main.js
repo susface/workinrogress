@@ -275,8 +275,41 @@ function loadGameMappings() {
     }
 }
 
-// Initialize database
-function initDatabase() {
+// Cached database connection (singleton pattern for performance)
+let cachedDb = null;
+let dbInitialized = false;
+
+// Get database connection (returns cached connection or creates new one)
+function getDb() {
+    if (cachedDb && cachedDb.open) {
+        return cachedDb;
+    }
+    // Initialize if not yet done
+    if (!dbInitialized) {
+        cachedDb = initDatabaseSchema();
+        dbInitialized = true;
+    } else {
+        // Re-open if connection was closed
+        ensureDirectories();
+        cachedDb = new Database(dbPath);
+    }
+    return cachedDb;
+}
+
+// Close database connection (call on app quit)
+function closeDb() {
+    if (cachedDb && cachedDb.open) {
+        try {
+            cachedDb.close();
+        } catch (e) {
+            console.error('[DB] Error closing database:', e);
+        }
+        cachedDb = null;
+    }
+}
+
+// Initialize database schema (only called once)
+function initDatabaseSchema() {
     ensureDirectories();
     const db = new Database(dbPath);
 
@@ -505,6 +538,12 @@ function initDatabase() {
     } catch (e) { /* Column already exists */ }
 
     return db;
+}
+
+// Backward-compatible wrapper - uses cached connection instead of creating new ones
+// PERFORMANCE: This prevents 45+ database opens/closes per session
+function initDatabase() {
+    return getDb();
 }
 
 function createWindow() {
@@ -895,7 +934,7 @@ ipcMain.handle('get-games', async () => {
     try {
         const db = initDatabase();
         const games = db.prepare('SELECT * FROM games ORDER BY platform, title').all();
-        db.close();
+        // db.close() removed - using cached connection
 
         // Parse JSON fields and fix image paths
         const parsedGames = games.map(game => {
@@ -972,7 +1011,7 @@ ipcMain.handle('get-games-count', async () => {
             FROM games
             GROUP BY platform
         `).all();
-        db.close();
+        // db.close() removed - using cached connection
 
         const platformCounts = {};
         platforms.forEach(p => {
@@ -1238,7 +1277,7 @@ async function loadGamesFromJSON() {
     });
 
         insertMany(games);
-        db.close();
+        // db.close() removed - using cached connection
 
         return games.length;
     } catch (error) {
@@ -1452,7 +1491,7 @@ function handleProcessTrackerNotification(message) {
             } catch (error) {
                 console.error('[PROCESS_TRACKER] Error updating playtime:', error);
             } finally {
-                if (db) db.close();
+                // if (db) db.close() removed - using cached connection
             }
         }
     }
@@ -1531,7 +1570,7 @@ function endGameSessionInternal(gameId, sessionId) {
             console.log(`[PLAYTIME] Ended session ${sessionId}, duration: ${Math.floor(session.duration)}s`);
         }
 
-        db.close();
+        // db.close() removed - using cached connection
         activeGameSessions.delete(gameId);
         return true;
     } catch (error) {
@@ -1590,7 +1629,7 @@ function checkOrphanedSessions() {
             }
         }
 
-        db.close();
+        // db.close() removed - using cached connection
     } catch (error) {
         console.error('[PLAYTIME] Error during orphaned session check:', error);
     }
@@ -1685,7 +1724,7 @@ ipcMain.handle('launch-game', async (event, launchCommand, gameId) => {
                 WHERE id = ?
             `).run(gameId);
 
-            db.close();
+            // db.close() removed - using cached connection
 
             // Store active session with timestamp
             activeGameSessions.set(gameId, sessionId);
@@ -1893,7 +1932,7 @@ ipcMain.handle('get-active-sessions', async () => {
             }
         }
 
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, sessions };
     } catch (error) {
         console.error('Error getting active sessions:', error);
@@ -1914,7 +1953,7 @@ ipcMain.handle('get-play-time', async (event, gameId) => {
             FROM games
             WHERE id = ?
         `).get(gameId, gameId);
-        db.close();
+        // db.close() removed - using cached connection
 
         if (stats) {
             return {
@@ -1952,7 +1991,7 @@ ipcMain.handle('toggle-favorite', async (event, gameId) => {
         console.error('Error toggling favorite:', error);
         return { success: false, error: error.message };
     } finally {
-        db.close();
+        // db.close() removed - using cached connection
     }
 });
 
@@ -1975,7 +2014,7 @@ ipcMain.handle('search-nexus-mods', async (event, gameId, apiKey) => {
         try {
             game = db.prepare('SELECT title, nexus_game_domain FROM games WHERE id = ?').get(gameId);
         } finally {
-            db.close();
+            // db.close() removed - using cached connection
         }
 
         if (!game) {
@@ -2132,7 +2171,7 @@ ipcMain.handle('set-nexus-game-domain', async (event, gameId, domain) => {
         console.error('[NEXUS] Error setting Nexus game domain:', error);
         return { success: false, error: error.message };
     } finally {
-        db.close();
+        // db.close() removed - using cached connection
     }
 });
 
@@ -2153,7 +2192,7 @@ ipcMain.handle('toggle-hidden', async (event, gameId) => {
         console.error('Error toggling hidden:', error);
         return { success: false, error: error.message };
     } finally {
-        db.close();
+        // db.close() removed - using cached connection
     }
 });
 
@@ -2172,7 +2211,7 @@ ipcMain.handle('set-rating', async (event, gameId, rating) => {
         console.error('Error setting rating:', error);
         return { success: false, error: error.message };
     } finally {
-        db.close();
+        // db.close() removed - using cached connection
     }
 });
 
@@ -2195,7 +2234,7 @@ ipcMain.handle('set-notes', async (event, gameId, notes) => {
         console.error('Error setting notes:', error);
         return { success: false, error: error.message };
     } finally {
-        db.close();
+        // db.close() removed - using cached connection
     }
 });
 
@@ -2218,7 +2257,7 @@ ipcMain.handle('set-custom-launch-options', async (event, gameId, options) => {
         console.error('Error setting custom launch options:', error);
         return { success: false, error: error.message };
     } finally {
-        db.close();
+        // db.close() removed - using cached connection
     }
 });
 
@@ -2227,7 +2266,7 @@ ipcMain.handle('get-favorites', async () => {
     try {
         const db = initDatabase();
         const games = db.prepare('SELECT * FROM games WHERE is_favorite = 1 ORDER BY title').all();
-        db.close();
+        // db.close() removed - using cached connection
 
         // Convert SQLite boolean integers to JavaScript booleans
         const parsedGames = games.map(game => ({
@@ -2253,7 +2292,7 @@ ipcMain.handle('get-recently-played', async (event, limit = 10) => {
             ORDER BY last_played DESC
             LIMIT ?
         `).all(limit);
-        db.close();
+        // db.close() removed - using cached connection
 
         // Convert SQLite boolean integers to JavaScript booleans
         const parsedGames = games.map(game => ({
@@ -2279,7 +2318,7 @@ ipcMain.handle('get-most-played', async (event, limit = 10) => {
             ORDER BY total_play_time DESC
             LIMIT ?
         `).all(limit);
-        db.close();
+        // db.close() removed - using cached connection
 
         // Convert SQLite boolean integers to JavaScript booleans
         const parsedGames = games.map(game => ({
@@ -2305,7 +2344,7 @@ ipcMain.handle('get-recently-added', async (event, limit = 10) => {
             ORDER BY created_at DESC
             LIMIT ?
         `).all(limit);
-        db.close();
+        // db.close() removed - using cached connection
 
         // Convert SQLite boolean integers to JavaScript booleans
         const parsedGames = games.map(game => ({
@@ -2340,7 +2379,7 @@ ipcMain.handle('find-duplicates', async () => {
             game_ids: row.game_ids ? row.game_ids.split(',').map(id => parseInt(id)) : []
         }));
 
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, duplicates: result };
     } catch (error) {
         console.error('Error finding duplicates:', error);
@@ -2403,7 +2442,7 @@ ipcMain.handle('filter-games', async (event, filters) => {
         }
 
         const games = db.prepare(query).all(...params);
-        db.close();
+        // db.close() removed - using cached connection
 
         // Parse JSON fields and fix image paths (same as get-games)
         const parsedGames = games.map(game => {
@@ -2509,7 +2548,7 @@ ipcMain.handle('clear-game-data', async () => {
 
         // Reinitialize database (creates new empty database)
         const db = initDatabase();
-        db.close();
+        // db.close() removed - using cached connection
 
         return { success: true };
     } catch (error) {
@@ -2669,7 +2708,7 @@ ipcMain.handle('add-custom-game', async (event, gameData) => {
             };
         } finally {
             // Ensure database is always closed, even if an error occurs
-            db.close();
+            // db.close() removed - using cached connection
         }
     } catch (error) {
         console.error('Error adding custom game:', error);
@@ -2734,7 +2773,7 @@ except Exception as e:
                     try {
                         db.prepare('UPDATE games SET exe_icon_path = ? WHERE app_id = ?').run(outputPath, gameId);
                     } finally {
-                        db.close();
+                        // db.close() removed - using cached connection
                     }
                     resolve({ success: true, iconPath: outputPath });
                 } else {
@@ -2874,7 +2913,7 @@ ipcMain.handle('scan-media-folder', async (event, folderPath) => {
                 INSERT OR REPLACE INTO media_folders (folder_path, last_scanned)
                 VALUES (?, CURRENT_TIMESTAMP)
             `).run(normalizedPath);
-            db.close();
+            // db.close() removed - using cached connection
         } catch (dbError) {
             console.error('Error saving media folder to database:', dbError);
         }
@@ -2896,7 +2935,7 @@ ipcMain.handle('get-media-folders', async () => {
     try {
         const db = initDatabase();
         const folders = db.prepare('SELECT * FROM media_folders ORDER BY added_at').all();
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, folders };
     } catch (error) {
         console.error('Error getting media folders:', error);
@@ -2909,7 +2948,7 @@ ipcMain.handle('load-all-media-folders', async () => {
     try {
         const db = initDatabase();
         const folders = db.prepare('SELECT folder_path FROM media_folders').all();
-        db.close();
+        // db.close() removed - using cached connection
 
         let allMedia = [];
         let totalCount = 0;
@@ -3041,7 +3080,7 @@ ipcMain.handle('get-collections', async () => {
             GROUP BY c.id
             ORDER BY c.sort_order, c.name
         `).all();
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, collections };
     } catch (error) {
         console.error('Error getting collections:', error);
@@ -3057,7 +3096,7 @@ ipcMain.handle('create-collection', async (event, name, description, color, icon
             INSERT INTO game_collections (name, description, color, icon)
             VALUES (?, ?, ?, ?)
         `).run(name, description, color || '#4fc3f7', icon || '📁');
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, collectionId: result.lastInsertRowid };
     } catch (error) {
         console.error('Error creating collection:', error);
@@ -3073,7 +3112,7 @@ ipcMain.handle('add-to-collection', async (event, collectionId, gameId) => {
             INSERT OR IGNORE INTO collection_games (collection_id, game_id)
             VALUES (?, ?)
         `).run(collectionId, gameId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error adding to collection:', error);
@@ -3089,7 +3128,7 @@ ipcMain.handle('remove-from-collection', async (event, collectionId, gameId) => 
             DELETE FROM collection_games
             WHERE collection_id = ? AND game_id = ?
         `).run(collectionId, gameId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error removing from collection:', error);
@@ -3107,7 +3146,7 @@ ipcMain.handle('get-collection-games', async (event, collectionId) => {
             WHERE cg.collection_id = ?
             ORDER BY cg.sort_order, g.title
         `).all(collectionId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, games };
     } catch (error) {
         console.error('Error getting collection games:', error);
@@ -3120,7 +3159,7 @@ ipcMain.handle('delete-collection', async (event, collectionId) => {
     try {
         const db = initDatabase();
         db.prepare('DELETE FROM game_collections WHERE id = ?').run(collectionId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error deleting collection:', error);
@@ -3140,7 +3179,7 @@ ipcMain.handle('set-custom-cover', async (event, gameId, coverUrl, coverType, so
             INSERT OR REPLACE INTO custom_covers (game_id, cover_url, cover_type, source)
             VALUES (?, ?, ?, ?)
         `).run(gameId, coverUrl, coverType || 'grid', source || 'user_upload');
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error setting custom cover:', error);
@@ -3153,7 +3192,7 @@ ipcMain.handle('get-custom-cover', async (event, gameId) => {
     try {
         const db = initDatabase();
         const cover = db.prepare('SELECT * FROM custom_covers WHERE game_id = ?').get(gameId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, cover };
     } catch (error) {
         console.error('Error getting custom cover:', error);
@@ -3166,7 +3205,7 @@ ipcMain.handle('remove-custom-cover', async (event, gameId) => {
     try {
         const db = initDatabase();
         db.prepare('DELETE FROM custom_covers WHERE game_id = ?').run(gameId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error removing custom cover:', error);
@@ -3186,7 +3225,7 @@ ipcMain.handle('create-goal', async (event, goalType, targetValue, gameId, endDa
             INSERT INTO playtime_goals (goal_type, target_value, game_id, end_date)
             VALUES (?, ?, ?, ?)
         `).run(goalType, targetValue, gameId || null, endDate || null);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, goalId: result.lastInsertRowid };
     } catch (error) {
         console.error('Error creating goal:', error);
@@ -3204,7 +3243,7 @@ ipcMain.handle('get-goals', async () => {
             LEFT JOIN games g ON pg.game_id = g.id
             ORDER BY pg.completed, pg.end_date
         `).all();
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, goals };
     } catch (error) {
         console.error('Error getting goals:', error);
@@ -3221,7 +3260,7 @@ ipcMain.handle('update-goal-progress', async (event, goalId, currentValue, compl
             SET current_value = ?, completed = ?
             WHERE id = ?
         `).run(currentValue, completed ? 1 : 0, goalId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error updating goal:', error);
@@ -3234,7 +3273,7 @@ ipcMain.handle('delete-goal', async (event, goalId) => {
     try {
         const db = initDatabase();
         db.prepare('DELETE FROM playtime_goals WHERE id = ?').run(goalId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error deleting goal:', error);
@@ -3251,7 +3290,7 @@ ipcMain.handle('get-themes', async () => {
     try {
         const db = initDatabase();
         const themes = db.prepare('SELECT * FROM themes ORDER BY is_builtin DESC, name').all();
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, themes };
     } catch (error) {
         console.error('Error getting themes:', error);
@@ -3264,7 +3303,7 @@ ipcMain.handle('get-active-theme', async () => {
     try {
         const db = initDatabase();
         const theme = db.prepare('SELECT * FROM themes WHERE is_active = 1').get();
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, theme };
     } catch (error) {
         console.error('Error getting active theme:', error);
@@ -3278,7 +3317,7 @@ ipcMain.handle('activate-theme', async (event, themeId) => {
         const db = initDatabase();
         db.prepare('UPDATE themes SET is_active = 0').run();
         db.prepare('UPDATE themes SET is_active = 1 WHERE id = ?').run(themeId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error activating theme:', error);
@@ -3294,7 +3333,7 @@ ipcMain.handle('create-theme', async (event, name, colors, background) => {
             INSERT INTO themes (name, colors, background, is_builtin)
             VALUES (?, ?, ?, 0)
         `).run(name, colors, background || null);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, themeId: result.lastInsertRowid };
     } catch (error) {
         console.error('Error creating theme:', error);
@@ -3308,7 +3347,7 @@ ipcMain.handle('delete-theme', async (event, themeId) => {
         const db = initDatabase();
         // Don't delete builtin themes
         db.prepare('DELETE FROM themes WHERE id = ? AND is_builtin = 0').run(themeId);
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true };
     } catch (error) {
         console.error('Error deleting theme:', error);
@@ -3379,7 +3418,7 @@ ipcMain.handle('get-playtime-stats', async (event, period = 'week') => {
             ORDER BY date DESC
         `).all();
 
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, stats };
     } catch (error) {
         console.error('Error getting playtime stats:', error);
@@ -3400,7 +3439,7 @@ ipcMain.handle('get-playtime-sessions', async (event) => {
             ORDER BY start_time DESC
         `).all();
 
-        db.close();
+        // db.close() removed - using cached connection
         return { success: true, sessions };
     } catch (error) {
         console.error('Error getting playtime sessions:', error);
@@ -3503,7 +3542,7 @@ ipcMain.handle('scan-game-soundtrack', async (event, gameId) => {
         console.error('[SOUNDTRACK] Error scanning game soundtrack:', error);
         return { success: false, error: error.message };
     } finally {
-        db.close();
+        // db.close() removed - using cached connection
     }
 });
 
@@ -3540,7 +3579,7 @@ ipcMain.handle('check-game-updates', async () => {
         console.error('Error checking game updates:', error);
         return { success: false, error: error.message };
     } finally {
-        if (db) db.close();
+        // if (db) db.close() removed - using cached connection
     }
 });
 
@@ -4851,6 +4890,7 @@ app.on('will-quit', () => {
     endAllActiveSessions();
     shutdownProcessTracker();
     cleanupAllTimers();
+    closeDb(); // Close cached database connection
 });
 
 // Handle window close

@@ -788,17 +788,21 @@ class CoverFlow {
          * Load texture with automatic fallback chain and error handling
          * Fallback order: primary image -> boxart -> icon -> exe_icon -> error placeholder
          * Returns a promise that resolves with the texture or error placeholder
+         * PERFORMANCE: Uses cached TextureLoader instance
          */
         return new Promise((resolve) => {
-            const loader = new THREE.TextureLoader();
-            console.log(`[TEXTURE] Loading texture for "${album.title}" from: ${imageSrc}`);
+            // Use cached loader for performance (avoid creating new instances)
+            if (!this._textureLoader) {
+                this._textureLoader = new THREE.TextureLoader();
+            }
+            const loader = this._textureLoader;
+            // PERFORMANCE: Removed per-item logging - was causing major slowdown with large libraries
 
             const tryLoad = (src, nextFallback) => {
                 loader.load(
                     src,
                     (texture) => {
-                        // Success
-                        console.log(`[TEXTURE] ✓ Successfully loaded texture for "${album.title}"`);
+                        // Success - no logging for performance
                         if (material) {
                             // Dispose old texture if it exists to prevent memory leak
                             if (material.map && material.map !== texture) {
@@ -839,10 +843,8 @@ class CoverFlow {
                 const tryExeIcon = () => {
                     const exeIconPath = this.getImageSrc(album.exe_icon_path);
                     if (album.exe_icon_path && exeIconPath !== imageSrc) {
-                        console.log(`[TEXTURE] Trying exe_icon fallback for "${album.title}": ${exeIconPath}`);
                         tryLoad(exeIconPath, null);
                     } else {
-                        console.log(`[TEXTURE] No exe_icon available for "${album.title}"`);
                         // No exe icon - use error placeholder
                         const errorTexture = this.createErrorPlaceholder(album.title || 'Image Not Found');
                         if (material) {
@@ -861,10 +863,8 @@ class CoverFlow {
                 const tryIcon = () => {
                     const iconPath = this.getImageSrc(album.icon_path);
                     if (album.icon_path && iconPath !== imageSrc) {
-                        console.log(`[TEXTURE] Trying icon fallback for "${album.title}": ${iconPath}`);
                         tryLoad(iconPath, tryExeIcon);
                     } else {
-                        console.log(`[TEXTURE] No icon fallback available for "${album.title}" (same as primary or null)`);
                         tryExeIcon();
                     }
                 };
@@ -873,10 +873,8 @@ class CoverFlow {
                 const tryBoxart = () => {
                     const boxartPath = this.getImageSrc(album.boxart_path);
                     if (album.boxart_path && boxartPath !== imageSrc) {
-                        console.log(`[TEXTURE] Trying boxart fallback for "${album.title}": ${boxartPath}`);
                         tryLoad(boxartPath, tryIcon);
                     } else {
-                        console.log(`[TEXTURE] No boxart fallback available for "${album.title}" (same as primary or null)`);
                         tryIcon();
                     }
                 };
@@ -1181,7 +1179,15 @@ class CoverFlow {
         let isStillAnimating = false;
         const threshold = 0.001; // Distance threshold to consider animation complete
 
-        this.covers.forEach((cover, index) => {
+        // PERFORMANCE: Only process covers within visible range (15 on each side)
+        // This avoids processing thousands of covers when library is large
+        const visibleRange = 15;
+        const startIdx = Math.max(0, this.targetIndex - visibleRange);
+        const endIdx = Math.min(this.covers.length, this.targetIndex + visibleRange + 1);
+
+        for (let index = startIdx; index < endIdx; index++) {
+            const cover = this.covers[index];
+            if (!cover) continue;
             const diff = index - this.targetIndex;
             const parent = cover.parent;
 
@@ -1252,7 +1258,7 @@ class CoverFlow {
                     reflection.material.opacity = reflectionOpacity;
                 }
             }
-        });
+        }
 
         return isStillAnimating;
     }
@@ -2381,40 +2387,56 @@ class CoverFlow {
         this.navigateTo(randomIndex);
     }
 
+    // PERFORMANCE: Cache frequently used DOM elements to avoid repeated lookups
+    _getInfoElements() {
+        if (!this._infoElements) {
+            this._infoElements = {
+                title: document.getElementById('album-title'),
+                artist: document.getElementById('album-artist'),
+                year: document.getElementById('album-year'),
+                genre: document.getElementById('album-genre'),
+                position: document.getElementById('current-position'),
+                playBtn: document.getElementById('play-btn'),
+                favoriteBtn: document.getElementById('favorite-btn')
+            };
+        }
+        return this._infoElements;
+    }
+
     updateInfo() {
         const item = this.filteredAlbums[this.currentIndex];
+        const els = this._getInfoElements();
 
         // Handle empty library
         if (!item) {
-            document.getElementById('album-title').textContent = 'No Items';
-            document.getElementById('album-artist').textContent = 'Library is empty';
-            document.getElementById('album-year').textContent = '';
-            document.getElementById('album-genre').textContent = '';
-            document.getElementById('current-position').textContent = '0';
+            if (els.title) els.title.textContent = 'No Items';
+            if (els.artist) els.artist.textContent = 'Library is empty';
+            if (els.year) els.year.textContent = '';
+            if (els.genre) els.genre.textContent = '';
+            if (els.position) els.position.textContent = '0';
             return;
         }
 
         const isImage = item.type === 'image';
         const isGame = item.type === 'game';
 
-        document.getElementById('album-title').textContent = item.title;
+        if (els.title) els.title.textContent = item.title;
 
         if (isImage) {
             // For images, show category instead of artist
-            document.getElementById('album-artist').textContent = item.category || 'Image';
-            document.getElementById('album-year').textContent = item.year || '-';
-            document.getElementById('album-genre').textContent = item.tags || '-';
+            if (els.artist) els.artist.textContent = item.category || 'Image';
+            if (els.year) els.year.textContent = item.year || '-';
+            if (els.genre) els.genre.textContent = item.tags || '-';
         } else if (isGame) {
             // For games, show developer
-            document.getElementById('album-artist').textContent = item.developer || 'Unknown';
-            document.getElementById('album-year').textContent = item.year || '-';
-            document.getElementById('album-genre').textContent = item.genre || '-';
+            if (els.artist) els.artist.textContent = item.developer || 'Unknown';
+            if (els.year) els.year.textContent = item.year || '-';
+            if (els.genre) els.genre.textContent = item.genre || '-';
 
             // Show play button for games
-            const playBtn = document.getElementById('play-btn');
-            if (playBtn) {
-                playBtn.style.display = 'block';
-                playBtn.onclick = () => {
+            if (els.playBtn) {
+                els.playBtn.style.display = 'block';
+                els.playBtn.onclick = () => {
                     if (window.electronAPI && item.id && item.launch_command) {
                         window.electronAPI.launchGame(item.launch_command, item.id);
                     }
@@ -2422,21 +2444,19 @@ class CoverFlow {
             }
         } else {
             // For albums, show artist and genre
-            document.getElementById('album-artist').textContent = item.artist || 'Unknown';
-            document.getElementById('album-year').textContent = item.year || '-';
-            document.getElementById('album-genre').textContent = item.genre || '-';
+            if (els.artist) els.artist.textContent = item.artist || 'Unknown';
+            if (els.year) els.year.textContent = item.year || '-';
+            if (els.genre) els.genre.textContent = item.genre || '-';
 
             // Hide play button for albums/images
-            const playBtn = document.getElementById('play-btn');
-            if (playBtn) playBtn.style.display = 'none';
+            if (els.playBtn) els.playBtn.style.display = 'none';
         }
 
         // Update favorite button for games
-        const favoriteBtn = document.getElementById('favorite-btn');
-        if (favoriteBtn && isGame) {
-            favoriteBtn.textContent = item.is_favorite ? '★' : '☆';
-            favoriteBtn.classList.toggle('active', item.is_favorite);
-            favoriteBtn.onclick = async () => {
+        if (els.favoriteBtn && isGame) {
+            els.favoriteBtn.textContent = item.is_favorite ? '★' : '☆';
+            els.favoriteBtn.classList.toggle('active', item.is_favorite);
+            els.favoriteBtn.onclick = async () => {
                 if (window.electronAPI && item.id) {
                     await window.electronAPI.toggleFavorite(item.id);
                     // Refresh games to get updated state
@@ -2445,7 +2465,7 @@ class CoverFlow {
             };
         }
 
-        document.getElementById('current-position').textContent = this.currentIndex + 1;
+        if (els.position) els.position.textContent = this.currentIndex + 1;
 
         // Update VR UI overlay if visual effects manager is available
         if (this.visualEffects && typeof this.visualEffects.updateVRUI === 'function') {
@@ -2468,6 +2488,11 @@ class CoverFlow {
         const container = document.getElementById('thumbnail-container');
         container.innerHTML = '';
 
+        // PERFORMANCE: Use DocumentFragment to batch DOM operations
+        // This prevents multiple reflows (one per thumbnail) by building all elements
+        // in memory first, then adding to DOM in a single operation
+        const fragment = document.createDocumentFragment();
+
         this.filteredAlbums.forEach((album, index) => {
             const thumb = document.createElement('canvas');
             thumb.className = 'thumbnail';
@@ -2477,12 +2502,8 @@ class CoverFlow {
             const ctx = thumb.getContext('2d');
 
             // For games, prioritize exe icon for thumbnails
+            // PERFORMANCE: Removed verbose per-item logging
             if (album.type === 'game' && (album.exe_icon_path || album.icon_path)) {
-                console.log(`[THUMBNAIL] Loading thumbnail for "${album.title}"`);
-                console.log(`[THUMBNAIL]   exe_icon_path: ${album.exe_icon_path || 'null'}`);
-                console.log(`[THUMBNAIL]   icon_path: ${album.icon_path || 'null'}`);
-                console.log(`[THUMBNAIL]   boxart_path: ${album.boxart_path || 'null'}`);
-
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
 
@@ -2497,31 +2518,25 @@ class CoverFlow {
                 let fallbackPath = album.exe_icon_path ? album.icon_path : null;
 
                 const primarySrc = this.getImageSrc(primaryPath, 'placeholder.png');
-                console.log(`[THUMBNAIL]   Primary source: ${primarySrc}`);
 
                 img.onload = () => {
-                    console.log(`[THUMBNAIL] ✓ Successfully loaded thumbnail for "${album.title}"`);
                     // Clear and draw the icon
                     ctx.clearRect(0, 0, 60, 60);
                     ctx.drawImage(img, 0, 0, 60, 60);
                 };
 
-                img.onerror = (error) => {
-                    console.warn(`[THUMBNAIL] ✗ Failed to load primary thumbnail for "${album.title}":`, error);
+                img.onerror = () => {
                     // Try fallback path if available
                     if (fallbackPath) {
                         const fallbackSrc = this.getImageSrc(fallbackPath, 'placeholder.png');
-                        console.log(`[THUMBNAIL]   Trying fallback: ${fallbackSrc}`);
 
                         const fallbackImg = new Image();
                         fallbackImg.crossOrigin = 'anonymous';
                         fallbackImg.onload = () => {
-                            console.log(`[THUMBNAIL] ✓ Loaded fallback thumbnail for "${album.title}"`);
                             ctx.clearRect(0, 0, 60, 60);
                             ctx.drawImage(fallbackImg, 0, 0, 60, 60);
                         };
-                        fallbackImg.onerror = (fallbackError) => {
-                            console.warn(`[THUMBNAIL] ✗ Fallback also failed for "${album.title}":`, fallbackError);
+                        fallbackImg.onerror = () => {
                             // Keep the colored background if all images fail
                             const gradient = ctx.createLinearGradient(0, 0, 60, 60);
                             gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
@@ -2531,7 +2546,6 @@ class CoverFlow {
                         };
                         fallbackImg.src = fallbackSrc;
                     } else {
-                        console.warn(`[THUMBNAIL] No fallback available for "${album.title}"`);
                         // Keep the colored background if image fails to load
                         const gradient = ctx.createLinearGradient(0, 0, 60, 60);
                         gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
@@ -2612,8 +2626,11 @@ class CoverFlow {
             }
 
             thumb.addEventListener('click', () => this.navigateTo(index));
-            container.appendChild(thumb);
+            fragment.appendChild(thumb);
         });
+
+        // PERFORMANCE: Single DOM operation instead of N operations
+        container.appendChild(fragment);
 
         this.updateThumbnails();
     }
@@ -3828,7 +3845,7 @@ class CoverFlow {
         }
     }
 
-    // FPS tracking
+    // FPS tracking - OPTIMIZED: throttled DOM updates, cached elements
     updateFPS() {
         const now = performance.now();
         const delta = now - this.fpsLastTime;
@@ -3841,23 +3858,34 @@ class CoverFlow {
                 this.fpsFrames.shift();
             }
 
-            // Calculate average FPS
-            const avgFps = this.fpsFrames.reduce((a, b) => a + b, 0) / this.fpsFrames.length;
-            this.fps = Math.round(avgFps);
+            // Only update display at most once every 500ms (2 FPS updates per second)
+            // PERFORMANCE: Reduces DOM writes from 60/sec to 2/sec
+            if (!this.fpsDisplayUpdateTime || now - this.fpsDisplayUpdateTime > 500) {
+                // Calculate average FPS
+                const avgFps = this.fpsFrames.reduce((a, b) => a + b, 0) / this.fpsFrames.length;
+                this.fps = Math.round(avgFps);
 
-            // Update display
-            if (this.settings.showFpsCounter) {
-                document.getElementById('fps-value').textContent = this.fps;
+                // Update display using cached elements
+                if (this.settings.showFpsCounter) {
+                    // Cache elements on first use
+                    if (!this._fpsValueEl) {
+                        this._fpsValueEl = document.getElementById('fps-value');
+                        this._fpsCounterEl = document.getElementById('fps-counter');
+                    }
 
-                // Color code based on FPS
-                const fpsElement = document.getElementById('fps-counter');
-                if (this.fps >= 55) {
-                    fpsElement.style.color = '#00ff00';
-                } else if (this.fps >= 30) {
-                    fpsElement.style.color = '#ffff00';
-                } else {
-                    fpsElement.style.color = '#ff0000';
+                    if (this._fpsValueEl) {
+                        this._fpsValueEl.textContent = this.fps;
+                    }
+
+                    // Color code based on FPS
+                    if (this._fpsCounterEl) {
+                        const newColor = this.fps >= 55 ? '#00ff00' : (this.fps >= 30 ? '#ffff00' : '#ff0000');
+                        if (this._fpsCounterEl.style.color !== newColor) {
+                            this._fpsCounterEl.style.color = newColor;
+                        }
+                    }
                 }
+                this.fpsDisplayUpdateTime = now;
             }
         }
 
@@ -3867,14 +3895,18 @@ class CoverFlow {
     animate() {
         this.animationFrameId = requestAnimationFrame(() => this.animate());
 
-        // Update FPS counter
+        // Update FPS counter (internally throttled)
         this.updateFPS();
 
-        // Poll gamepad input
-        this.pollGamepad();
+        // Poll gamepad input - only if gamepad was ever connected
+        if (this.gamepadIndex !== -1 || this._gamepadCheckCounter === undefined || ++this._gamepadCheckCounter % 30 === 0) {
+            this.pollGamepad();
+        }
 
-        // Update controller cursor
-        this.updateControllerCursor();
+        // Update controller cursor - only if gamepad is active
+        if (this.gamepadIndex !== -1) {
+            this.updateControllerCursor();
+        }
 
         // Update cover positions (returns true if still animating)
         const isAnimating = this.updateCoverPositions(false);
