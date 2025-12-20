@@ -129,6 +129,12 @@ class CoverFlow {
         // Track active intervals for cleanup
         this.sessionIntervals = {};
 
+        // Track search timeout for cleanup
+        this.searchTimeout = null;
+
+        // Track if settings controls are initialized (prevent duplicate listeners)
+        this._settingsControlsInitialized = false;
+
         // Gamepad/Controller support - SIMPLIFIED
         this.gamepadIndex = -1;
         this.gamepadButtons = {};
@@ -2935,6 +2941,50 @@ class CoverFlow {
     }
 
     /**
+     * Update settings control values without re-attaching event listeners
+     * Called when settings are reset to prevent duplicate event listeners
+     */
+    _updateSettingsValues() {
+        const speedSlider = document.getElementById('animation-speed');
+        const spacingSlider = document.getElementById('cover-spacing');
+        const angleSlider = document.getElementById('side-angle');
+        const reflectionToggle = document.getElementById('reflection-toggle');
+        const autoRotateToggle = document.getElementById('auto-rotate');
+        const backgroundColorPicker = document.getElementById('background-color');
+        const hardwareToggle = document.getElementById('hardware-rendering');
+        const glassToggle = document.getElementById('glass-effect');
+        const bloomToggle = document.getElementById('bloom-effect');
+        const ssaoToggle = document.getElementById('ssao-effect');
+        const bloomIntensity = document.getElementById('bloom-intensity');
+        const sensitivitySlider = document.getElementById('controller-sensitivity');
+        const vibrationToggle = document.getElementById('controller-vibration');
+        const scrollSpeedSlider = document.getElementById('scroll-speed');
+        const fpsToggle = document.getElementById('fps-counter-toggle');
+        const errorLoggingToggle = document.getElementById('error-logging-toggle');
+
+        if (speedSlider) speedSlider.value = this.settings.animationSpeed * 100;
+        if (spacingSlider) spacingSlider.value = this.settings.coverSpacing * 10;
+        if (angleSlider) angleSlider.value = (this.settings.sideAngle * 180 / Math.PI);
+        if (reflectionToggle) reflectionToggle.checked = this.settings.showReflections;
+        if (autoRotateToggle) autoRotateToggle.checked = this.settings.autoRotate;
+        if (backgroundColorPicker) backgroundColorPicker.value = this.settings.backgroundColor;
+        if (hardwareToggle) hardwareToggle.checked = this.settings.hardwareRendering;
+        if (glassToggle) glassToggle.checked = this.settings.glassEffect;
+        if (bloomToggle) bloomToggle.checked = this.settings.bloomEffect;
+        if (ssaoToggle) ssaoToggle.checked = this.settings.ssaoEffect;
+        if (bloomIntensity) bloomIntensity.value = this.settings.bloomIntensity * 10;
+        if (sensitivitySlider) sensitivitySlider.value = this.settings.controllerSensitivity;
+        if (vibrationToggle) vibrationToggle.checked = this.settings.controllerVibration;
+        if (scrollSpeedSlider) {
+            scrollSpeedSlider.value = this.settings.scrollSpeed;
+            const scrollSpeedValue = document.getElementById('scroll-speed-value');
+            if (scrollSpeedValue) scrollSpeedValue.textContent = `${this.settings.scrollSpeed.toFixed(1)}x`;
+        }
+        if (fpsToggle) fpsToggle.checked = this.settings.showFpsCounter;
+        if (errorLoggingToggle) errorLoggingToggle.checked = this.settings.errorLogging;
+    }
+
+    /**
      * Cleanup all resources and event listeners
      */
     destroy() {
@@ -2953,6 +3003,9 @@ class CoverFlow {
         if (this.recentLaunchedInterval) clearInterval(this.recentLaunchedInterval);
         if (this.trackUpdateInterval) clearInterval(this.trackUpdateInterval);
 
+        // Clear search timeout
+        if (this.searchTimeout) clearTimeout(this.searchTimeout);
+
         // Clear all session tracking timeouts and intervals
         if (this.sessionTrackingTimeouts) {
             Object.values(this.sessionTrackingTimeouts).forEach(clearTimeout);
@@ -2966,6 +3019,9 @@ class CoverFlow {
             element.removeEventListener(event, handler, options);
         });
         this.eventListeners = [];
+
+        // Reset settings controls flag so they can be re-initialized
+        this._settingsControlsInitialized = false;
 
         // Dispose visual effects manager
         if (this.visualEffectsManager && typeof this.visualEffectsManager.dispose === 'function') {
@@ -3143,49 +3199,57 @@ class CoverFlow {
 
         // Search functionality
         const searchInput = document.getElementById('search-input');
-        let searchTimeout;
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
+        const searchInputHandler = (e) => {
+            if (this.searchTimeout) clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(() => {
                 this.filterAlbums(e.target.value);
             }, 300);
-        });
+        };
+        this.addTrackedEventListener(searchInput, 'input', searchInputHandler);
 
-        document.getElementById('clear-search').addEventListener('click', () => {
+        const clearSearchBtn = document.getElementById('clear-search');
+        const clearSearchHandler = () => {
             searchInput.value = '';
             this.filterAlbums('');
-        });
+        };
+        this.addTrackedEventListener(clearSearchBtn, 'click', clearSearchHandler);
 
         // Thumbnail navigation
-        document.getElementById('thumb-prev').addEventListener('click', () => this.navigate(-1));
-        document.getElementById('thumb-next').addEventListener('click', () => this.navigate(1));
+        const thumbPrev = document.getElementById('thumb-prev');
+        const thumbNext = document.getElementById('thumb-next');
+        this.addTrackedEventListener(thumbPrev, 'click', () => this.navigate(-1));
+        this.addTrackedEventListener(thumbNext, 'click', () => this.navigate(1));
 
         // Top bar buttons
-        document.getElementById('settings-btn').addEventListener('click', () => this.openModal('settings-modal'));
-        document.getElementById('fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
+        const settingsBtn = document.getElementById('settings-btn');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        this.addTrackedEventListener(settingsBtn, 'click', () => this.openModal('settings-modal'));
+        this.addTrackedEventListener(fullscreenBtn, 'click', () => this.toggleFullscreen());
 
         // Dropdown menu toggle
         const moreBtn = document.getElementById('more-btn');
         const moreDropdown = document.getElementById('more-dropdown');
         if (moreBtn && moreDropdown) {
-            moreBtn.addEventListener('click', (e) => {
+            const moreBtnHandler = (e) => {
                 e.stopPropagation();
                 const isVisible = moreDropdown.style.display === 'block';
                 moreDropdown.style.display = isVisible ? 'none' : 'block';
-            });
+            };
+            this.addTrackedEventListener(moreBtn, 'click', moreBtnHandler);
 
             // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
+            const dropdownCloseHandler = (e) => {
                 if (!e.target.closest('.dropdown-container')) {
                     moreDropdown.style.display = 'none';
                 }
-            });
+            };
+            this.addTrackedEventListener(document, 'click', dropdownCloseHandler);
         }
 
-        // Dropdown menu items
+        // Dropdown menu items - all using tracked event listeners
         const modsBtnMenu = document.getElementById('mods-btn-menu');
         if (modsBtnMenu && typeof this.showModManager === 'function') {
-            modsBtnMenu.addEventListener('click', () => {
+            this.addTrackedEventListener(modsBtnMenu, 'click', () => {
                 // Show mod manager with current game if one is selected
                 const currentGame = this.filteredAlbums[this.currentIndex];
                 if (currentGame && currentGame.type === 'game') {
@@ -3204,7 +3268,7 @@ class CoverFlow {
 
         const soundtrackBtnMenu = document.getElementById('soundtrack-btn-menu');
         if (soundtrackBtnMenu && typeof this.loadGameSoundtrack === 'function') {
-            soundtrackBtnMenu.addEventListener('click', () => {
+            this.addTrackedEventListener(soundtrackBtnMenu, 'click', () => {
                 const currentGame = this.filteredAlbums[this.currentIndex];
                 if (currentGame && currentGame.type === 'game') {
                     this.loadGameSoundtrack(currentGame);
@@ -3217,7 +3281,7 @@ class CoverFlow {
 
         const youtubeSoundtrackBtnMenu = document.getElementById('youtube-soundtrack-btn-menu');
         if (youtubeSoundtrackBtnMenu && typeof this.loadYouTubeSoundtrack === 'function') {
-            youtubeSoundtrackBtnMenu.addEventListener('click', () => {
+            this.addTrackedEventListener(youtubeSoundtrackBtnMenu, 'click', () => {
                 const currentGame = this.filteredAlbums[this.currentIndex];
                 if (currentGame && currentGame.type === 'game') {
                     this.loadYouTubeSoundtrack(currentGame);
@@ -3230,7 +3294,7 @@ class CoverFlow {
 
         const videoPlayerBtnMenu = document.getElementById('video-player-btn-menu');
         if (videoPlayerBtnMenu && this._modules && this._modules.videoPlayer) {
-            videoPlayerBtnMenu.addEventListener('click', () => {
+            this.addTrackedEventListener(videoPlayerBtnMenu, 'click', () => {
                 this._modules.videoPlayer.showPlayer();
                 moreDropdown.style.display = 'none';
             });
@@ -3238,7 +3302,7 @@ class CoverFlow {
 
         const insightsBtnMenu = document.getElementById('insights-btn-menu');
         if (insightsBtnMenu && typeof this.toggleInsights === 'function') {
-            insightsBtnMenu.addEventListener('click', () => {
+            this.addTrackedEventListener(insightsBtnMenu, 'click', () => {
                 this.toggleInsights();
                 moreDropdown.style.display = 'none';
             });
@@ -3246,7 +3310,7 @@ class CoverFlow {
 
         const shortcutsBtnMenu = document.getElementById('shortcuts-btn-menu');
         if (shortcutsBtnMenu) {
-            shortcutsBtnMenu.addEventListener('click', () => {
+            this.addTrackedEventListener(shortcutsBtnMenu, 'click', () => {
                 this.openModal('shortcuts-modal');
                 moreDropdown.style.display = 'none';
             });
@@ -3254,11 +3318,11 @@ class CoverFlow {
 
         // Modal close buttons
         document.querySelectorAll('.close-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.closeAllModals());
+            this.addTrackedEventListener(btn, 'click', () => this.closeAllModals());
         });
 
         document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
+            this.addTrackedEventListener(modal, 'click', (e) => {
                 if (e.target === modal) {
                     this.closeAllModals();
                 }
@@ -3280,6 +3344,14 @@ class CoverFlow {
     }
 
     setupSettingsControls() {
+        // Prevent duplicate event listener attachment
+        if (this._settingsControlsInitialized) {
+            // Just update values, don't re-attach listeners
+            this._updateSettingsValues();
+            return;
+        }
+        this._settingsControlsInitialized = true;
+
         // Basic settings
         const speedSlider = document.getElementById('animation-speed');
         const spacingSlider = document.getElementById('cover-spacing');

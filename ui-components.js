@@ -24,6 +24,9 @@ class UIComponents {
         this.duplicateListAbortController = null;
         this.mainAbortController = new AbortController();
 
+        // Store IntersectionObservers for cleanup
+        this._imageObservers = [];
+
         // App paths for Electron mode
         this.appPaths = null;
         this.isElectron = typeof window.electronAPI !== 'undefined';
@@ -43,6 +46,9 @@ class UIComponents {
 
     // Cleanup method to prevent memory leaks
     destroy() {
+        // Clean up IntersectionObservers
+        this._cleanupImageObservers();
+
         // Abort all AbortControllers
         if (this.gridViewAbortController) {
             this.gridViewAbortController.abort();
@@ -354,6 +360,9 @@ class UIComponents {
 
     // PERFORMANCE: Lazy load images as they come into view
     _setupLazyLoading(container) {
+        // Clean up any previous observers to prevent memory leaks
+        this._cleanupImageObservers();
+
         if (!('IntersectionObserver' in window)) {
             // Fallback: load all images immediately if IntersectionObserver not supported
             container.querySelectorAll('img[data-src]').forEach(img => {
@@ -375,9 +384,22 @@ class UIComponents {
             });
         }, { rootMargin: '50px' });
 
+        // Store observer for cleanup
+        this._imageObservers.push(imageObserver);
+
         container.querySelectorAll('img[data-src]').forEach(img => {
             imageObserver.observe(img);
         });
+    }
+
+    // Cleanup IntersectionObservers to prevent memory leaks
+    _cleanupImageObservers() {
+        if (this._imageObservers) {
+            this._imageObservers.forEach(observer => {
+                observer.disconnect();
+            });
+            this._imageObservers = [];
+        }
     }
 
     renderListView(games) {
