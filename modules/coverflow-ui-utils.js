@@ -38,7 +38,9 @@ class CoverFlowUIUtils {
     openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
-            modal.style.display = 'block';
+            // Use class-based visibility to support flex centering
+            modal.classList.add('active');
+            modal.style.display = ''; // Clear inline style override
         }
     }
 
@@ -47,7 +49,8 @@ class CoverFlowUIUtils {
      */
     closeAllModals() {
         document.querySelectorAll('.modal').forEach(modal => {
-            modal.style.display = 'none';
+            modal.classList.remove('active');
+            modal.style.display = ''; // Clear inline style override
         });
     }
 
