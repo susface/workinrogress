@@ -1182,8 +1182,7 @@ class CoverFlow {
         // PERFORMANCE: Process covers to update positions and manage visibility
         // Optimization: Only animate/update transform for covers within visible range
         // But MUST iterate all to hide those outside range to prevent stacking
-        // Increased range to 30 to ensure side covers are visible on wider screens
-        const visibleRange = 30;
+        const visibleRange = 15;
         const startIdx = Math.max(0, this.targetIndex - visibleRange);
         const endIdx = Math.min(this.covers.length, this.targetIndex + visibleRange + 1);
 
