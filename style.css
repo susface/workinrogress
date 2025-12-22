@@ -102,16 +102,23 @@ img {
     position: relative;
 }
 
+/* Center content container - wraps search and controls together */
+#top-bar-center {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+}
+
 /* Center content */
 #search-container {
     -webkit-app-region: no-drag;
     app-region: no-drag;
 }
 
-/* Right side controls */
+/* Controls next to search bar */
 #top-controls {
-    position: absolute;
-    right: 20px;
     display: flex;
     gap: 10px;
     align-items: center;
@@ -190,13 +197,6 @@ img {
 
 #clear-search:hover {
     opacity: 1 !important;
-}
-
-#top-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-shrink: 0;
 }
 
 #controller-status {
@@ -553,6 +553,12 @@ img {
 
 #thumbnail-container::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
+}
+
+.thumbnail-wrapper {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
 }
 
 .thumbnail {
