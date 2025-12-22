@@ -1179,17 +1179,33 @@ class CoverFlow {
         let isStillAnimating = false;
         const threshold = 0.001; // Distance threshold to consider animation complete
 
-        // PERFORMANCE: Only process covers within visible range (15 on each side)
-        // This avoids processing thousands of covers when library is large
+        // PERFORMANCE: Process covers to update positions and manage visibility
+        // Optimization: Only animate/update transform for covers within visible range
+        // But MUST iterate all to hide those outside range to prevent stacking
         const visibleRange = 15;
         const startIdx = Math.max(0, this.targetIndex - visibleRange);
         const endIdx = Math.min(this.covers.length, this.targetIndex + visibleRange + 1);
 
-        for (let index = startIdx; index < endIdx; index++) {
+        for (let index = 0; index < this.covers.length; index++) {
             const cover = this.covers[index];
             if (!cover) continue;
-            const diff = index - this.targetIndex;
             const parent = cover.parent;
+
+            // If outside visible range, hide and skip calculation
+            if (index < startIdx || index >= endIdx) {
+                if (parent.visible) {
+                    parent.visible = false;
+                    // Also hide reflection if exists to be safe
+                    const reflection = parent.children && parent.children[1];
+                    if (reflection) reflection.visible = false;
+                }
+                continue;
+            }
+
+            // Ensure visible if within range
+            if (!parent.visible) parent.visible = true;
+
+            const diff = index - this.targetIndex;
 
             let targetX, targetZ, targetRotY, targetScale, targetY;
 

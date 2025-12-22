@@ -85,8 +85,8 @@ img {
 
 /* Top Bar */
 #top-bar {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
+    justify-content: center;
     align-items: center;
     width: 100%;
     padding: 10px 20px;
@@ -99,25 +99,23 @@ img {
     app-region: drag;
     cursor: move;
     flex-shrink: 0;
-}
-
-/* Left spacer - draggable */
-#top-bar::before {
-    content: '';
-    grid-column: 1;
+    position: relative;
 }
 
 /* Center content */
 #search-container {
-    grid-column: 2;
     -webkit-app-region: no-drag;
     app-region: no-drag;
 }
 
 /* Right side controls */
 #top-controls {
-    grid-column: 3;
-    justify-self: end;
+    position: absolute;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-shrink: 0;
     -webkit-app-region: no-drag;
     app-region: no-drag;
 }
@@ -595,7 +593,7 @@ img {
 }
 
 /* Modal Styles */
-.modal {
+div.modal {
     display: none;
     position: fixed;
     top: 0;
@@ -604,13 +602,15 @@ img {
     height: 100%;
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(5px);
-    z-index: 1000;
+    z-index: 2000;
     justify-content: center;
     align-items: center;
 }
 
-.modal.active {
-    display: flex;
+div.modal.active {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
 }
 
 .modal-content {
@@ -622,6 +622,7 @@ img {
     overflow: auto;
     box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    margin: auto;
 }
 
 .modal-header {
