@@ -39,9 +39,9 @@
         <!-- Top Bar -->
         <div id="top-bar">
             <div id="top-bar-center">
-                <div id="search-container">
-                    <input type="text" id="search-input" placeholder="Search albums, images, games, artists, or tags...">
-                    <button id="clear-search" title="Clear search">×</button>
+                <div id="search-container" role="search">
+                    <input type="text" id="search-input" placeholder="Search albums, images, games, artists, or tags..." aria-label="Search library">
+                    <button id="clear-search" title="Clear search" aria-label="Clear search">×</button>
                 </div>
                 <div id="top-controls">
                     <div id="controller-status" title="Controller Status">🎮 <span id="controller-name">No Controller</span></div>
@@ -96,9 +96,9 @@
                     <p id="playtime-display" style="display: none; margin: 2px 0; color: #4fc3f7;"></p>
                     <p id="last-played-display" style="display: none; margin: 2px 0; color: #81c784;"></p>
                 </div>
-                <div id="album-actions">
-                    <button id="favorite-btn" class="action-btn" title="Toggle Favorite">☆</button>
-                    <button id="play-btn" class="action-btn" title="Play/Launch (or press Enter)" style="display: none;">▶</button>
+                <div id="album-actions" role="toolbar" aria-label="Game actions">
+                    <button id="favorite-btn" class="action-btn" title="Toggle Favorite" aria-label="Toggle favorite" aria-pressed="false">☆</button>
+                    <button id="play-btn" class="action-btn" title="Play/Launch (or press Enter)" aria-label="Launch game" style="display: none;">▶</button>
                 </div>
             </div>
             <div id="album-stats">
@@ -107,11 +107,11 @@
         </div>
 
         <!-- Thumbnail Navigation -->
-        <div id="thumbnail-nav">
-            <button id="thumb-prev" class="thumb-nav-btn">‹</button>
-            <div id="thumbnail-container"></div>
-            <button id="thumb-next" class="thumb-nav-btn">›</button>
-        </div>
+        <nav id="thumbnail-nav" role="navigation" aria-label="Game thumbnails">
+            <button id="thumb-prev" class="thumb-nav-btn" aria-label="Previous games">‹</button>
+            <div id="thumbnail-container" role="list" aria-label="Game list"></div>
+            <button id="thumb-next" class="thumb-nav-btn" aria-label="Next games">›</button>
+        </nav>
 
         <!-- Controls Info -->
         <div id="controls">
@@ -139,11 +139,11 @@
     </div>
 
     <!-- Settings Modal -->
-    <div id="settings-modal" class="modal">
+    <div id="settings-modal" class="modal" role="dialog" aria-labelledby="settings-title" aria-modal="true">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Settings</h3>
-                <button class="close-btn">×</button>
+                <h3 id="settings-title">Settings</h3>
+                <button class="close-btn" aria-label="Close settings">×</button>
             </div>
             <div class="modal-body">
                 <div class="setting-group">
@@ -486,11 +486,11 @@
     </div>
 
     <!-- Keyboard Shortcuts Modal -->
-    <div id="shortcuts-modal" class="modal">
+    <div id="shortcuts-modal" class="modal" role="dialog" aria-labelledby="shortcuts-title" aria-modal="true">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Keyboard Shortcuts</h3>
-                <button class="close-btn">×</button>
+                <h3 id="shortcuts-title">Keyboard Shortcuts</h3>
+                <button class="close-btn" aria-label="Close shortcuts">×</button>
             </div>
             <div class="modal-body">
                 <h4 class="shortcut-section">⌨️ Keyboard Controls</h4>
@@ -585,11 +585,11 @@
     </div>
 
     <!-- Detailed Info Modal -->
-    <div id="info-modal" class="modal">
+    <div id="info-modal" class="modal" role="dialog" aria-labelledby="info-modal-title" aria-modal="true">
         <div class="modal-content large-modal">
             <div class="modal-header">
-                <h3>Album Details</h3>
-                <button class="close-btn">×</button>
+                <h3 id="info-modal-title">Album Details</h3>
+                <button class="close-btn" aria-label="Close details">×</button>
             </div>
             <div class="modal-body info-modal-body">
                 <div class="info-modal-layout">
@@ -657,6 +657,7 @@
     <!-- CoverFlow Modular Architecture -->
     <!-- Logger (must load first) -->
     <script src="modules/logger.js"></script>
+    <script src="modules/core-utils.js"></script>
 
     <!-- Core utilities (no dependencies) -->
     <script src="modules/coverflow-settings.js"></script>
