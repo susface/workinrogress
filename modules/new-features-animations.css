@@ -169,7 +169,7 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     background-size: 200% 200%;
     animation: gradientShift 3s ease infinite;
 }
@@ -276,7 +276,7 @@
 
 /* Gradient Text */
 .gradient-text {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 50%, #f093fb 100%);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;

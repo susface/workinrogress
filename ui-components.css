@@ -59,7 +59,7 @@
 }
 
 .view-mode-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     border-color: transparent;
     color: white;
     box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
@@ -262,7 +262,7 @@
 .btn-play {
     flex: 1;
     padding: 10px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     border: none;
     border-radius: 8px;
     color: white;
@@ -438,7 +438,7 @@
 .filter-group select:focus,
 .filter-group input[type="text"]:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--accent-start);
     background: rgba(255, 255, 255, 0.08);
 }
 
@@ -473,7 +473,7 @@
 }
 
 .btn-apply {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     color: white;
 }
 
@@ -613,7 +613,7 @@
 
 .stat-item .rank {
     font-weight: 700;
-    color: #667eea;
+    color: var(--accent-start);
     min-width: 30px;
 }
 
@@ -660,7 +660,7 @@
 
 .bar {
     height: 100%;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(90deg, var(--accent-start) 0%, var(--accent-end) 100%);
     border-radius: 12px;
     transition: width 0.5s ease;
 }
@@ -745,7 +745,7 @@
     position: fixed;
     bottom: 20px;
     padding: 12px 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     border: none;
     border-radius: 12px;
     color: white;
@@ -2157,7 +2157,7 @@
 }
 
 .badge.workshop {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     color: #fff;
 }
 
@@ -2587,7 +2587,7 @@
 /* ===== VR Mode Styles ===== */
 .vr-enter-btn {
     padding: 12px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     border: 2px solid rgba(102, 126, 234, 0.5);
     border-radius: 8px;
     color: #fff;
@@ -2600,7 +2600,7 @@
 }
 
 .vr-enter-btn:hover {
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    background: linear-gradient(135deg, var(--accent-end) 0%, var(--accent-start) 100%);
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
@@ -2637,7 +2637,7 @@
     background: rgba(102, 126, 234, 0.1);
     border: 2px solid rgba(102, 126, 234, 0.3);
     border-radius: 6px;
-    color: #667eea;
+    color: var(--accent-start);
     font-size: 14px;
     font-weight: bold;
     cursor: pointer;
@@ -2647,12 +2647,12 @@
 
 .filter-btn#vr-filter-btn:hover {
     background: rgba(102, 126, 234, 0.2);
-    border-color: #667eea;
+    border-color: var(--accent-start);
 }
 
 .filter-btn#vr-filter-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-color: #667eea;
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
+    border-color: var(--accent-start);
     color: #fff;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
 }
@@ -2666,7 +2666,7 @@
     background: rgba(0, 0, 0, 0.8);
     padding: 15px 30px;
     border-radius: 10px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--accent-start);
     color: #fff;
     font-size: 14px;
     z-index: 10000;
@@ -2689,7 +2689,7 @@
     position: fixed;
     top: 20px;
     right: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     padding: 10px 20px;
     border-radius: 8px;
     color: #fff;

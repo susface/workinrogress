@@ -6,6 +6,9 @@
     --text-color: #ffffff;
     --gradient-start: #4fc3f7;
     --gradient-end: #1a1a2e;
+    /* Accent gradient for buttons, badges, progress bars */
+    --accent-start: #667eea;
+    --accent-end: #764ba2;
 }
 
 * {
@@ -485,7 +488,7 @@ img {
 }
 
 .action-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     border-color: transparent;
 }
 
@@ -1374,7 +1377,7 @@ kbd {
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.5);
     transition: transform 0.2s;
@@ -1388,7 +1391,7 @@ kbd {
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     cursor: pointer;
     border: none;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.5);
@@ -1409,7 +1412,7 @@ kbd {
 }
 
 .visualizer-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     border: none;
     color: #fff;
     font-size: 20px;
@@ -1448,7 +1451,7 @@ kbd {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.5);
 }
@@ -1457,7 +1460,7 @@ kbd {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
     cursor: pointer;
     border: none;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.5);

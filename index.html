@@ -188,6 +188,16 @@
                     <input type="color" id="gradient-end-color" value="#1a1a2e">
                     <small class="setting-info">Bottom color of the UI background gradient</small>
                 </div>
+                <div class="setting-group">
+                    <label>Accent Gradient Start</label>
+                    <input type="color" id="accent-start-color" value="#667eea">
+                    <small class="setting-info">Start color for buttons, badges, and accents</small>
+                </div>
+                <div class="setting-group">
+                    <label>Accent Gradient End</label>
+                    <input type="color" id="accent-end-color" value="#764ba2">
+                    <small class="setting-info">End color for buttons, badges, and accents</small>
+                </div>
 
                 <div class="setting-divider"></div>
                 <h4 class="setting-section-title">🎨 Hardware Rendering</h4>
@@ -436,7 +446,7 @@
                         <small id="scan-status-text" style="color: #888;">Initializing...</small>
                     </div>
                     <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 20px; overflow: hidden;">
-                        <div id="scan-progress-bar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                        <div id="scan-progress-bar" style="background: linear-gradient(90deg, var(--accent-start), var(--accent-end)); height: 100%; width: 0%; transition: width 0.3s;"></div>
                     </div>
                 </div>
                 <div class="setting-group">
@@ -609,7 +619,7 @@
                             <span class="info-label">Description:</span>
                             <p id="info-description-text">No description available.</p>
                         </div>
-                        <button id="launch-game-btn" style="display: none; margin-top: 20px; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: transform 0.2s;">
+                        <button id="launch-game-btn" style="display: none; margin-top: 20px; padding: 12px 24px; background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: transform 0.2s;">
                             🎮 Launch Game
                         </button>
                     </div>
