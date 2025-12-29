@@ -47,6 +47,11 @@ class VisualEffectsManager {
         this.mouseMoveHandler = null;
         this.clickHandler = null;
 
+        // Store animation frame IDs for cleanup
+        this._animationFrameIds = [];
+        // Flag to track if disposed
+        this._disposed = false;
+
         // Settings with defaults (all OFF for performance)
         this.settings = {
             // Particle systems
@@ -712,8 +717,11 @@ class VisualEffectsManager {
         };
 
         const startTime = Date.now();
+        let rafId = null;
 
         const shake = () => {
+            if (this._disposed) return; // Stop if disposed
+
             const elapsed = Date.now() - startTime;
             if (elapsed < duration) {
                 const progress = elapsed / duration;
@@ -722,7 +730,8 @@ class VisualEffectsManager {
                 this.camera.position.x = originalPosition.x + (Math.random() - 0.5) * currentIntensity;
                 this.camera.position.y = originalPosition.y + (Math.random() - 0.5) * currentIntensity;
 
-                requestAnimationFrame(shake);
+                rafId = requestAnimationFrame(shake);
+                this._animationFrameIds.push(rafId);
             } else {
                 this.camera.position.set(originalPosition.x, originalPosition.y, originalPosition.z);
             }
@@ -1906,6 +1915,8 @@ class VisualEffectsManager {
         const startTime = Date.now();
 
         const animate = () => {
+            if (this._disposed) return; // Stop if disposed
+
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
 
@@ -1921,7 +1932,8 @@ class VisualEffectsManager {
             }
 
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                const rafId = requestAnimationFrame(animate);
+                this._animationFrameIds.push(rafId);
             } else {
                 fromCover.rotation.y = 0;
                 toCover.rotation.y = 0;
@@ -1939,6 +1951,8 @@ class VisualEffectsManager {
         const startTime = Date.now();
 
         const animate = () => {
+            if (this._disposed) return; // Stop if disposed
+
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
 
@@ -1951,7 +1965,8 @@ class VisualEffectsManager {
             toCover.position.z = -Math.sin(angle - Math.PI / 2) * 2;
 
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                const rafId = requestAnimationFrame(animate);
+                this._animationFrameIds.push(rafId);
             } else {
                 fromCover.rotation.y = 0;
                 toCover.rotation.y = 0;
@@ -1971,6 +1986,8 @@ class VisualEffectsManager {
         const startTime = Date.now();
 
         const animate = () => {
+            if (this._disposed) return; // Stop if disposed
+
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
 
@@ -1988,7 +2005,8 @@ class VisualEffectsManager {
             }
 
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                const rafId = requestAnimationFrame(animate);
+                this._animationFrameIds.push(rafId);
             } else {
                 // Reset both covers
                 fromCover.visible = true;
@@ -2019,6 +2037,8 @@ class VisualEffectsManager {
         }
 
         const animate = () => {
+            if (this._disposed) return; // Stop if disposed
+
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
 
@@ -2039,7 +2059,8 @@ class VisualEffectsManager {
             toCover.position.y = -(1 - easeProgress) * 2;
 
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                const rafId = requestAnimationFrame(animate);
+                this._animationFrameIds.push(rafId);
             } else {
                 // Reset
                 if (fromCover.material && fromCover.material.opacity !== undefined) {
@@ -2743,6 +2764,9 @@ class VisualEffectsManager {
      * Cleanup
      */
     dispose() {
+        // Mark as disposed to stop animations
+        this._disposed = true;
+
         try {
             // Particles - dispose geometry and material
             if (this.particleSystem) {
@@ -2839,6 +2863,14 @@ class VisualEffectsManager {
             // Loading animations
             document.getElementById('visual-fx-loader')?.remove();
 
+            // Cancel all pending animation frames
+            if (this._animationFrameIds) {
+                this._animationFrameIds.forEach(id => {
+                    if (id) cancelAnimationFrame(id);
+                });
+                this._animationFrameIds = [];
+            }
+
             // Event listeners
             if (this.mouseMoveHandler) {
                 document.removeEventListener('mousemove', this.mouseMoveHandler);
@@ -2848,6 +2880,9 @@ class VisualEffectsManager {
                 document.removeEventListener('click', this.clickHandler);
                 this.clickHandler = null;
             }
+
+            // Clear covers cache
+            this.coversCache = [];
 
             console.log('[VISUAL_FX] Disposed all resources');
         } catch (error) {

@@ -7,6 +7,34 @@ class PlatformAnimations {
     constructor() {
         this.particleSystems = [];
         this.platformEffects = {};
+        // Track animation frame IDs for cleanup
+        this._animationFrameIds = [];
+        this._disposed = false;
+    }
+
+    /**
+     * Cleanup platform animations
+     */
+    dispose() {
+        this._disposed = true;
+
+        // Cancel all pending animation frames
+        this._animationFrameIds.forEach(id => {
+            if (id) cancelAnimationFrame(id);
+        });
+        this._animationFrameIds = [];
+
+        // Clean up particle systems
+        this.particleSystems.forEach(ps => {
+            if (ps && this.scene) {
+                this.scene.remove(ps);
+                if (ps.geometry) ps.geometry.dispose();
+                if (ps.material) ps.material.dispose();
+            }
+        });
+        this.particleSystems = [];
+
+        console.log('[PLATFORM] Disposed platform animations');
     }
 
     /**
@@ -139,6 +167,8 @@ class PlatformAnimations {
         const duration = config.life * 1000;
 
         const animate = () => {
+            if (this._disposed) return; // Stop if disposed
+
             const elapsed = Date.now() - startTime;
             if (elapsed > duration) {
                 // Remove particle system
@@ -168,7 +198,8 @@ class PlatformAnimations {
             const progress = elapsed / duration;
             particleSystem.material.opacity = 0.8 * (1 - progress);
 
-            requestAnimationFrame(animate);
+            const rafId = requestAnimationFrame(animate);
+            this._animationFrameIds.push(rafId);
         };
 
         animate();
@@ -204,6 +235,8 @@ class PlatformAnimations {
         // Pulse animation
         let time = 0;
         const animate = () => {
+            if (this._disposed) return; // Stop if disposed
+
             time += 0.05;
 
             if (time > Math.PI * 2) {
@@ -216,7 +249,8 @@ class PlatformAnimations {
             sprite.material.opacity = Math.sin(time) * 0.3;
             sprite.scale.set(3 + Math.sin(time) * 0.5, 3 + Math.sin(time) * 0.5, 1);
 
-            requestAnimationFrame(animate);
+            const rafId = requestAnimationFrame(animate);
+            this._animationFrameIds.push(rafId);
         };
 
         animate();
