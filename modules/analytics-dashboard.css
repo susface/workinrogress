@@ -72,7 +72,7 @@
 }
 
 .analytics-tabs .tab-btn.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
     color: #fff;
     border-color: transparent;
 }

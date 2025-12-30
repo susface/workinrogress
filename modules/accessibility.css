@@ -18,7 +18,7 @@
     top: 0;
     width: 50px;
     height: 50px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
     border: none;
     border-radius: 8px 0 0 8px;
     color: #fff;
@@ -90,7 +90,7 @@
 }
 
 .toolbar-btn.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
     border-color: transparent;
 }
 
@@ -184,7 +184,7 @@ body.screen-reader-mode .sr-only {
     position: absolute;
     top: -40px;
     left: 0;
-    background: #667eea;
+    background: var(--accent-start);
     color: #fff;
     padding: 12px 24px;
     text-decoration: none;
@@ -202,13 +202,13 @@ body.screen-reader-mode .sr-only {
 
 /* Focus Indicators */
 *:focus-visible {
-    outline: 3px solid #667eea !important;
+    outline: 3px solid var(--accent-start) !important;
     outline-offset: 3px !important;
 }
 
 button:focus-visible,
 a:focus-visible {
-    outline: 3px solid #667eea !important;
+    outline: 3px solid var(--accent-start) !important;
     outline-offset: 3px !important;
 }
 
@@ -278,7 +278,7 @@ body.high-contrast *:focus {
 
 /* Keyboard Navigation Focus Ring */
 .keyboard-user *:focus {
-    outline: 3px solid #667eea;
+    outline: 3px solid var(--accent-start);
     outline-offset: 3px;
 }
 

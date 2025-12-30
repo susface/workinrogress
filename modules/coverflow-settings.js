@@ -30,6 +30,8 @@ class CoverFlowSettings {
             backgroundColor: '#1a1a2e',
             gradientStart: '#4fc3f7',
             gradientEnd: '#1a1a2e',
+            accentStart: '#667eea',
+            accentEnd: '#764ba2',
             glassEffect: true,
             bloomEffect: false,
             bloomIntensity: 1.0,
@@ -99,6 +101,7 @@ class CoverFlowSettings {
             // Apply visual settings
             this.updateBackgroundColor(this.settings.backgroundColor);
             this.updateGradientColors(this.settings.gradientStart, this.settings.gradientEnd);
+            this.updateAccentColors(this.settings.accentStart, this.settings.accentEnd);
 
             if (this.settings.bloomEffect) {
                 this.toggleBloomEffect();
@@ -303,6 +306,20 @@ class CoverFlowSettings {
     }
 
     /**
+     * Update accent gradient colors (for buttons, badges, progress bars)
+     */
+    updateAccentColors(start, end) {
+        if (start) this.settings.accentStart = start;
+        if (end) this.settings.accentEnd = end;
+
+        const root = document.documentElement;
+        if (start) root.style.setProperty('--accent-start', start);
+        if (end) root.style.setProperty('--accent-end', end);
+
+        this.saveSettings();
+    }
+
+    /**
      * Setup settings panel controls
      */
     setupSettingsControls() {
@@ -397,6 +414,27 @@ class CoverFlowSettings {
 
             // Initialize gradient colors from settings
             this.updateGradientColors(this.settings.gradientStart, this.settings.gradientEnd);
+
+            // Accent gradient pickers (for buttons, badges, progress bars)
+            const accentStartPicker = document.getElementById('accent-start-color');
+            const accentEndPicker = document.getElementById('accent-end-color');
+
+            if (accentStartPicker) {
+                accentStartPicker.value = this.settings.accentStart || '#667eea';
+                accentStartPicker.addEventListener('input', (e) => {
+                    this.updateAccentColors(e.target.value, null);
+                });
+            }
+
+            if (accentEndPicker) {
+                accentEndPicker.value = this.settings.accentEnd || '#764ba2';
+                accentEndPicker.addEventListener('input', (e) => {
+                    this.updateAccentColors(null, e.target.value);
+                });
+            }
+
+            // Initialize accent colors from settings
+            this.updateAccentColors(this.settings.accentStart, this.settings.accentEnd);
 
             // Glass effect toggle
             const glassToggle = document.getElementById('glass-effect');

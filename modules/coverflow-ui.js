@@ -7,6 +7,8 @@ class CoverFlowUI {
     constructor() {
         // Cache DOM elements for performance
         this.cachedElements = null;
+        // Store event handler references for cleanup
+        this._audioEventHandlers = null;
     }
 
     /**
@@ -563,18 +565,23 @@ class CoverFlowUI {
             this.currentAudioFile = null;
             this.currentAudioTitle = null;
 
-            // Add event listeners for playback events
-            this.audioPlayer.addEventListener('ended', () => {
-                this.showToast('Playback finished', 'info');
-                this.hideVisualizer();
-                this.updateInfo(); // Update button state
-            });
+            // Store event handler references for cleanup
+            this._audioEventHandlers = {
+                ended: () => {
+                    this.showToast('Playback finished', 'info');
+                    this.hideVisualizer();
+                    this.updateInfo(); // Update button state
+                },
+                error: (e) => {
+                    console.error('[AUDIO] Playback error:', e);
+                    this.showToast('Error playing audio file', 'error');
+                    this.hideVisualizer();
+                }
+            };
 
-            this.audioPlayer.addEventListener('error', (e) => {
-                console.error('[AUDIO] Playback error:', e);
-                this.showToast('Error playing audio file', 'error');
-                this.hideVisualizer();
-            });
+            // Add event listeners for playback events
+            this.audioPlayer.addEventListener('ended', this._audioEventHandlers.ended);
+            this.audioPlayer.addEventListener('error', this._audioEventHandlers.error);
         }
 
         // If playing a different file, stop it and start the new one
@@ -1325,12 +1332,21 @@ class CoverFlowUI {
         this.hideVisualizer();
 
         if (this.audioPlayer) {
+            // Remove event listeners before cleanup
+            if (this._audioEventHandlers) {
+                this.audioPlayer.removeEventListener('ended', this._audioEventHandlers.ended);
+                this.audioPlayer.removeEventListener('error', this._audioEventHandlers.error);
+                this._audioEventHandlers = null;
+            }
             this.audioPlayer.pause();
             this.audioPlayer.src = '';
             this.audioPlayer = null;
         }
         this.currentAudioFile = null;
         this.currentAudioTitle = null;
+
+        // Clear cached elements
+        this.cachedElements = null;
     }
 }
 
